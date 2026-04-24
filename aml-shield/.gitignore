@@ -1,0 +1,7 @@
+node_modules
+dist
+.vite
+.env
+backend/database/aml.db
+backend/uploads/*
+!backend/uploads/.gitkeep
