@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Manager Workflow</title>
+<style>
+  html, body { margin: 0; padding: 0; background: white; }
+  body { font-family: "Segoe UI", sans-serif; padding: 24px; }
+  .title { font-size: 22px; font-weight: 700; color: #0f172a; }
+  .sub   { font-size: 13px; color: #64748b; margin-bottom: 18px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #eef2ff; color: #4338ca; margin-left: 10px; vertical-align: middle; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: #475569; margin-bottom: 18px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #cbd5e1; }
+  .mermaid { background: #fff; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#dbeafe', primaryTextColor: '#0f172a',
+      primaryBorderColor: '#3b82f6', lineColor: '#94a3b8',
+      fontSize: '15px', fontFamily: 'Segoe UI, sans-serif'
+    },
+    flowchart: { curve: 'basis', padding: 18, nodeSpacing: 60, rankSpacing: 65 }
+  });
+  // Signal when render finishes — for the screenshot tool
+  window.addEventListener('load', () => {
+    setTimeout(() => { document.body.dataset.ready = '1'; }, 1500);
+  });
+</script>
+</head>
+<body>
+<div class="title">AML Shield · Manager View Workflow <span class="badge">oversight</span></div>
+<div class="sub">A Compliance Manager checks team progress, approves SARs, schedules KYC reviews, and reacts to alerts.</div>
+<div class="legend">
+  <span><span class="swatch" style="background:#dbeafe"></span> Daily browsing</span>
+  <span><span class="swatch" style="background:#fef3c7"></span> Decision point</span>
+  <span><span class="swatch" style="background:#dcfce7"></span> Approve / good outcome</span>
+  <span><span class="swatch" style="background:#fee2e2"></span> Reject / escalation</span>
+  <span><span class="swatch" style="background:#e0e7ff"></span> Notification trigger</span>
+</div>
+<div class="mermaid">
+flowchart TD
+    Start([Manager logs in]) --> Dashboard[Manager Dashboard<br/><i>team-wide KPIs, SLA Watch widget</i>]
+    Dashboard --> Bell{Bell notifications?}
+
+    Bell -->|SAR submitted for approval| SARQueue
+    Bell -->|SLA breach on a team alert| OpenAlert
+    Bell -->|KYC review overdue or triggered| KYCQueue
+    Bell -->|Nothing urgent| Browse
+
+    Browse[Browse team boards] --> AlertsBoard[Team Alerts Kanban<br/><i>see what everyone is working on</i>]
+    Browse --> CasesBoard[SAR Cases Kanban]
+    Browse --> SARRepo[SAR Repository<br/><i>filed SARs, retention status</i>]
+    Browse --> Customers[Customer KYC directory]
+
+    OpenAlert[Open the breaching alert]
+    OpenAlert --> ReassignAlert{Re-assign or chase analyst?}
+    ReassignAlert --> Dashboard
+
+    SARQueue[SAR Approval Queue<br/><i>red badge shows pending count</i>] --> ReviewSAR[Open SAR Review<br/><i>read everything the analyst submitted</i>]
+    ReviewSAR --> Checklist[Tick 7-point review checklist<br/><i>checklist must be complete to approve</i>]
+    Checklist --> SARDecision{Decision}
+    SARDecision -->|Approve & File| Approved[SAR is officially Filed<br/><i>regulator reference assigned, analyst notified</i>]
+    SARDecision -->|Reject with reason| Rejected[SAR returned for revision<br/><i>analyst gets feedback notification</i>]
+
+    KYCQueue[KYC Review Queue<br/><i>red badge shows overdue count</i>] --> AssignReview[Assign review to an analyst<br/><i>see analyst workloads in dropdown</i>]
+    AssignReview --> AnalystGetsKyc[Analyst is notified<br/><i>review appears in their list</i>]
+
+    KYCQueue --> KYCSubmitted[When analyst submits a completed review:<br/>open it for approval]
+    KYCSubmitted --> KYCDecision{Decision}
+    KYCDecision -->|Approve| CustomerUpdated[Customer risk &amp; CDD updated<br/><i>next review date auto-recalculated</i>]
+    KYCDecision -->|Reject| KYCRejected[Return to analyst with reason]
+
+    Dashboard --> Admin[Settings · Users · Audit Trail<br/><i>policy and oversight controls</i>]
+
+    classDef daily fill:#dbeafe,stroke:#3b82f6,color:#0f172a
+    classDef decision fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef good fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef bad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+    classDef notify fill:#e0e7ff,stroke:#4f46e5,color:#312e81
+    class Dashboard,Browse,AlertsBoard,CasesBoard,SARRepo,Customers,Admin,OpenAlert daily
+    class Bell,SARDecision,KYCDecision,ReassignAlert decision
+    class Approved,CustomerUpdated,AnalystGetsKyc good
+    class Rejected,KYCRejected bad
+    class SARQueue,KYCQueue,ReviewSAR,Checklist,KYCSubmitted,AssignReview notify
+</div>
+</body>
+</html>

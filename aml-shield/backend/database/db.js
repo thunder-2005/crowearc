@@ -10,6 +10,15 @@ const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
 
+function ensureColumns(table, columns) {
+  const existing = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+  for (const [name, decl] of columns) {
+    if (!existing.includes(name)) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${decl}`);
+    }
+  }
+}
+
 function initSchema() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS alerts (
@@ -276,7 +285,150 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_accounts_cust    ON accounts(customer_id);
     CREATE INDEX IF NOT EXISTS idx_case_notes_alert ON case_notes(alert_id);
     CREATE INDEX IF NOT EXISTS idx_case_docs_alert  ON case_documents(alert_id);
+
+    CREATE TABLE IF NOT EXISTS sar_review_comments (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      sar_id           TEXT NOT NULL,
+      manager_id       TEXT,
+      comment_text     TEXT NOT NULL,
+      highlighted_text TEXT,
+      position_start   INTEGER,
+      position_end     INTEGER,
+      created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS sar_approval_log (
+      id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+      sar_id                      TEXT NOT NULL,
+      action                      TEXT NOT NULL,
+      actioned_by                 TEXT,
+      reason_category             TEXT,
+      comments                    TEXT,
+      checklist_items_completed   TEXT,
+      actioned_at                 TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipient_id    TEXT,
+      recipient_role  TEXT NOT NULL,
+      type            TEXT NOT NULL,
+      title           TEXT NOT NULL,
+      message         TEXT,
+      related_id      TEXT,
+      related_type    TEXT,
+      tone            TEXT,
+      is_read         INTEGER NOT NULL DEFAULT 0,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_review_comments_sar ON sar_review_comments(sar_id);
+    CREATE INDEX IF NOT EXISTS idx_approval_log_sar    ON sar_approval_log(sar_id);
+    CREATE INDEX IF NOT EXISTS idx_notif_recipient     ON notifications(recipient_id);
+    CREATE INDEX IF NOT EXISTS idx_notif_role          ON notifications(recipient_role);
+    CREATE INDEX IF NOT EXISTS idx_notif_read          ON notifications(is_read);
+
+    CREATE TABLE IF NOT EXISTS kyc_reviews (
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id           TEXT NOT NULL,
+      review_type           TEXT NOT NULL,
+      status                TEXT NOT NULL DEFAULT 'pending',
+      priority              TEXT,
+      due_date              TEXT,
+      assigned_to           TEXT,
+      assigned_by           TEXT,
+      assigned_at           TEXT,
+      assigned_note         TEXT,
+      started_at            TEXT,
+      completed_at          TEXT,
+      previous_risk_rating  TEXT,
+      new_risk_rating       TEXT,
+      previous_cdd_level    TEXT,
+      new_cdd_level         TEXT,
+      review_findings       TEXT,
+      checklist             TEXT,
+      recommendation        TEXT,
+      approved_by           TEXT,
+      approved_at           TEXT,
+      rejection_reason      TEXT,
+      rejection_comments    TEXT,
+      rejected_by           TEXT,
+      rejected_at           TEXT,
+      returned_to_analyst   INTEGER NOT NULL DEFAULT 0,
+      created_at            TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at            TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS kyc_review_documents (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      review_id       INTEGER NOT NULL,
+      document_name   TEXT NOT NULL,
+      file_path       TEXT NOT NULL,
+      document_type   TEXT,
+      uploaded_by     TEXT,
+      uploaded_at     TEXT NOT NULL DEFAULT (datetime('now')),
+      file_size       INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_kyc_review_customer ON kyc_reviews(customer_id);
+    CREATE INDEX IF NOT EXISTS idx_kyc_review_status   ON kyc_reviews(status);
+    CREATE INDEX IF NOT EXISTS idx_kyc_review_assigned ON kyc_reviews(assigned_to);
+    CREATE INDEX IF NOT EXISTS idx_kyc_review_due      ON kyc_reviews(due_date);
+    CREATE INDEX IF NOT EXISTS idx_kyc_review_docs     ON kyc_review_documents(review_id);
   `);
+
+  ensureColumns('customers', [
+    ['exit_status',     'TEXT'],
+    ['last_review_id',  'INTEGER']
+  ]);
+  ensureColumns('alerts', [
+    ['sla_warning_notified_at', 'TEXT'],
+    ['sla_breach_notified_at',  'TEXT']
+  ]);
+
+  ensureColumns('sar_filings', [
+    ['filing_type',              'TEXT'],
+    ['filing_method',             'TEXT'],
+    ['regulatory_agency',         'TEXT'],
+    ['sar_type',                  'TEXT'],
+    ['bsa_filing_institution',    'TEXT'],
+    ['tin',                       'TEXT'],
+    ['num_transactions',          'INTEGER'],
+    ['total_amount',              'INTEGER'],
+    ['currency',                  'TEXT'],
+    ['structuring_indicator',     'INTEGER'],
+    ['prior_sars',                'INTEGER'],
+    ['prior_sar_count',           'INTEGER'],
+    ['date_of_recent_sar',        'TEXT'],
+    ['activity_date_from',        'TEXT'],
+    ['activity_date_to',          'TEXT'],
+    ['suspicious_activity_types', 'TEXT'],
+    ['transaction_types',         'TEXT'],
+    ['transaction_locations',     'TEXT'],
+    ['ip_addresses',              'TEXT'],
+    ['device_identifiers',        'TEXT'],
+    ['subject_data',              'TEXT'],
+    ['narrative',                 'TEXT'],
+    ['certification_signed',      'INTEGER DEFAULT 0'],
+    ['submitted_by',              'TEXT'],
+    ['submitted_at',              'TEXT'],
+    ['approved_at',               'TEXT'],
+    ['draft_data',                'TEXT'],
+    ['included_documents',        'TEXT'],
+    ['created_at',                'TEXT'],
+    ['updated_at',                'TEXT'],
+    ['rejection_reason_category', 'TEXT'],
+    ['rejection_comments',        'TEXT'],
+    ['rejection_checklist',       'TEXT'],
+    ['rejected_by',               'TEXT'],
+    ['rejected_at',               'TEXT'],
+    ['returned_to_analyst',       'INTEGER DEFAULT 0']
+  ]);
+
+  ensureColumns('alerts', [
+    ['escalation_notes', 'TEXT'],
+    ['fp_close_reason',  'TEXT']
+  ]);
 }
 
 const { MANAGER_DEFAULTS, EMPLOYEE_DEFAULTS, colorForName } = require('./admin_defaults');

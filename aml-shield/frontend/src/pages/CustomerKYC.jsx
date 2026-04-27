@@ -1,19 +1,33 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api/client.js';
-import Card from '../components/shared/Card.jsx';
+import Card, { KpiCard } from '../components/shared/Card.jsx';
 import Table from '../components/shared/Table.jsx';
 import Badge from '../components/shared/Badge.jsx';
-import { Search, Filter, Eye, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Search, Filter, Eye, AlertTriangle, ArrowLeft, ShieldCheck, Clock, CheckCircle2, FileText } from 'lucide-react';
 import { KycProfileBlock } from '../components/investigation/InvestigationWorkspace.jsx';
+import { useRole } from '../state/RoleContext.jsx';
+import { useToast } from '../state/ToastContext.jsx';
 
 export default function CustomerKYC() {
   const { id } = useParams();
   return id ? <CustomerProfilePage customerId={id} /> : <CustomerDirectory />;
 }
 
+function dueLabel(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr.length <= 10 ? `${dateStr}T00:00:00` : dateStr);
+  if (isNaN(d.getTime())) return null;
+  const days = Math.round((d.getTime() - Date.now()) / 86400000);
+  if (days < 0)   return { label: `${Math.abs(days)}d overdue`, tone: 'text-red-600 font-semibold' };
+  if (days <= 30) return { label: `${days}d to due`,            tone: 'text-orange-600' };
+  return                { label: `${days}d to due`,             tone: 'text-green-700' };
+}
+
 function CustomerDirectory() {
   const nav = useNavigate();
+  const { isManager } = useRole();
+  const { push } = useToast();
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState('');
   const [filters, setFilters] = useState({
@@ -29,11 +43,45 @@ function CustomerDirectory() {
 
   useEffect(() => { load(); }, [filters]);
 
+  const summary = useMemo(() => {
+    let overdue = 0, soon = 0, current = 0;
+    for (const r of rows) {
+      const due = dueLabel(r.next_kyc_due_date);
+      if (!due) continue;
+      if (due.tone.includes('red'))    overdue++;
+      else if (due.tone.includes('orange')) soon++;
+      else                                  current++;
+    }
+    return { overdue, soon, current };
+  }, [rows]);
+
+  const initiateReview = async (r) => {
+    try {
+      const { data } = await api.post('/kyc-reviews', {
+        customer_id: r.customer_id,
+        review_type: 'manual',
+        due_date: new Date().toISOString().slice(0, 10),
+        priority: 'Normal',
+        assigned_by: 'Compliance Manager'
+      });
+      push(`Review created — ${r.customer_name}`, 'success');
+      nav('/kyc-reviews');
+    } catch (e) {
+      push('Failed to create review: ' + (e.response?.data?.error || e.message), 'error');
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div>
         <div className="text-xl font-bold text-navy-900">Customer KYC Directory</div>
         <div className="text-sm text-slate-500">{rows.length} customers · click a row for the full KYC profile</div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <KpiCard label="Overdue for Review" value={summary.overdue} icon={AlertTriangle} tone="red" />
+        <KpiCard label="Due Within 30 Days" value={summary.soon}    icon={Clock}        tone="orange" />
+        <KpiCard label="Up to Date"         value={summary.current} icon={CheckCircle2} tone="green" />
       </div>
 
       <Card bodyClassName="p-4">
@@ -94,8 +142,13 @@ function CustomerDirectory() {
             { key: 'pep_match', label: 'PEP', render: r => r.pep_match ? <span className="text-orange-700 font-semibold">PEP</span> : '—' },
             { key: 'sanctions_match', label: 'Sanctions', render: r => r.sanctions_match ? <span className="text-red-600 font-semibold">Hit</span> : '—' },
             { key: 'last_kyc_review_date', label: 'Last KYC' },
-            { key: 'next_kyc_due_date', label: 'Next Due',
+            { key: 'next_kyc_due_date', label: 'KYC Due',
               render: r => <span className={r.kyc_review_status === 'Overdue' ? 'text-red-600 font-semibold' : ''}>{r.next_kyc_due_date}</span> },
+            { key: 'days_until_due', label: 'Days',
+              render: r => {
+                const d = dueLabel(r.next_kyc_due_date);
+                return d ? <span className={`text-xs ${d.tone}`}>{d.label}</span> : '—';
+              } },
             { key: 'open_alerts', label: 'Open Alerts',
               render: r => r.open_alerts > 0
                 ? <span className="inline-flex items-center gap-1 text-red-600 font-semibold"><AlertTriangle size={12} /> {r.open_alerts}</span>
@@ -108,10 +161,13 @@ function CustomerDirectory() {
                     className="p-1.5 rounded hover:bg-slate-100 text-slate-600" title="View profile">
                     <Eye size={14} />
                   </button>
-                  <a href={`/alerts`}
-                    className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 inline-flex items-center gap-1">
-                    View Alerts
-                  </a>
+                  {isManager && (
+                    <button onClick={() => initiateReview(r)}
+                      className="text-xs px-2 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center gap-1"
+                      title="Initiate KYC review">
+                      <ShieldCheck size={12} /> Initiate Review
+                    </button>
+                  )}
                 </div>
               )
             }
@@ -126,17 +182,40 @@ function CustomerDirectory() {
 
 function CustomerProfilePage({ customerId }) {
   const nav = useNavigate();
+  const { isManager } = useRole();
+  const { push } = useToast();
   const [cust, setCust] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [sars, setSars] = useState([]);
+  const [reviews, setReviews] = useState([]);
 
-  useEffect(() => {
+  const reload = () => {
     api.get(`/customers/${customerId}`).then(r => setCust(r.data));
     api.get(`/customers/${customerId}/alerts`).then(r => setAlerts(r.data));
     api.get(`/customers/${customerId}/sars`).then(r => setSars(r.data));
-  }, [customerId]);
+    api.get(`/kyc-reviews/customer/${customerId}/history`).then(r => setReviews(r.data)).catch(() => setReviews([]));
+  };
+  useEffect(() => { reload(); }, [customerId]);
 
   if (!cust) return <div className="p-10 text-slate-400">Loading…</div>;
+
+  const open = reviews.find(r => r.status !== 'completed' && r.status !== 'rejected');
+  const due = dueLabel(cust.next_kyc_due_date);
+
+  const initiate = async () => {
+    try {
+      await api.post('/kyc-reviews', {
+        customer_id: customerId, review_type: 'manual',
+        due_date: new Date().toISOString().slice(0, 10), priority: 'Normal',
+        assigned_by: 'Compliance Manager'
+      });
+      push('Review created', 'success');
+      reload();
+      nav('/kyc-reviews');
+    } catch (e) {
+      push('Failed: ' + (e.response?.data?.error || e.message), 'error');
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -144,6 +223,46 @@ function CustomerProfilePage({ customerId }) {
         className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-navy-900">
         <ArrowLeft size={14} /> Back to directory
       </button>
+
+      <Card title="KYC Review Status" bodyClassName="p-4"
+        action={
+          isManager && (
+            <button onClick={initiate}
+              className="text-xs px-2 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center gap-1">
+              <ShieldCheck size={12} /> Initiate Review
+            </button>
+          )
+        }>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+          <div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Next Review Due</div>
+            <div className="mt-0.5 text-navy-900 font-medium">{cust.next_kyc_due_date || '—'}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Days Remaining</div>
+            <div className={`mt-0.5 font-medium ${due?.tone || ''}`}>{due?.label || '—'}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Last Reviewed</div>
+            <div className="mt-0.5 text-navy-900 font-medium">{cust.last_kyc_review_date || '—'}</div>
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Open Review</div>
+            <div className="mt-0.5">
+              {open
+                ? <button onClick={() => nav(`/kyc-review/${open.id}`)}
+                    className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1">
+                    <FileText size={11} /> Review #{open.id}
+                  </button>
+                : <span className="text-slate-500 text-xs">None</span>}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">History</div>
+            <div className="mt-0.5 text-xs text-slate-600">{reviews.length} review{reviews.length === 1 ? '' : 's'} total</div>
+          </div>
+        </div>
+      </Card>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-1" bodyClassName="p-0">
           <KycProfileBlock c={cust} />

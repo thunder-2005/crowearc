@@ -1,24 +1,51 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/client.js';
 import Badge from '../components/shared/Badge.jsx';
-import { X, Clock, AlertOctagon, ArrowRight, UserPlus, Flag, PlayCircle } from 'lucide-react';
+import { X, Clock, AlertOctagon, ArrowRight, UserPlus, Flag, PlayCircle, AlertTriangle } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
 import { useInvestigationTabs } from '../state/InvestigationTabsContext.jsx';
 import InvestigationWorkspace from '../components/investigation/InvestigationWorkspace.jsx';
 
-const COLUMNS = ['Unassigned', 'Not Started', 'Work in Progress', 'Completed'];
+const COLUMNS = ['Unassigned', 'Not Started', 'Work in Progress', 'Escalated', 'Completed'];
 const COLUMN_ACCENT = {
   'Unassigned':       'border-t-slate-400',
   'Not Started':      'border-t-orange-400',
   'Work in Progress': 'border-t-blue-500',
+  'Escalated':        'border-t-red-500',
   'Completed':        'border-t-green-500'
 };
+const ESCALATED_STATUSES = new Set(['Escalated - L2', 'Escalated - SAR']);
 
-function slaLabel(ageDays, slaDays, dueStatus) {
-  const remaining = slaDays - ageDays;
-  if (dueStatus && dueStatus.includes('overdue')) return { label: dueStatus, tone: 'text-red-600 bg-red-50' };
-  if (remaining <= 3)                             return { label: dueStatus || `${remaining}d left`, tone: 'text-orange-700 bg-orange-50' };
-  return { label: dueStatus || `${remaining}d left`, tone: 'text-green-700 bg-green-50' };
+function slaDeadline(a) {
+  if (a.sla_deadline) {
+    const d = new Date(a.sla_deadline.length <= 10 ? `${a.sla_deadline}T23:59:59` : a.sla_deadline);
+    if (!isNaN(d.getTime())) return d;
+  }
+  if (a.created_date && a.sla_days != null) {
+    const c = new Date(a.created_date.length <= 10 ? `${a.created_date}T00:00:00` : a.created_date);
+    if (!isNaN(c.getTime())) return new Date(c.getTime() + a.sla_days * 86400000);
+  }
+  return null;
+}
+
+function slaSnapshot(a, now = Date.now()) {
+  const dl = slaDeadline(a);
+  if (!dl) return { label: a.due_status || '—', tone: 'text-slate-600 bg-slate-100', bucket: 'unknown', remainingMs: null };
+  const remainingMs = dl.getTime() - now;
+  if (remainingMs <= 0) {
+    const ago = Math.floor(Math.abs(remainingMs) / 3600000);
+    const h = ago, m = Math.floor((Math.abs(remainingMs) % 3600000) / 60000);
+    return { label: `Breached ${h}h ${m}m ago`, tone: 'text-red-700 bg-red-100', bucket: 'breached', remainingMs };
+  }
+  const totalMin = Math.floor(remainingMs / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (remainingMs <= 24 * 3600000) {
+    return { label: `${h}h ${m}m`, tone: 'text-orange-700 bg-orange-50', bucket: 'critical', remainingMs };
+  }
+  const days = Math.floor(h / 24);
+  const remH = h % 24;
+  return { label: `${days}d ${remH}h`, tone: 'text-green-700 bg-green-50', bucket: 'ok', remainingMs };
 }
 
 function inr(n) { return `₹${Number(n || 0).toLocaleString('en-IN')}`; }
@@ -29,6 +56,12 @@ export default function Alerts() {
   const [alerts, setAlerts] = useState([]);
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('overview');
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const load = () => {
     const params = {};
@@ -44,7 +77,8 @@ export default function Alerts() {
   const grouped = useMemo(() => {
     const g = Object.fromEntries(COLUMNS.map(c => [c, []]));
     for (const a of alerts) {
-      const col = g[a.alert_status];
+      const target = ESCALATED_STATUSES.has(a.alert_status) ? 'Escalated' : a.alert_status;
+      const col = g[target];
       if (col) col.push(a);
     }
     return g;
@@ -159,7 +193,7 @@ function KanbanBoard({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
           {COLUMNS.map(col => (
             <div key={col} className={`bg-slate-100/70 rounded-lg border-t-4 ${COLUMN_ACCENT[col]}`}>
               <div className="flex items-center justify-between px-3 py-2.5">
@@ -170,17 +204,32 @@ function KanbanBoard({
               </div>
               <div className="px-2 pb-3 space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto">
                 {(grouped[col] || []).map(a => {
-                  const sla = slaLabel(a.age_days, a.sla_days, a.due_status);
+                  const sla = slaSnapshot(a);
                   const isMine = isEmployee && a.assigned_to === currentAnalyst;
+                  const breached = sla.bucket === 'breached';
+                  const critical = sla.bucket === 'critical';
+                  const cardCls = breached
+                    ? 'bg-white rounded-md border-l-4 border-l-red-500 border border-slate-200 shadow-sm p-3 cursor-pointer hover:border-blue-400'
+                    : `bg-white rounded-md border shadow-sm p-3 cursor-pointer hover:border-blue-400 ${isMine ? 'border-blue-300' : 'border-slate-200'}`;
                   return (
                     <div
                       key={a.alert_id}
                       onClick={() => setSelected(a)}
-                      className={`bg-white rounded-md border shadow-sm p-3 cursor-pointer hover:border-blue-400 ${isMine ? 'border-blue-300' : 'border-slate-200'}`}
+                      className={cardCls}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs font-mono text-slate-500">{a.alert_id}</div>
-                        <Badge value={a.priority} />
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs font-mono text-slate-500 flex items-center gap-1">
+                          {a.alert_id}
+                          {critical && <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" title="< 24h to breach" />}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {breached && (
+                            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-red-600 text-white inline-flex items-center gap-0.5">
+                              <AlertTriangle size={9} /> BREACHED
+                            </span>
+                          )}
+                          <Badge value={a.priority} />
+                        </div>
                       </div>
                       <div className="mt-1 text-sm font-medium text-navy-900 truncate">
                         {a.customer_name}

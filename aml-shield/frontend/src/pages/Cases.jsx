@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
 import Badge from '../components/shared/Badge.jsx';
-import { X, UserPlus, FileText, ExternalLink, Upload } from 'lucide-react';
+import { X, UserPlus, FileText, ExternalLink, Upload, FolderOpen } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
+import { useInvestigationTabs } from '../state/InvestigationTabsContext.jsx';
 
 const COLUMNS = [
   'Unassigned', 'Not Started', 'Work In Progress',
@@ -21,8 +23,23 @@ function inr(n) { return `₹${Number(n || 0).toLocaleString('en-IN')}`; }
 
 export default function Cases() {
   const { isManager, isEmployee, currentAnalyst } = useRole();
+  const { openTab } = useInvestigationTabs();
+  const navigate = useNavigate();
   const [cases, setCases] = useState([]);
   const [selected, setSelected] = useState(null);
+
+  const openCaseInvestigation = async (c) => {
+    if (!c.source_alert_id) return;
+    try {
+      const { data: alert } = await api.get(`/alerts/${c.source_alert_id}`);
+      openTab(alert);
+      navigate('/alerts');
+    } catch (_e) {
+      navigate('/alerts');
+    }
+  };
+
+  const goFileSar = (c) => navigate(`/sar-filing/${c.case_id}`);
 
   const load = () => {
     const params = {};
@@ -111,6 +128,31 @@ export default function Cases() {
                           <UserPlus size={12} /> Assign to Me
                         </button>
                       )}
+                      {isEmployee && col !== 'Unassigned' && (
+                        <div className="mt-2 grid grid-cols-2 gap-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openCaseInvestigation(c); }}
+                            className="text-[11px] border border-slate-200 hover:border-blue-400 hover:text-blue-600 rounded-md py-1.5 inline-flex items-center justify-center gap-1"
+                          >
+                            <FolderOpen size={11} /> Open
+                          </button>
+                          {!c.linked_sar_id ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); goFileSar(c); }}
+                              className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white rounded-md py-1.5 inline-flex items-center justify-center gap-1"
+                            >
+                              <FileText size={11} /> File SAR
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/sars?sar_id=${c.linked_sar_id}`); }}
+                              className="text-[11px] border border-green-300 text-green-700 hover:bg-green-50 rounded-md py-1.5 inline-flex items-center justify-center gap-1"
+                            >
+                              <FileText size={11} /> View SAR
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -129,13 +171,16 @@ export default function Cases() {
           onClose={() => setSelected(null)}
           onRefresh={refreshSelected}
           onAssign={() => assignToMe(selected)}
+          onOpenInvestigation={() => openCaseInvestigation(selected)}
+          onFileSar={() => goFileSar(selected)}
+          onViewSar={() => navigate(`/sars?sar_id=${selected.linked_sar_id}`)}
         />
       )}
     </div>
   );
 }
 
-function CaseDetail({ c, onClose, onRefresh, onAssign }) {
+function CaseDetail({ c, onClose, onRefresh, onAssign, onOpenInvestigation, onFileSar, onViewSar }) {
   const { isEmployee, currentAnalyst } = useRole();
   const alert = c.source_alert;
   const sar = c.linked_sar;
@@ -236,21 +281,29 @@ function CaseDetail({ c, onClose, onRefresh, onAssign }) {
             <UserPlus size={14} /> Assign to Me
           </button>
         )}
+        {isEmployee && c.assigned_to && c.source_alert_id && (
+          <button
+            onClick={onOpenInvestigation}
+            className="flex-1 text-sm border border-slate-300 hover:border-slate-400 rounded-md px-3 py-2 inline-flex items-center justify-center gap-1"
+          >
+            <FolderOpen size={14} /> Open Case
+          </button>
+        )}
         {isEmployee && c.assigned_to === currentAnalyst && !sar && (
-          <a
-            href="/sars"
+          <button
+            onClick={onFileSar}
             className="flex-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 py-2 inline-flex items-center justify-center gap-1"
           >
             <FileText size={14} /> File SAR
-          </a>
+          </button>
         )}
         {sar && (
-          <a
-            href="/sars"
+          <button
+            onClick={onViewSar}
             className="flex-1 text-sm border border-slate-300 hover:border-slate-400 rounded-md px-3 py-2 inline-flex items-center justify-center gap-1"
           >
-            <Upload size={14} /> Open SAR
-          </a>
+            <Upload size={14} /> View SAR
+          </button>
         )}
       </div>
     </aside>

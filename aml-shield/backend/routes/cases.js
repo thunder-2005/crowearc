@@ -3,6 +3,41 @@ const { db } = require('../database/db');
 
 const router = express.Router();
 
+router.post('/', (req, res) => {
+  const { source_alert_id, customer_id, customer_name, scenario, assigned_to, case_status, case_id } = req.body;
+  if (!customer_name) return res.status(400).json({ error: 'customer_name required' });
+
+  let cid = case_id;
+  if (!cid) {
+    const last = db.prepare(`
+      SELECT case_id FROM cases
+       WHERE case_id LIKE 'CASE-%'
+       ORDER BY id DESC LIMIT 1
+    `).get();
+    let n = 1;
+    if (last) {
+      const m = String(last.case_id).match(/(\d+)$/);
+      if (m) n = parseInt(m[1], 10) + 1;
+    }
+    cid = `CASE-${String(n).padStart(5, '0')}`;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  db.prepare(`
+    INSERT INTO cases (case_id, source_alert_id, customer_id, customer_name, scenario, case_status, assigned_to, created_date, updated_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(cid, source_alert_id || null, customer_id || null, customer_name,
+         scenario || null, case_status || 'Not Started', assigned_to || null, today, today);
+
+  if (source_alert_id) {
+    db.prepare('UPDATE alerts SET case_id = ?, case_converted = 1, last_activity_date = ? WHERE alert_id = ?')
+      .run(cid, today, source_alert_id);
+  }
+
+  const row = db.prepare('SELECT * FROM cases WHERE case_id = ?').get(cid);
+  res.status(201).json(row);
+});
+
 router.get('/', (req, res) => {
   const { case_status, assigned_to, q, include_unassigned_for } = req.query;
   let sql = 'SELECT * FROM cases WHERE 1=1';

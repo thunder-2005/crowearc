@@ -1,10 +1,12 @@
+import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, AlertTriangle, Briefcase, Search, FileText,
   FolderOpen, Clock, ShieldCheck, Activity, BarChart3, Users, Settings,
-  ChevronRight, Shield, IdCard
+  ChevronRight, Shield, IdCard, Inbox, ClipboardCheck
 } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
+import api from '../api/client.js';
 
 const ALL_SECTIONS = [
   {
@@ -14,6 +16,8 @@ const ALL_SECTIONS = [
       { to: '/alerts', icon: AlertTriangle, label: 'TM Alerts', roles: ['manager', 'employee'] },
       { to: '/cases', icon: Briefcase, label: 'Cases', roles: ['manager', 'employee'] },
       { to: '/customers', icon: IdCard, label: 'Customer KYC', roles: ['manager', 'employee'] },
+      { to: '/kyc-reviews', icon: ClipboardCheck, label: 'KYC Reviews', roles: ['manager'], badge: 'overdueReviews' },
+      { to: '/kyc-reviews/mine', icon: ClipboardCheck, label: 'My KYC Reviews', roles: ['employee'], badge: 'myAssignedReviews' },
       { to: '/investigations', icon: Search, label: 'Investigations', roles: ['manager'] }
     ]
   },
@@ -21,6 +25,7 @@ const ALL_SECTIONS = [
     title: 'SAR MANAGEMENT',
     items: [
       { to: '/sars', icon: FileText, label: 'SAR Repository', roles: ['manager', 'employee'] },
+      { to: '/sar-approvals', icon: Inbox, label: 'SAR Approvals', roles: ['manager'], badge: 'pendingApprovals' },
       { to: '/sars', icon: ChevronRight, label: 'SARs', nested: true, roles: ['manager'] },
       { to: '/sars?view=docs', icon: FolderOpen, label: 'Supporting Docs', nested: true, roles: ['manager'] },
       { to: '/sars?view=search', icon: Search, label: 'Search', nested: true, roles: ['manager'] },
@@ -45,7 +50,39 @@ const ALL_SECTIONS = [
 ];
 
 export default function Sidebar() {
-  const { role } = useRole();
+  const { role, isManager, currentAnalyst } = useRole();
+  const [pendingApprovals, setPendingApprovals] = useState(0);
+  const [overdueReviews, setOverdueReviews] = useState(0);
+  const [myAssignedReviews, setMyAssignedReviews] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        if (isManager) {
+          const [{ data: sar }, { data: kyc }] = await Promise.all([
+            api.get('/sar-approvals/stats'),
+            api.get('/kyc-reviews/stats')
+          ]);
+          if (!cancelled) {
+            setPendingApprovals(sar.pending || 0);
+            setOverdueReviews(kyc.overdue || 0);
+          }
+        } else if (currentAnalyst) {
+          const { data } = await api.get('/kyc-reviews', { params: { assigned_to: currentAnalyst, status: 'in_progress' } });
+          if (!cancelled) setMyAssignedReviews((data || []).length);
+        }
+      } catch (_e) { /* keep last value */ }
+    };
+    load();
+    const id = setInterval(load, 30000);
+    const onFocus = () => load();
+    window.addEventListener('focus', onFocus);
+    return () => { cancelled = true; clearInterval(id); window.removeEventListener('focus', onFocus); };
+  }, [isManager, currentAnalyst]);
+
+  const badges = { pendingApprovals, overdueReviews, myAssignedReviews };
+
   const sections = ALL_SECTIONS
     .map(section => ({
       ...section,
@@ -75,6 +112,7 @@ export default function Sidebar() {
             <ul className="space-y-0.5">
               {section.items.map((it) => {
                 const Icon = it.icon;
+                const badgeVal = it.badge ? badges[it.badge] : 0;
                 return (
                   <li key={it.label + it.to}>
                     <NavLink
@@ -91,7 +129,12 @@ export default function Sidebar() {
                       }
                     >
                       <Icon size={16} />
-                      <span>{it.label}</span>
+                      <span className="flex-1">{it.label}</span>
+                      {badgeVal > 0 && (
+                        <span className="text-[10px] font-semibold bg-red-500 text-white rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                          {badgeVal}
+                        </span>
+                      )}
                     </NavLink>
                   </li>
                 );
@@ -101,7 +144,7 @@ export default function Sidebar() {
         ))}
       </nav>
       <div className="px-5 py-3 border-t border-navy-800 text-xs text-slate-500">
-        v1.1 · CSV-seeded
+        v1.2 · Approvals
       </div>
     </aside>
   );

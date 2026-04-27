@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Employee Workflow</title>
+<style>
+  html, body { margin: 0; padding: 0; background: white; }
+  body { font-family: "Segoe UI", sans-serif; padding: 24px; }
+  .title { font-size: 22px; font-weight: 700; color: #0f172a; }
+  .sub   { font-size: 13px; color: #64748b; margin-bottom: 18px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #dbeafe; color: #1d4ed8; margin-left: 10px; vertical-align: middle; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: #475569; margin-bottom: 18px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #cbd5e1; }
+  .mermaid { background: #fff; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#dbeafe', primaryTextColor: '#0f172a',
+      primaryBorderColor: '#3b82f6', lineColor: '#94a3b8',
+      fontSize: '15px', fontFamily: 'Segoe UI, sans-serif'
+    },
+    flowchart: { curve: 'basis', padding: 18, nodeSpacing: 60, rankSpacing: 65 }
+  });
+  window.addEventListener('load', () => {
+    setTimeout(() => { document.body.dataset.ready = '1'; }, 1500);
+  });
+</script>
+</head>
+<body>
+<div class="title">AML Shield · Employee View Workflow <span class="badge">analyst day-to-day</span></div>
+<div class="sub">An AML Analyst investigates alerts, files SARs, completes KYC reviews, and reacts to live SLA popups.</div>
+<div class="legend">
+  <span><span class="swatch" style="background:#dbeafe"></span> My queue</span>
+  <span><span class="swatch" style="background:#fef3c7"></span> Decision point</span>
+  <span><span class="swatch" style="background:#fce7f3"></span> Investigation</span>
+  <span><span class="swatch" style="background:#e0e7ff"></span> Notification trigger</span>
+  <span><span class="swatch" style="background:#dcfce7"></span> Submitted / done</span>
+  <span><span class="swatch" style="background:#ffedd5"></span> Returned / fix</span>
+</div>
+<div class="mermaid">
+flowchart TD
+    Start([Analyst logs in]) --> MyDashboard[My Dashboard<br/><i>my queue, my SLA, my SARs</i>]
+
+    MyDashboard --> Bell{Bell notifications?}
+    Bell -->|SLA warning popup<br/>bottom-right| ClickPopup[Click popup → jumps to that alert]
+    Bell -->|My SAR was rejected| ReopenSAR[Reopen the returned SAR<br/><i>see manager's comments</i>]
+    Bell -->|My SAR was approved| ApprovedView[Filed SAR opens in repository]
+    Bell -->|KYC review assigned| OpenKYC[Open the KYC review]
+    Bell -->|Nothing new| Browse[Open my queues]
+
+    Browse --> AlertsKanban[My Alerts Kanban<br/><i>SLA countdown on every card</i>]
+    Browse --> MyCases[My SAR Cases]
+    Browse --> MyKYC[My KYC Reviews]
+
+    AlertsKanban --> StartInvestigation[Start Investigation<br/><i>opens a workspace tab</i>]
+    ClickPopup --> StartInvestigation
+
+    StartInvestigation --> Workspace[Investigation Workspace]
+    Workspace --> WorkLeft[Left: transactions • notes •<br/>documents • activity log]
+    Workspace --> WorkRight[Right: customer KYC •<br/>business • case info • linked]
+    WorkLeft --> Disposition{Pick disposition}
+    WorkRight --> Disposition
+
+    Disposition -->|False Positive — close| CloseFP[Add reason → alert closed<br/><i>tab closes automatically</i>]
+    Disposition -->|Escalate to Level 2| EscL2[Hand off to senior team]
+    Disposition -->|Escalate to SAR Filing| StartSAR[A SAR case is created<br/>I'm taken to the filing wizard]
+
+    StartSAR --> SARWizard[SAR Filing — 6 step wizard<br/><i>auto-saves every 30s</i>]
+    ReopenSAR --> SARWizard
+
+    SARWizard --> S1[1 · SAR Details<br/><i>auto-filled from case</i>]
+    S1 --> S2[2 · Subject Info<br/><i>auto-filled from KYC</i>]
+    S2 --> S3[3 · Suspicious Activity]
+    S3 --> S4[4 · Narrative<br/><i>can pull from case notes</i>]
+    S4 --> S5[5 · Attachments<br/><i>evidence pre-attached</i>]
+    S5 --> S6[6 · Review &amp; Submit]
+    S6 --> SignCert[Sign certification &amp; submit]
+    SignCert --> SARSubmitted[SAR locked &amp; sent for approval<br/><i>bell will ping when reviewed</i>]
+
+    OpenKYC --> KYCWorkspace[KYC Review Workspace]
+    MyKYC --> KYCWorkspace
+    KYCWorkspace --> KYCProfile[Read customer profile]
+    KYCProfile --> KYCChecklist[14-item checklist<br/><i>each tick stamped with my name &amp; time</i>]
+    KYCChecklist --> KYCDocs[Upload supporting documents]
+    KYCDocs --> KYCFindings[Write findings + pick recommendation]
+    KYCFindings --> KYCSubmit[Submit for manager approval]
+    KYCSubmit --> KYCWait[Waiting for manager…]
+
+    classDef queue fill:#dbeafe,stroke:#3b82f6,color:#0f172a
+    classDef decision fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef invest fill:#fce7f3,stroke:#db2777,color:#831843
+    classDef notify fill:#e0e7ff,stroke:#4f46e5,color:#312e81
+    classDef done fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef revise fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+
+    class MyDashboard,Browse,AlertsKanban,MyCases,MyKYC queue
+    class Bell,Disposition decision
+    class Workspace,WorkLeft,WorkRight,StartInvestigation,KYCWorkspace,KYCProfile,KYCChecklist,KYCDocs,KYCFindings invest
+    class ClickPopup,OpenKYC,SARWizard,S1,S2,S3,S4,S5,S6,SignCert,KYCSubmit notify
+    class CloseFP,EscL2,SARSubmitted,KYCWait,ApprovedView done
+    class ReopenSAR revise
+</div>
+</body>
+</html>

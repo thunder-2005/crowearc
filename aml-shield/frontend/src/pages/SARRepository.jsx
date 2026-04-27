@@ -1,12 +1,15 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
 import Badge from '../components/shared/Badge.jsx';
-import Card from '../components/shared/Card.jsx';
+import Card, { KpiCard } from '../components/shared/Card.jsx';
 import Table from '../components/shared/Table.jsx';
 import {
-  Search, Download, FileText, Upload, X, Trash2, Package, Clock, AlertCircle, Lock
+  Search, Download, FileText, Upload, X, Trash2, Package, Clock, AlertCircle, Lock,
+  FolderOpen, Eye, Briefcase, Inbox, CheckCircle2, Send, Activity
 } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
+import { useInvestigationTabs } from '../state/InvestigationTabsContext.jsx';
 
 const STATUSES = ['', 'Draft', 'Under Review', 'Filed', 'Acknowledged'];
 const RETENTION = ['', 'Pending Filing', 'Active', 'Legal Hold'];
@@ -21,6 +24,12 @@ function retentionUrgency(expiry) {
 }
 
 export default function SARRepository() {
+  const { isManager, isEmployee } = useRole();
+  if (isEmployee) return <EmployeeSarCases />;
+  return <ManagerSarRepository />;
+}
+
+function ManagerSarRepository() {
   const { isManager, currentAnalyst } = useRole();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -311,5 +320,189 @@ function SarDetail({ sar, onClose, onRefresh, isManager, requester }) {
         </button>
       </div>
     </aside>
+  );
+}
+
+function caseStatusGroup(c, sar) {
+  if (sar?.sar_status === 'Filed' || c.case_status === 'Filed')                   return 'Filed';
+  if (sar?.sar_status === 'Pending Review' || c.case_status === 'Pending Review') return 'Pending Review';
+  if (c.case_status === 'Closed')                                                  return 'Closed';
+  if (!c.assigned_to)                                                              return 'Unassigned';
+  return 'In Progress';
+}
+
+function dueLabel(createdDate) {
+  if (!createdDate) return { label: '—', tone: 'text-slate-500' };
+  const days = Math.round((Date.now() - new Date(createdDate)) / 86400000);
+  const remaining = 30 - days;
+  if (remaining < 0)  return { label: `${Math.abs(remaining)}d overdue`, tone: 'text-red-600 font-semibold' };
+  if (remaining <= 5) return { label: `${remaining}d left`, tone: 'text-orange-600' };
+  return { label: `${remaining}d left`, tone: 'text-green-700' };
+}
+
+function EmployeeSarCases() {
+  const { currentAnalyst } = useRole();
+  const { openTab } = useInvestigationTabs();
+  const navigate = useNavigate();
+
+  const [cases, setCases] = useState([]);
+  const [filings, setFilings] = useState({});
+  const [q, setQ] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const load = async () => {
+    const params = {};
+    if (currentAnalyst) {
+      params.assigned_to = currentAnalyst;
+      params.include_unassigned_for = 1;
+    }
+    const { data } = await api.get('/cases', { params });
+    setCases(data);
+    const filingsByCase = {};
+    await Promise.all(data.map(async (c) => {
+      try {
+        const { data: f } = await api.get(`/sar-filings/by-case/${encodeURIComponent(c.case_id)}`);
+        filingsByCase[c.case_id] = f;
+      } catch (_e) { /* no filing yet */ }
+    }));
+    setFilings(filingsByCase);
+  };
+
+  useEffect(() => { load(); }, [currentAnalyst]);
+
+  const enriched = useMemo(() => cases.map(c => {
+    const f = filings[c.case_id];
+    return {
+      ...c,
+      filing: f || null,
+      status_group: caseStatusGroup(c, f),
+      sla: dueLabel(c.created_date)
+    };
+  }), [cases, filings]);
+
+  const visible = useMemo(() => enriched.filter(c => {
+    if (statusFilter && c.status_group !== statusFilter) return false;
+    if (q) {
+      const needle = q.toLowerCase();
+      if (!(c.case_id.toLowerCase().includes(needle) ||
+            (c.customer_name || '').toLowerCase().includes(needle) ||
+            (c.source_alert_id || '').toLowerCase().includes(needle))) return false;
+    }
+    if (from && c.created_date && c.created_date < from) return false;
+    if (to   && c.created_date && c.created_date > to)   return false;
+    return true;
+  }), [enriched, statusFilter, q, from, to]);
+
+  const counts = useMemo(() => {
+    const g = { total: enriched.length, Unassigned: 0, 'In Progress': 0, 'Pending Review': 0, Filed: 0, Closed: 0 };
+    enriched.forEach(c => { g[c.status_group] = (g[c.status_group] || 0) + 1; });
+    return g;
+  }, [enriched]);
+
+  const openCase = async (c) => {
+    if (!c.source_alert_id) {
+      navigate(`/sar-filing/${c.case_id}`);
+      return;
+    }
+    try {
+      const { data: alert } = await api.get(`/alerts/${c.source_alert_id}`);
+      openTab(alert);
+      navigate('/alerts');
+    } catch (_e) { navigate('/alerts'); }
+  };
+
+  return (
+    <div className="space-y-4 min-w-0">
+      <div>
+        <div className="text-xl font-bold text-navy-900">SAR Repository · My Cases</div>
+        <div className="text-sm text-slate-500">
+          {currentAnalyst} — {counts.total} SAR cases · 30-day filing SLA
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <KpiCard label="Total"         value={counts.total}              icon={Inbox} />
+        <KpiCard label="Unassigned"    value={counts.Unassigned}         icon={Activity}    tone="orange" />
+        <KpiCard label="In Progress"   value={counts['In Progress']}     icon={Briefcase}   tone="blue" />
+        <KpiCard label="Pending Review" value={counts['Pending Review']} icon={Send}        tone="orange" />
+        <KpiCard label="Filed"         value={counts.Filed}              icon={CheckCircle2} tone="green" />
+        <KpiCard label="Closed"        value={counts.Closed}             icon={X} />
+      </div>
+
+      <Card bodyClassName="p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[260px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              placeholder="Search by Case ID, customer name, alert ID"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-md focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+            className="text-sm border border-slate-200 rounded-md px-3 py-2 bg-white">
+            <option value="">All status</option>
+            <option>Unassigned</option>
+            <option>In Progress</option>
+            <option>Pending Review</option>
+            <option>Filed</option>
+            <option>Closed</option>
+          </select>
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+            className="text-sm border border-slate-200 rounded-md px-2 py-2" />
+          <span className="text-xs text-slate-400">→</span>
+          <input type="date" value={to} onChange={e => setTo(e.target.value)}
+            className="text-sm border border-slate-200 rounded-md px-2 py-2" />
+        </div>
+      </Card>
+
+      <Card bodyClassName="p-0">
+        <Table
+          rows={visible}
+          emptyMessage="No SAR cases match"
+          columns={[
+            { key: 'case_id', label: 'Case ID',
+              render: r => <span className="font-mono text-xs text-navy-900 font-medium">{r.case_id}</span> },
+            { key: 'source_alert_id', label: 'Linked Alert',
+              render: r => r.source_alert_id ? <span className="font-mono text-xs">{r.source_alert_id}</span> : '—' },
+            { key: 'customer_name', label: 'Customer', cellClass: 'font-medium' },
+            { key: 'assigned_to', label: 'Assigned',
+              render: r => r.assigned_to || <span className="italic text-slate-400">Unassigned</span> },
+            { key: 'status_group', label: 'Status',
+              render: r => <Badge value={r.status_group} /> },
+            { key: 'created_date', label: 'Created' },
+            { key: 'sla', label: 'SLA Due',
+              render: r => <span className={`text-xs ${r.sla.tone}`}><Clock size={11} className="inline mr-1" />{r.sla.label}</span> },
+            { key: 'actions', label: '',
+              render: r => (
+                <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
+                  <button onClick={() => openCase(r)}
+                    title="Open Case"
+                    className="px-2 py-1 rounded text-xs border border-slate-200 hover:border-blue-400 hover:text-blue-600 inline-flex items-center gap-1">
+                    <FolderOpen size={12} /> Open
+                  </button>
+                  {!r.filing || r.filing?.sar_status === 'Draft' ? (
+                    <button onClick={() => navigate(`/sar-filing/${r.case_id}`)}
+                      title="File SAR"
+                      className="px-2 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center gap-1">
+                      <FileText size={12} /> {r.filing ? 'Resume' : 'File SAR'}
+                    </button>
+                  ) : (
+                    <button onClick={() => navigate(`/sar-filing/${r.case_id}?view=1`)}
+                      title="View SAR"
+                      className="px-2 py-1 rounded text-xs border border-green-300 text-green-700 hover:bg-green-50 inline-flex items-center gap-1">
+                      <Eye size={12} /> View SAR
+                    </button>
+                  )}
+                </div>
+              )
+            }
+          ]}
+        />
+      </Card>
+    </div>
   );
 }

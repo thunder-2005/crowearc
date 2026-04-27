@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/client.js';
 import Badge from '../shared/Badge.jsx';
 import { useRole } from '../../state/RoleContext.jsx';
 import { useInvestigationTabs } from '../../state/InvestigationTabsContext.jsx';
+import { useToast } from '../../state/ToastContext.jsx';
 import {
   AlertCircle, Filter, Flame, FileText, MessageSquare, FolderOpen, ListChecks,
   User, Briefcase, ClipboardList, Link2, Upload, Trash2, Download, Eye, X,
-  ShieldAlert, Send, ArrowRight, Loader2, Clock
+  ShieldAlert, Send, ArrowRight, Loader2, Clock, ArrowUpRight, AlertTriangle
 } from 'lucide-react';
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
@@ -681,29 +683,113 @@ function BusinessTab({ customerId }) {
 
 function CaseInfoTab({ alert, onAlertChange }) {
   const { isEmployee, currentAnalyst, isManager } = useRole();
+  const { closeTab } = useInvestigationTabs();
+  const { push: pushToast } = useToast();
+  const navigate = useNavigate();
+
   const [disposition, setDisposition] = useState('');
+  const [modal, setModal] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [requireFpReason, setRequireFpReason] = useState(true);
+
+  useEffect(() => {
+    api.get('/settings/manager').then(r => {
+      const v = r.data['audit.require_fp_reason'];
+      setRequireFpReason(v === undefined ? true : v === true);
+    }).catch(() => {});
+  }, []);
 
   const daysLeft = useMemo(() => {
     if (!alert.sla_deadline) return null;
     return Math.round((new Date(alert.sla_deadline) - new Date()) / 86400000);
   }, [alert.sla_deadline]);
 
-  const submitDisposition = async () => {
-    if (!disposition) return;
+  const analyst = currentAnalyst || 'Compliance Analyst';
+
+  const finishFalsePositive = async (reason) => {
     setSubmitting(true);
     try {
-      const { data } = await api.patch(`/alerts/${alert.alert_id}/disposition`, {
-        disposition, performed_by: currentAnalyst || 'Compliance Analyst'
+      await api.patch(`/alerts/${alert.alert_id}/disposition`, {
+        disposition: 'False Positive — Closed', performed_by: analyst
       });
+      const { data } = await api.patch(`/alerts/${alert.alert_id}/status`, { alert_status: 'Completed' });
       onAlertChange({ ...alert, ...data });
-      setDisposition('');
+      await api.post('/case-notes', {
+        alert_id: alert.alert_id,
+        note_text: `Alert closed as False Positive by ${analyst}. Reason: ${reason || '(no reason provided)'}`,
+        analyst
+      });
+      pushToast('Alert closed as False Positive', 'success');
+      setModal(null);
+      setTimeout(() => closeTab(alert.alert_id), 2000);
+    } catch (e) {
+      pushToast('Failed to close alert: ' + (e.response?.data?.error || e.message), 'error');
     } finally { setSubmitting(false); }
   };
 
-  const setStatus = async (next) => {
-    const { data } = await api.patch(`/alerts/${alert.alert_id}/status`, { alert_status: next });
-    onAlertChange({ ...alert, ...data });
+  const finishEscalateL2 = async (notes) => {
+    setSubmitting(true);
+    try {
+      await api.patch(`/alerts/${alert.alert_id}/disposition`, {
+        disposition: 'Escalated — Level 2', performed_by: analyst
+      });
+      const { data: statusData } = await api.patch(`/alerts/${alert.alert_id}/status`, { alert_status: 'Escalated - L2' });
+      const { data: assignData } = await api.patch(`/alerts/${alert.alert_id}/assign`, { assigned_to: 'Unassigned (L2)' });
+      onAlertChange({ ...alert, ...statusData, ...assignData });
+      await api.post('/case-notes', {
+        alert_id: alert.alert_id,
+        note_text: `Alert escalated to Level 2 by ${analyst}.${notes ? ' Notes: ' + notes : ''}`,
+        analyst
+      });
+      pushToast('Alert escalated to Level 2', 'success');
+      setModal(null);
+      setTimeout(() => closeTab(alert.alert_id), 1500);
+    } catch (e) {
+      pushToast('Failed to escalate: ' + (e.response?.data?.error || e.message), 'error');
+    } finally { setSubmitting(false); }
+  };
+
+  const finishEscalateSar = async () => {
+    setSubmitting(true);
+    try {
+      let caseId = alert.case_id;
+      if (!caseId) {
+        const { data: caseRow } = await api.post('/cases', {
+          source_alert_id: alert.alert_id,
+          customer_id: alert.customer_id,
+          customer_name: alert.customer_name,
+          scenario: alert.scenario,
+          assigned_to: analyst,
+          case_status: 'Work In Progress'
+        });
+        caseId = caseRow.case_id;
+      }
+      await api.patch(`/alerts/${alert.alert_id}/disposition`, {
+        disposition: 'Escalated — SAR Filing', performed_by: analyst
+      });
+      const { data: statusData } = await api.patch(`/alerts/${alert.alert_id}/status`, { alert_status: 'Escalated - SAR' });
+      onAlertChange({ ...alert, ...statusData, case_id: caseId });
+      await api.post('/case-notes', {
+        alert_id: alert.alert_id,
+        note_text: `Alert escalated to SAR Filing by ${analyst}. Case ${caseId} created.`,
+        analyst
+      });
+      pushToast('SAR Case created — redirecting to SAR Filing', 'success');
+      setModal(null);
+      setTimeout(() => {
+        closeTab(alert.alert_id);
+        navigate(`/sar-filing/${caseId}`);
+      }, 1500);
+    } catch (e) {
+      pushToast('Failed to escalate to SAR: ' + (e.response?.data?.error || e.message), 'error');
+    } finally { setSubmitting(false); }
+  };
+
+  const onSubmit = () => {
+    if (!disposition) return;
+    if (disposition === 'fp')   setModal({ kind: 'fp' });
+    if (disposition === 'l2')   setModal({ kind: 'l2' });
+    if (disposition === 'sar')  setModal({ kind: 'sar' });
   };
 
   return (
@@ -741,39 +827,17 @@ function CaseInfoTab({ alert, onAlertChange }) {
             className="w-full text-sm border border-slate-200 rounded-md px-2 py-1.5 bg-white"
           >
             <option value="">— pick a disposition —</option>
-            <option value="True Positive — Escalate to SAR">True Positive — Escalate to SAR</option>
-            <option value="False Positive — Close Alert">False Positive — Close Alert</option>
-            <option value="Suspicious — Monitor">Suspicious — Monitor</option>
-            <option value="Pending More Info">Pending More Info</option>
+            <option value="fp">False Positive — Close Alert</option>
+            <option value="l2">Escalate to Level 2</option>
+            <option value="sar">Escalate to SAR Filing</option>
           </select>
           <button
-            onClick={submitDisposition}
+            onClick={onSubmit}
             disabled={!disposition || submitting}
             className="mt-2 w-full text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-md px-3 py-2 inline-flex items-center justify-center gap-1"
           >
-            <Send size={14} /> {submitting ? 'Submitting…' : 'Submit Disposition'}
+            <Send size={14} /> Submit Disposition
           </button>
-
-          <div className="grid grid-cols-1 gap-1.5 mt-3">
-            <button
-              onClick={() => { setDisposition('True Positive — Escalate to SAR'); setStatus('Work in Progress'); }}
-              className="text-xs border border-red-200 text-red-700 hover:bg-red-50 rounded-md px-2 py-1.5 inline-flex items-center justify-center gap-1"
-            >
-              <ShieldAlert size={13} /> Escalate to SAR Case
-            </button>
-            <button
-              onClick={() => setDisposition('Pending More Info')}
-              className="text-xs border border-slate-200 hover:bg-slate-50 rounded-md px-2 py-1.5 inline-flex items-center justify-center gap-1"
-            >
-              <ArrowRight size={13} /> Request More Info
-            </button>
-            <button
-              onClick={() => { setDisposition('False Positive — Close Alert'); setStatus('Completed'); }}
-              className="text-xs border border-slate-200 hover:bg-slate-50 rounded-md px-2 py-1.5 inline-flex items-center justify-center gap-1"
-            >
-              <X size={13} /> Close Alert
-            </button>
-          </div>
         </Section>
       )}
 
@@ -782,7 +846,149 @@ function CaseInfoTab({ alert, onAlertChange }) {
           Manager view · dispose and close actions are hidden.
         </div>
       )}
+
+      {modal?.kind === 'fp' && (
+        <FalsePositiveModal
+          alertId={alert.alert_id}
+          requireReason={requireFpReason}
+          submitting={submitting}
+          onCancel={() => setModal(null)}
+          onConfirm={finishFalsePositive}
+        />
+      )}
+      {modal?.kind === 'l2' && (
+        <EscalateL2Modal
+          alertId={alert.alert_id}
+          submitting={submitting}
+          onCancel={() => setModal(null)}
+          onConfirm={finishEscalateL2}
+        />
+      )}
+      {modal?.kind === 'sar' && (
+        <EscalateSarModal
+          alertId={alert.alert_id}
+          submitting={submitting}
+          onCancel={() => setModal(null)}
+          onConfirm={finishEscalateSar}
+        />
+      )}
     </div>
+  );
+}
+
+function ModalShell({ icon: Icon, title, tone = 'blue', children, onCancel }) {
+  const toneCls = {
+    blue:   'bg-blue-100 text-blue-600',
+    red:    'bg-red-100 text-red-600',
+    orange: 'bg-orange-100 text-orange-600'
+  }[tone] || 'bg-blue-100 text-blue-600';
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onCancel}>
+      <div className="bg-white rounded-lg w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start gap-3 p-5 border-b border-slate-100">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${toneCls}`}>
+            <Icon size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-navy-900">{title}</div>
+          </div>
+          <button onClick={onCancel} className="p-1 rounded hover:bg-slate-100"><X size={16} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function FalsePositiveModal({ alertId, requireReason, submitting, onCancel, onConfirm }) {
+  const [reason, setReason] = useState('');
+  const ready = !requireReason || reason.trim().length >= 10;
+  return (
+    <ModalShell icon={X} title={`Close ${alertId} as False Positive?`} tone="orange" onCancel={onCancel}>
+      <div className="p-5 space-y-3">
+        <div className="text-sm text-slate-600">
+          This will close the alert and mark it as a false positive. The action is logged to the audit trail.
+        </div>
+        {requireReason && (
+          <div>
+            <label className="text-xs font-semibold text-slate-700">
+              Reason <span className="text-red-500">*</span>
+              <span className="text-slate-400 font-normal ml-1">(required by manager policy, min 10 chars)</span>
+            </label>
+            <textarea
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              rows={3}
+              placeholder="e.g. Counterparty verified as long-standing supplier; transactions match expected business pattern."
+              className="mt-1 w-full text-sm border border-slate-200 rounded-md p-2 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+        )}
+      </div>
+      <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+        <button onClick={onCancel} className="text-sm px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50">Cancel</button>
+        <button
+          onClick={() => onConfirm(reason.trim())}
+          disabled={!ready || submitting}
+          className="text-sm px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white"
+        >{submitting ? 'Closing…' : 'Confirm Close'}</button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function EscalateL2Modal({ alertId, submitting, onCancel, onConfirm }) {
+  const [notes, setNotes] = useState('');
+  return (
+    <ModalShell icon={ArrowUpRight} title={`Escalate ${alertId} to Level 2 team?`} tone="blue" onCancel={onCancel}>
+      <div className="p-5 space-y-3">
+        <div className="text-sm text-slate-600">
+          This will move the alert into the Level 2 queue and unassign it from you. Add optional notes for the L2 reviewer.
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-slate-700">Notes <span className="text-slate-400 font-normal">(optional)</span></label>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Context for L2 review (transactions of interest, customer history, why escalating)."
+            className="mt-1 w-full text-sm border border-slate-200 rounded-md p-2 focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+      </div>
+      <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+        <button onClick={onCancel} className="text-sm px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50">Cancel</button>
+        <button
+          onClick={() => onConfirm(notes.trim())}
+          disabled={submitting}
+          className="text-sm px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white"
+        >{submitting ? 'Escalating…' : 'Confirm Escalate'}</button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function EscalateSarModal({ alertId, submitting, onCancel, onConfirm }) {
+  return (
+    <ModalShell icon={ShieldAlert} title={`Create SAR case for ${alertId}?`} tone="red" onCancel={onCancel}>
+      <div className="p-5 space-y-3">
+        <div className="text-sm text-slate-600">
+          A new SAR case will be created and linked to this alert. You'll be redirected to the SAR Filing wizard to draft the report.
+        </div>
+        <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded p-2">
+          <AlertTriangle size={12} className="inline mr-1 text-orange-500" />
+          Once a SAR case is opened the alert can no longer be reverted to False Positive without manager approval.
+        </div>
+      </div>
+      <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+        <button onClick={onCancel} className="text-sm px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50">Cancel</button>
+        <button
+          onClick={onConfirm}
+          disabled={submitting}
+          className="text-sm px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white"
+        >{submitting ? 'Creating case…' : 'Create SAR Case'}</button>
+      </div>
+    </ModalShell>
   );
 }
 

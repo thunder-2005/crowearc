@@ -1,6 +1,7 @@
 # AML Shield
 
 Full-stack AML compliance tool covering:
+
 - **Control #2** — Suspicious Activity Monitoring Dashboard (alerts, SLA, analyst workload)
 - **Control #3** — SAR Documentation, Retention & Retrieval (repository, docs, audit trail, retention monitor)
 - **Actimize-style Investigation Workspace** — tabbed workspace with split left / right panels for transactions, case notes, documents, activity log, KYC, business, case info, and linked cases
@@ -11,11 +12,11 @@ Full-stack AML compliance tool covering:
 
 ## Tech stack
 
-| Layer     | Tech                                                         |
-|-----------|--------------------------------------------------------------|
-| Frontend  | React 18 + Vite + Tailwind CSS + React Router + Recharts     |
-| Backend   | Node.js + Express + `node:sqlite` (built-in, Node ≥ 22.5)    |
-| Storage   | SQLite file (`backend/database/aml.db`) + local `uploads/`   |
+| Layer    | Tech                                                       |
+| -------- | ---------------------------------------------------------- |
+| Frontend | React 18 + Vite + Tailwind CSS + React Router + Recharts   |
+| Backend  | Node.js + Express + `node:sqlite` (built-in, Node ≥ 22.5)  |
+| Storage  | SQLite file (`backend/database/aml.db`) + local `uploads/` |
 
 No native build step. No Docker. No external DB server.
 
@@ -46,6 +47,7 @@ npm run seed
 ```
 
 The seed script reads the two CSVs in `backend/database/seed_data/` and populates:
+
 - **50 alerts** (13 Unassigned / 7 Not Started / 15 Work in Progress / 15 Completed)
 - **20 SAR filings** (3 Draft / 4 Under Review / 8 Filed / 5 Acknowledged)
 - **20 cases** (derived from the alert ⇄ SAR relationship)
@@ -54,6 +56,7 @@ The seed script reads the two CSVs in `backend/database/seed_data/` and populate
 - **~90 audit-trail events** and **~25 retrieval-log entries**
 
 You should see something like:
+
 ```
 [seed] counts = { alerts: 50, sar_filings: 20, cases: 20, customers: 26, accounts: 43, transactions: 1726, ... }
 ```
@@ -71,6 +74,7 @@ npm start
 ```
 
 This uses `concurrently` to run:
+
 - **Backend** on `http://localhost:4000`
 - **Frontend** on `http://localhost:5173`
 
@@ -84,6 +88,7 @@ Two terminals:
 # Terminal 1 — backend
 npm run start:backend
 ```
+
 ```bash
 # Terminal 2 — frontend
 npm run start:frontend
@@ -93,14 +98,14 @@ npm run start:frontend
 
 ## Useful URLs once running
 
-| URL                                           | What it is                         |
-|-----------------------------------------------|------------------------------------|
-| http://localhost:5173                         | Main app (React)                   |
-| http://localhost:4000/api/health              | Backend health check               |
-| http://localhost:4000/api/dashboard/stats     | Dashboard KPIs / charts payload    |
-| http://localhost:4000/api/alerts              | All alerts                         |
-| http://localhost:4000/api/sars                | All SAR filings                    |
-| http://localhost:4000/api/customers           | Customer directory                 |
+| URL                                       | What it is                      |
+| ----------------------------------------- | ------------------------------- |
+| http://localhost:5173                     | Main app (React)                |
+| http://localhost:4000/api/health          | Backend health check            |
+| http://localhost:4000/api/dashboard/stats | Dashboard KPIs / charts payload |
+| http://localhost:4000/api/alerts          | All alerts                      |
+| http://localhost:4000/api/sars            | All SAR filings                 |
+| http://localhost:4000/api/customers       | Customer directory              |
 
 ---
 
@@ -108,7 +113,7 @@ npm run start:frontend
 
 1. Open http://localhost:5173
 2. Top-right, click the user avatar/name to switch **Manager View ↔ Employee View**.
-   - In Employee View, pick an analyst from the dropdown (e.g. *Amit Verma*) — the whole app scopes to their queue.
+   - In Employee View, pick an analyst from the dropdown (e.g. _Amit Verma_) — the whole app scopes to their queue.
 3. Go to **TM Alerts** → click any alert card → **Start Investigation** in the side panel.
 4. The Kanban collapses into a tab bar, the **Investigation Workspace** opens:
    - **Left panel:** Transactions (alerted rows highlighted red) / Case Notes / Documents / Activity Log
@@ -200,13 +205,13 @@ npm run seed
 
 ## Common commands
 
-| Command                        | What it does                                     |
-|--------------------------------|--------------------------------------------------|
-| `npm run install:all`          | Install root + backend + frontend dependencies   |
-| `npm run seed`                 | Wipe + re-seed the SQLite database from CSVs     |
-| `npm start`                    | Run backend (:4000) + frontend (:5173) together  |
-| `npm run start:backend`        | Backend only                                     |
-| `npm run start:frontend`       | Frontend only                                    |
+| Command                           | What it does                                     |
+| --------------------------------- | ------------------------------------------------ |
+| `npm run install:all`             | Install root + backend + frontend dependencies   |
+| `npm run seed`                    | Wipe + re-seed the SQLite database from CSVs     |
+| `npm start`                       | Run backend (:4000) + frontend (:5173) together  |
+| `npm run start:backend`           | Backend only                                     |
+| `npm run start:frontend`          | Frontend only                                    |
 | `npm --prefix frontend run build` | Build frontend for production → `frontend/dist/` |
 
 ---
@@ -218,9 +223,11 @@ Your Node version is too old. Install Node ≥ 22.5 (Node 24 recommended).
 
 **Port already in use (EADDRINUSE on 4000 or 5173)**
 Something else is running on that port. On Windows:
+
 ```powershell
 Get-Process node | Stop-Process -Force
 ```
+
 Then `npm start` again.
 
 **Frontend shows a blank page / HTTP 404 on `/`**
@@ -236,4 +243,4 @@ Uploaded files live in `backend/uploads/`. They are git-ignored but persist on d
 
 ## Data reference dates
 
-The CSVs are pinned to **reference date `2026-04-23`**. All "days overdue" / "days left" / retention-countdown values in the UI are computed relative to *today*, so the further you go past 2026-04-23 the more alerts will show as overdue. That's expected demo behaviour.
+The CSVs are pinned to **reference date `2026-04-23`**. All "days overdue" / "days left" / retention-countdown values in the UI are computed relative to _today_, so the further you go past 2026-04-23 the more alerts will show as overdue. That's expected demo behaviour.

@@ -18,6 +18,13 @@ const caseNotesRouter = require('./routes/caseNotes');
 const caseDocumentsRouter = require('./routes/caseDocuments');
 const usersRouter = require('./routes/users');
 const settingsRouter = require('./routes/settings');
+const sarFilingsRouter = require('./routes/sarFilings');
+const sarApprovalsRouter = require('./routes/sarApprovals');
+const notificationsRouter = require('./routes/notifications');
+const slaRouter = require('./routes/sla');
+const kycReviewsRouter = require('./routes/kycReviews');
+const slaMonitor = require('./jobs/slaMonitor');
+const kycReviewMonitor = require('./jobs/kycReviewMonitor');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -48,6 +55,11 @@ app.use('/api/case-notes', caseNotesRouter);
 app.use('/api/case-documents', caseDocumentsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/sar-filings', sarFilingsRouter);
+app.use('/api/sar-approvals', sarApprovalsRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/sla', slaRouter);
+app.use('/api/kyc-reviews', kycReviewsRouter);
 
 app.use((err, _req, res, _next) => {
   console.error('[error]', err);
@@ -56,4 +68,6 @@ app.use((err, _req, res, _next) => {
 
 app.listen(PORT, () => {
   console.log(`[aml-shield] backend listening on http://localhost:${PORT}`);
+  slaMonitor.start();
+  kycReviewMonitor.start();
 });

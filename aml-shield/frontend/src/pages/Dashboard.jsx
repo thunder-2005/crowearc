@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
 import { KpiCard } from '../components/shared/Card.jsx';
 import Card from '../components/shared/Card.jsx';
@@ -6,7 +7,7 @@ import Table from '../components/shared/Table.jsx';
 import Badge from '../components/shared/Badge.jsx';
 import {
   AlertTriangle, Activity, CheckCircle2, Clock, TrendingUp, Briefcase,
-  Target, Users, ShieldCheck
+  Target, Users, ShieldCheck, Eye
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -161,6 +162,8 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {isManager && <SlaWatch />}
+
       <Card title="SLA Breaches — Top 10" subtitle={isEmployee ? 'Your most overdue alerts' : 'Oldest breaching alerts (team-wide)'}>
         <Table
           columns={[
@@ -212,5 +215,69 @@ export default function Dashboard() {
         </Card>
       )}
     </div>
+  );
+}
+
+function fmtRemaining(hrs) {
+  if (hrs == null) return '—';
+  if (hrs <= 0) {
+    const ago = Math.abs(hrs);
+    return `Breached ${Math.floor(ago)}h ago`;
+  }
+  if (hrs < 24) {
+    const m = Math.round((hrs - Math.floor(hrs)) * 60);
+    return `${Math.floor(hrs)}h ${m}m`;
+  }
+  const d = Math.floor(hrs / 24);
+  const h = Math.floor(hrs % 24);
+  return `${d}d ${h}h`;
+}
+
+function SlaWatch() {
+  const navigate = useNavigate();
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    const load = () => api.get('/sla/status').then(r => setItems(r.data.slice(0, 5))).catch(() => {});
+    load();
+    const id = setInterval(load, 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <Card
+      title="SLA Watch"
+      subtitle="Top 5 alerts closest to breaching · refreshes every 60s"
+      action={
+        <button onClick={() => navigate('/alerts')}
+          className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1">
+          View All <Eye size={12} />
+        </button>
+      }
+      bodyClassName="p-0"
+    >
+      <Table
+        rows={items}
+        emptyMessage="All clear — no SLA pressure"
+        columns={[
+          { key: 'alert_id', label: 'Alert ID',
+            render: r => <span className="font-mono text-xs text-navy-900 font-medium">{r.alert_id}</span> },
+          { key: 'customer_name', label: 'Customer', cellClass: 'font-medium' },
+          { key: 'assigned_to', label: 'Analyst',
+            render: r => r.assigned_to || <span className="italic text-slate-400">Unassigned</span> },
+          { key: 'remaining_hours', label: 'Time Left',
+            render: r => {
+              const cls = r.bucket === 'breached' ? 'bg-red-50 text-red-700'
+                : r.bucket === 'critical' ? 'bg-orange-50 text-orange-700'
+                : r.bucket === 'warning' ? 'bg-yellow-50 text-yellow-700'
+                : 'bg-green-50 text-green-700';
+              return (
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${cls}`}>
+                  <Clock size={11} /> {fmtRemaining(r.remaining_hours)}
+                </span>
+              );
+            }
+          }
+        ]}
+      />
+    </Card>
   );
 }
