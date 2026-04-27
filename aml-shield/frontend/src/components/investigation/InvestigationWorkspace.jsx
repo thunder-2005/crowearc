@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../../api/client.js';
 import Badge from '../shared/Badge.jsx';
 import { useRole } from '../../state/RoleContext.jsx';
+import { useRoleNavigate } from '../../state/useRoleNavigate.js';
 import { useInvestigationTabs } from '../../state/InvestigationTabsContext.jsx';
 import { useToast } from '../../state/ToastContext.jsx';
 import {
@@ -11,7 +11,7 @@ import {
   ShieldAlert, Send, ArrowRight, Loader2, Clock, ArrowUpRight, AlertTriangle
 } from 'lucide-react';
 
-const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
+const usd = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function InvestigationWorkspace({ alertId }) {
   const [alert, setAlert] = useState(null);
@@ -143,7 +143,7 @@ function TransactionsTab({ alert }) {
         <Stat label="Account" value={acct?.account_number || '—'} mono />
         <Stat label="Type" value={acct?.account_type || '—'} />
         <Stat label="Currency" value={acct?.currency || '—'} />
-        <Stat label="Current balance" value={inr(acct?.current_balance)} strong />
+        <Stat label="Current balance" value={usd(acct?.current_balance)} strong />
       </div>
 
       <div className="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2 text-xs">
@@ -157,10 +157,10 @@ function TransactionsTab({ alert }) {
           className="border border-slate-200 rounded px-2 py-1 bg-white">
           <option value="">All types</option><option>Credit</option><option>Debit</option>
         </select>
-        <input type="number" placeholder="Min ₹" value={filters.min_amount}
+        <input type="number" placeholder="Min $" value={filters.min_amount}
           onChange={e => setFilters(f => ({ ...f, min_amount: e.target.value }))}
           className="border border-slate-200 rounded px-2 py-1 w-24" />
-        <input type="number" placeholder="Max ₹" value={filters.max_amount}
+        <input type="number" placeholder="Max $" value={filters.max_amount}
           onChange={e => setFilters(f => ({ ...f, max_amount: e.target.value }))}
           className="border border-slate-200 rounded px-2 py-1 w-24" />
         <label className="inline-flex items-center gap-1 ml-auto cursor-pointer">
@@ -176,7 +176,7 @@ function TransactionsTab({ alert }) {
           <Flame size={11} className="inline mr-1" />
           {data.summary.alerted_count} alerted ({data.summary.this_alert_count} from this alert)
         </span>
-        <span>Total alerted amount: <span className="font-semibold text-red-700">{inr(data.summary.alerted_total_amount)}</span></span>
+        <span>Total alerted amount: <span className="font-semibold text-red-700">{usd(data.summary.alerted_total_amount)}</span></span>
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
@@ -218,9 +218,9 @@ function TransactionsTab({ alert }) {
                       <div className="text-[10px] text-slate-500 truncate">{t.counterparty} · {t.counterparty_country}</div>
                     </td>
                     <td className={`px-3 py-2 text-right font-mono ${t.txn_type === 'Credit' ? 'text-green-700' : 'text-slate-800'}`}>
-                      {t.txn_type === 'Credit' ? '+' : '−'}{inr(t.amount)}
+                      {t.txn_type === 'Credit' ? '+' : '−'}{usd(t.amount)}
                     </td>
-                    <td className="px-3 py-2 text-right font-mono text-slate-500">{inr(t.running_balance)}</td>
+                    <td className="px-3 py-2 text-right font-mono text-slate-500">{usd(t.running_balance)}</td>
                     <td className="px-2 py-2">
                       {isAlerted ? (
                         <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${isThis ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700'}`}>
@@ -672,7 +672,7 @@ function BusinessTab({ customerId }) {
 
       <Section title="Expected Activity">
         <Row k="Monthly Volume" v={`${cust.expected_monthly_volume} txn`} />
-        <Row k="Monthly Value" v={inr(cust.expected_monthly_value)} />
+        <Row k="Monthly Value" v={usd(cust.expected_monthly_value)} />
         <Row k="Txn Types" v={(cust.expected_transaction_types || []).join(', ')} />
         <Row k="Countries" v={(cust.primary_countries || []).join(', ')} />
         <Row k="Onboarding" v={cust.onboarding_notes} />
@@ -685,7 +685,7 @@ function CaseInfoTab({ alert, onAlertChange }) {
   const { isEmployee, currentAnalyst, isManager } = useRole();
   const { closeTab } = useInvestigationTabs();
   const { push: pushToast } = useToast();
-  const navigate = useNavigate();
+  const { goTo } = useRoleNavigate();
 
   const [disposition, setDisposition] = useState('');
   const [modal, setModal] = useState(null);
@@ -778,7 +778,7 @@ function CaseInfoTab({ alert, onAlertChange }) {
       setModal(null);
       setTimeout(() => {
         closeTab(alert.alert_id);
-        navigate(`/sar-filing/${caseId}`);
+        goTo(`sar-filing/${caseId}`);
       }, 1500);
     } catch (e) {
       pushToast('Failed to escalate to SAR: ' + (e.response?.data?.error || e.message), 'error');

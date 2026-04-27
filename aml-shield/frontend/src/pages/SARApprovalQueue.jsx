@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
+import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import Card, { KpiCard } from '../components/shared/Card.jsx';
 import Badge from '../components/shared/Badge.jsx';
 import Table from '../components/shared/Table.jsx';
@@ -25,7 +25,7 @@ function daysSince(iso) {
 export default function SARApprovalQueue() {
   const { isManager } = useRole();
   const { push } = useToast();
-  const navigate = useNavigate();
+  const { goTo } = useRoleNavigate();
 
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState(null);
@@ -67,7 +67,7 @@ export default function SARApprovalQueue() {
         || (r.customer_name || '').toLowerCase().includes(needle);
   }), [items, q]);
 
-  const review = (r) => navigate(`/sar-approval/${r.sar_id}`);
+  const review = (r) => goTo(`sar-approval/${r.sar_id}`);
 
   const quickApprove = async (r) => {
     if (!confirm(`Quick-approve ${r.sar_id} for ${r.customer_name}? It will be filed immediately.`)) return;

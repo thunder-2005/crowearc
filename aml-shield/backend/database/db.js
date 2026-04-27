@@ -429,6 +429,11 @@ function initSchema() {
     ['escalation_notes', 'TEXT'],
     ['fp_close_reason',  'TEXT']
   ]);
+
+  ensureColumns('kyc_reviews', [
+    ['triggered_by_sar_id',   'TEXT'],
+    ['triggered_by_alert_id', 'TEXT']
+  ]);
 }
 
 const { MANAGER_DEFAULTS, EMPLOYEE_DEFAULTS, colorForName } = require('./admin_defaults');
@@ -488,4 +493,122 @@ function seedAdminDataIfEmpty() {
   }
 }
 
-module.exports = { db, initSchema, seedAdminDataIfEmpty, DB_PATH };
+function migrateInrToUsd() {
+  const userVersion = db.prepare('PRAGMA user_version').get().user_version;
+  if (userVersion >= 1) return;
+
+  const RATE = 0.012;
+  const round = (n) => Math.max(0, Math.round(Number(n || 0) * RATE));
+
+  const convertText = (s) => {
+    if (!s) return s;
+    return s.replace(/INR\s+([0-9,]+)/g, (_, num) => {
+      const n = Number(String(num).replace(/,/g, ''));
+      if (!isFinite(n)) return _;
+      return '$' + Math.round(n * RATE).toLocaleString('en-US');
+    });
+  };
+
+  // Numeric amount columns
+  const updates = [
+    ['UPDATE alerts SET amount_flagged_inr = ROUND(amount_flagged_inr * ?) WHERE amount_flagged_inr IS NOT NULL'],
+    ['UPDATE sar_filings SET amount_involved_inr = ROUND(amount_involved_inr * ?) WHERE amount_involved_inr IS NOT NULL'],
+    ['UPDATE sar_filings SET total_amount = ROUND(total_amount * ?) WHERE total_amount IS NOT NULL'],
+    ['UPDATE transactions SET amount = ROUND(amount * ?) WHERE amount IS NOT NULL'],
+    ['UPDATE transactions SET running_balance = ROUND(running_balance * ?) WHERE running_balance IS NOT NULL'],
+    ['UPDATE accounts SET current_balance = ROUND(current_balance * ?) WHERE current_balance IS NOT NULL'],
+    ['UPDATE customers SET expected_monthly_value = ROUND(expected_monthly_value * ?) WHERE expected_monthly_value IS NOT NULL']
+  ];
+  for (const [sql] of updates) db.prepare(sql).run(RATE);
+
+  // Account currency label
+  db.prepare("UPDATE accounts SET currency = 'USD' WHERE currency = 'INR'").run();
+
+  // Customer turnover labels
+  const turnoverMap = {
+    'INR 5 Cr – 25 Cr':    '$1M – $10M',
+    'INR 25 Cr – 100 Cr':  '$10M – $50M',
+    'INR 100 Cr – 500 Cr': '$50M – $250M',
+    'INR 500 Cr – 1000 Cr':'$250M – $500M',
+    'INR 1000 Cr +':       '$500M +'
+  };
+  const updTurnover = db.prepare('UPDATE customers SET annual_turnover_range = ? WHERE annual_turnover_range = ?');
+  for (const [oldVal, newVal] of Object.entries(turnoverMap)) updTurnover.run(newVal, oldVal);
+
+  // Narrative text — replace "INR X,XXX,XXX" with "$Y"
+  const alertRows = db.prepare('SELECT alert_id, scenario_description, narrative_seed FROM alerts').all();
+  const updAlertText = db.prepare('UPDATE alerts SET scenario_description = ?, narrative_seed = ? WHERE alert_id = ?');
+  for (const a of alertRows) {
+    const sd = convertText(a.scenario_description);
+    const ns = convertText(a.narrative_seed);
+    if (sd !== a.scenario_description || ns !== a.narrative_seed) {
+      updAlertText.run(sd, ns, a.alert_id);
+    }
+  }
+  const sarRows = db.prepare('SELECT sar_id, narrative_summary, narrative FROM sar_filings').all();
+  const updSarText = db.prepare('UPDATE sar_filings SET narrative_summary = ?, narrative = ? WHERE sar_id = ?');
+  for (const s of sarRows) {
+    const ns = convertText(s.narrative_summary);
+    const n2 = convertText(s.narrative);
+    if (ns !== s.narrative_summary || n2 !== s.narrative) {
+      updSarText.run(ns, n2, s.sar_id);
+    }
+  }
+
+  // Bank name on existing draft SAR filings
+  db.prepare(`
+    UPDATE sar_filings
+       SET bsa_filing_institution = 'First National Bank - US (FEIN: 12-3456789)'
+     WHERE bsa_filing_institution LIKE '%Crowe%'
+        OR bsa_filing_institution LIKE '%Bharat%'
+  `).run();
+
+  db.exec('PRAGMA user_version = 1');
+  console.log('[db] INR → USD migration complete');
+}
+
+function backfillKycTriggerLinks() {
+  const userVersion = db.prepare('PRAGMA user_version').get().user_version;
+  if (userVersion >= 2) return;
+
+  // Link every existing triggered_sar review to its customer's most recent SAR
+  const sarReviews = db.prepare(`
+    SELECT id, customer_id FROM kyc_reviews
+     WHERE review_type = 'triggered_sar' AND triggered_by_sar_id IS NULL
+  `).all();
+  let linkedSar = 0;
+  const lookupSar = db.prepare(`
+    SELECT sar_id FROM sar_filings
+     WHERE customer_id = ?
+     ORDER BY datetime(COALESCE(filed_date, draft_created_date)) DESC
+     LIMIT 1
+  `);
+  const updReview = db.prepare('UPDATE kyc_reviews SET triggered_by_sar_id = ? WHERE id = ?');
+  for (const r of sarReviews) {
+    const s = lookupSar.get(r.customer_id);
+    if (s) { updReview.run(s.sar_id, r.id); linkedSar++; }
+  }
+
+  // Link triggered_alerts reviews to most recent alert for that customer
+  const alertReviews = db.prepare(`
+    SELECT id, customer_id FROM kyc_reviews
+     WHERE review_type = 'triggered_alerts' AND triggered_by_alert_id IS NULL
+  `).all();
+  let linkedAlerts = 0;
+  const lookupAlert = db.prepare(`
+    SELECT alert_id FROM alerts
+     WHERE customer_id = ?
+     ORDER BY date(created_date) DESC
+     LIMIT 1
+  `);
+  const updAlertRef = db.prepare('UPDATE kyc_reviews SET triggered_by_alert_id = ? WHERE id = ?');
+  for (const r of alertReviews) {
+    const a = lookupAlert.get(r.customer_id);
+    if (a) { updAlertRef.run(a.alert_id, r.id); linkedAlerts++; }
+  }
+
+  db.exec('PRAGMA user_version = 2');
+  console.log(`[db] backfilled trigger refs: ${linkedSar} SAR, ${linkedAlerts} alert`);
+}
+
+module.exports = { db, initSchema, seedAdminDataIfEmpty, migrateInrToUsd, backfillKycTriggerLinks, DB_PATH };

@@ -1,38 +1,55 @@
-import { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
 
 const RoleContext = createContext(null);
 
-const STORAGE_KEY = 'amlShield.roleState.v1';
+const ANALYST_KEY = 'aml_active_analyst';
+
+function roleFromPathname(pathname) {
+  if (pathname.startsWith('/employee')) return 'employee';
+  return 'manager';
+}
 
 export function RoleProvider({ children }) {
-  const [role, setRole] = useState('manager');
-  const [currentAnalyst, setCurrentAnalyst] = useState(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const role = roleFromPathname(location.pathname);
+
+  const [currentAnalyst, setCurrentAnalystState] = useState(() => {
+    try { return localStorage.getItem(ANALYST_KEY) || null; } catch (_e) { return null; }
+  });
   const [analysts, setAnalysts] = useState([]);
 
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-      if (saved) {
-        if (saved.role) setRole(saved.role);
-        if (saved.currentAnalyst) setCurrentAnalyst(saved.currentAnalyst);
-      }
-    } catch (_e) { /* ignore */ }
-  }, []);
-
+  // Pull analyst names once at mount
   useEffect(() => {
     api.get('/alerts/analysts')
       .then(r => {
         const names = r.data.map(a => a.analyst);
         setAnalysts(names);
-        setCurrentAnalyst(prev => prev && names.includes(prev) ? prev : names[0] || null);
+        setCurrentAnalystState(prev => {
+          if (prev && names.includes(prev)) return prev;
+          const next = names[0] || null;
+          if (next) try { localStorage.setItem(ANALYST_KEY, next); } catch (_e) { /* ignore */ }
+          return next;
+        });
       })
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ role, currentAnalyst }));
-  }, [role, currentAnalyst]);
+  const setCurrentAnalyst = useCallback((name) => {
+    setCurrentAnalystState(name);
+    try {
+      if (name) localStorage.setItem(ANALYST_KEY, name);
+      else      localStorage.removeItem(ANALYST_KEY);
+    } catch (_e) { /* ignore */ }
+  }, []);
+
+  // Replaced toggle. Calling setRole now navigates to the matching URL prefix.
+  const setRole = useCallback((next) => {
+    if (next === 'manager') navigate('/manager/dashboard');
+    else if (next === 'employee') navigate('/employee/dashboard');
+  }, [navigate]);
 
   const value = useMemo(() => ({
     role,
@@ -43,7 +60,7 @@ export function RoleProvider({ children }) {
     isManager: role === 'manager',
     isEmployee: role === 'employee',
     scopeParam: role === 'employee' && currentAnalyst ? { assigned_to: currentAnalyst } : {},
-  }), [role, currentAnalyst, analysts]);
+  }), [role, setRole, currentAnalyst, setCurrentAnalyst, analysts]);
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;
 }

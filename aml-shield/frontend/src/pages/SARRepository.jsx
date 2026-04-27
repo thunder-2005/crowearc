@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api/client.js';
+import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import Badge from '../components/shared/Badge.jsx';
 import Card, { KpiCard } from '../components/shared/Card.jsx';
 import Table from '../components/shared/Table.jsx';
@@ -31,6 +32,8 @@ export default function SARRepository() {
 
 function ManagerSarRepository() {
   const { isManager, currentAnalyst } = useRole();
+  const [params] = useSearchParams();
+  const deepLinkSarId = params.get('sar_id');
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState('');
@@ -50,6 +53,13 @@ function ManagerSarRepository() {
   };
 
   useEffect(() => { load(); }, [sar_status, retention_status]);
+
+  useEffect(() => {
+    if (!deepLinkSarId) return;
+    api.get(`/sars/${deepLinkSarId}`)
+      .then(r => setSelected(r.data))
+      .catch(() => {});
+  }, [deepLinkSarId]);
 
   const openSar = async (row) => {
     const { data } = await api.get(`/sars/${row.sar_id}`);
@@ -113,7 +123,7 @@ function ManagerSarRepository() {
               { key: 'customer_name', label: 'Customer', cellClass: 'font-medium' },
               { key: 'case_id', label: 'Case ID', render: r => r.case_id || '—' },
               { key: 'sar_status', label: 'Status', render: r => <Badge value={r.sar_status} /> },
-              { key: 'amount_involved_inr', label: 'Amount', render: r => `₹${Number(r.amount_involved_inr || 0).toLocaleString('en-IN')}` },
+              { key: 'amount_involved_inr', label: 'Amount', render: r => `$${Number(r.amount_involved_inr || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
               { key: 'current_owner', label: 'Owner' },
               {
                 key: 'retention_expiry_date', label: 'Retention',
@@ -220,7 +230,7 @@ function SarDetail({ sar, onClose, onRefresh, isManager, requester }) {
           </div>
           <div className="grid grid-cols-2 gap-y-1.5 gap-x-4 text-sm">
             <div className="text-slate-500">Scenario</div><div>{sar.alert_scenario}</div>
-            <div className="text-slate-500">Amount</div><div>₹{Number(sar.amount_involved_inr).toLocaleString('en-IN')}</div>
+            <div className="text-slate-500">Amount</div><div>${Number(sar.amount_involved_inr || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             <div className="text-slate-500">Detection</div><div>{sar.detection_date}</div>
             <div className="text-slate-500">Draft</div><div>{sar.draft_created_date}</div>
             <div className="text-slate-500">Filed</div><div>{sar.filed_date || '—'}</div>
@@ -343,7 +353,7 @@ function dueLabel(createdDate) {
 function EmployeeSarCases() {
   const { currentAnalyst } = useRole();
   const { openTab } = useInvestigationTabs();
-  const navigate = useNavigate();
+  const { goTo } = useRoleNavigate();
 
   const [cases, setCases] = useState([]);
   const [filings, setFilings] = useState({});
@@ -403,14 +413,14 @@ function EmployeeSarCases() {
 
   const openCase = async (c) => {
     if (!c.source_alert_id) {
-      navigate(`/sar-filing/${c.case_id}`);
+      goTo(`sar-filing/${c.case_id}`);
       return;
     }
     try {
       const { data: alert } = await api.get(`/alerts/${c.source_alert_id}`);
       openTab(alert);
-      navigate('/alerts');
-    } catch (_e) { navigate('/alerts'); }
+      goTo('alerts');
+    } catch (_e) { goTo('alerts'); }
   };
 
   return (
@@ -485,13 +495,13 @@ function EmployeeSarCases() {
                     <FolderOpen size={12} /> Open
                   </button>
                   {!r.filing || r.filing?.sar_status === 'Draft' ? (
-                    <button onClick={() => navigate(`/sar-filing/${r.case_id}`)}
+                    <button onClick={() => goTo(`sar-filing/${r.case_id}`)}
                       title="File SAR"
                       className="px-2 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center gap-1">
                       <FileText size={12} /> {r.filing ? 'Resume' : 'File SAR'}
                     </button>
                   ) : (
-                    <button onClick={() => navigate(`/sar-filing/${r.case_id}?view=1`)}
+                    <button onClick={() => goTo(`sar-filing/${r.case_id}?view=1`)}
                       title="View SAR"
                       className="px-2 py-1 rounded text-xs border border-green-300 text-green-700 hover:bg-green-50 inline-flex items-center gap-1">
                       <Eye size={12} /> View SAR

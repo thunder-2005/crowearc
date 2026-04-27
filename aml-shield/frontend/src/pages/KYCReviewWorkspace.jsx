@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import api from '../api/client.js';
+import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import Card from '../components/shared/Card.jsx';
 import Badge from '../components/shared/Badge.jsx';
 import { useRole } from '../state/RoleContext.jsx';
@@ -65,7 +66,7 @@ const CDD      = ['Standard', 'Enhanced'];
 
 const AUTOSAVE_MS = 30_000;
 
-function inrFmt(n) { return `₹${Number(n || 0).toLocaleString('en-IN')}`; }
+function usdFmt(n) { return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 function fmtTime(d) {
   if (!d) return '';
   const dt = new Date(d);
@@ -77,7 +78,7 @@ export default function KYCReviewWorkspace() {
   const { reviewId } = useParams();
   const { isManager, currentAnalyst } = useRole();
   const { push } = useToast();
-  const navigate = useNavigate();
+  const { goTo } = useRoleNavigate();
 
   const [review, setReview] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -200,7 +201,7 @@ export default function KYCReviewWorkspace() {
     try {
       await api.patch(`/kyc-reviews/${review.id}/approve`, { approved_by: 'Compliance Manager' });
       push(`Review approved — ${review.customer?.customer_name || review.customer_name}`, 'success');
-      navigate('/kyc-reviews');
+      goTo('kyc-reviews');
     } catch (e) {
       push('Approval failed: ' + (e.response?.data?.error || e.message), 'error');
     } finally { setSubmitting(false); }
@@ -213,7 +214,7 @@ export default function KYCReviewWorkspace() {
         reason, comments, rejected_by: 'Compliance Manager'
       });
       push(`Review returned to analyst`, 'warning');
-      navigate('/kyc-reviews');
+      goTo('kyc-reviews');
     } catch (e) {
       push('Reject failed: ' + (e.response?.data?.error || e.message), 'error');
     } finally { setSubmitting(false); }
@@ -234,7 +235,7 @@ export default function KYCReviewWorkspace() {
         savingState={savingState}
         isLocked={isLocked}
         isManager={isManager}
-        onBack={() => navigate(isManager ? '/kyc-reviews' : '/kyc-reviews/mine')}
+        onBack={() => goTo(isManager ? 'kyc-reviews' : 'kyc-reviews/mine')}
         onStart={startReview}
         onSave={() => saveDraft(false)}
         onSubmit={submitReview}
@@ -732,7 +733,7 @@ function SarsRight({ review }) {
             <div className="min-w-0">
               <div className="font-mono">{s.sar_id}</div>
               <div className="text-slate-500 truncate">{s.alert_scenario} · {s.filed_date || s.draft_created_date || '—'}</div>
-              <div className="text-slate-500 truncate">{inrFmt(s.amount_involved_inr)} · {s.prepared_by}</div>
+              <div className="text-slate-500 truncate">{usdFmt(s.amount_involved_inr)} · {s.prepared_by}</div>
             </div>
             <Badge value={s.sar_status} />
           </li>

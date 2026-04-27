@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { AlertTriangle, ShieldAlert, X, ArrowRight } from 'lucide-react';
 import api from '../api/client.js';
 import { useRole } from '../state/RoleContext.jsx';
+import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import { useInvestigationTabs } from '../state/InvestigationTabsContext.jsx';
 
 const POLL_MS = 60_000;
@@ -51,7 +52,7 @@ export default function SLAPopup() {
   const { isManager, currentAnalyst } = useRole();
   const { openTab } = useInvestigationTabs();
   const location = useLocation();
-  const navigate = useNavigate();
+  const { goTo } = useRoleNavigate();
 
   const [popups, setPopups] = useState([]);
   const [collapsed, setCollapsed] = useState(true);
@@ -137,7 +138,7 @@ export default function SLAPopup() {
   const open = async (popup) => {
     if (popup.alert) {
       openTab(popup.alert);
-      navigate('/alerts');
+      goTo('alerts');
     }
     dismiss(popup.notif_id, false);
   };

@@ -116,9 +116,10 @@ function tick() {
       }
 
       const recentSar = db.prepare(`
-        SELECT 1 FROM sar_filings
+        SELECT sar_id FROM sar_filings
          WHERE customer_id = ?
            AND COALESCE(filed_date, draft_created_date) >= ?
+         ORDER BY datetime(COALESCE(filed_date, draft_created_date)) DESC
          LIMIT 1
       `).get(c.customer_id, cutoffSar);
       if (recentSar) {
@@ -129,9 +130,11 @@ function tick() {
         `).get(c.customer_id);
         if (!exists) {
           db.prepare(`
-            INSERT INTO kyc_reviews (customer_id, review_type, status, due_date, priority, previous_risk_rating, previous_cdd_level)
-            VALUES (?, 'triggered_sar', 'pending', ?, 'Urgent', ?, ?)
-          `).run(c.customer_id, ymd(new Date()), c.customer_risk_rating, c.cdd_level);
+            INSERT INTO kyc_reviews
+              (customer_id, review_type, status, due_date, priority,
+               previous_risk_rating, previous_cdd_level, triggered_by_sar_id)
+            VALUES (?, 'triggered_sar', 'pending', ?, 'Urgent', ?, ?, ?)
+          `).run(c.customer_id, ymd(new Date()), c.customer_risk_rating, c.cdd_level, recentSar.sar_id);
           triggeredSar++;
           notifyManager('kyc_triggered_sar',
             `SAR-triggered KYC review — ${c.customer_name}`,
@@ -140,10 +143,11 @@ function tick() {
         }
       }
 
-      const alertCount = db.prepare(`
-        SELECT COUNT(*) AS c FROM alerts
+      const recentAlerts = db.prepare(`
+        SELECT alert_id, COUNT(*) AS c FROM alerts
          WHERE customer_id = ? AND created_date >= ?
-      `).get(c.customer_id, cutoffAlerts).c;
+      `).get(c.customer_id, cutoffAlerts);
+      const alertCount = recentAlerts ? recentAlerts.c : 0;
       if (alertCount >= 3) {
         const exists = db.prepare(`
           SELECT 1 FROM kyc_reviews
@@ -151,10 +155,18 @@ function tick() {
            LIMIT 1
         `).get(c.customer_id);
         if (!exists) {
+          const latestAlert = db.prepare(`
+            SELECT alert_id FROM alerts
+             WHERE customer_id = ? AND created_date >= ?
+             ORDER BY date(created_date) DESC LIMIT 1
+          `).get(c.customer_id, cutoffAlerts);
           db.prepare(`
-            INSERT INTO kyc_reviews (customer_id, review_type, status, due_date, priority, previous_risk_rating, previous_cdd_level)
-            VALUES (?, 'triggered_alerts', 'pending', ?, 'Urgent', ?, ?)
-          `).run(c.customer_id, ymd(new Date()), c.customer_risk_rating, c.cdd_level);
+            INSERT INTO kyc_reviews
+              (customer_id, review_type, status, due_date, priority,
+               previous_risk_rating, previous_cdd_level, triggered_by_alert_id)
+            VALUES (?, 'triggered_alerts', 'pending', ?, 'Urgent', ?, ?, ?)
+          `).run(c.customer_id, ymd(new Date()), c.customer_risk_rating, c.cdd_level,
+                 latestAlert ? latestAlert.alert_id : null);
           triggeredAlerts++;
           notifyManager('kyc_triggered_alerts',
             `Alert-triggered KYC review — ${c.customer_name}`,

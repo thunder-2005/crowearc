@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import api from '../api/client.js';
+import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import Card, { KpiCard } from '../components/shared/Card.jsx';
 import Badge from '../components/shared/Badge.jsx';
 import { useRole } from '../state/RoleContext.jsx';
@@ -24,7 +25,7 @@ const FILING_TYPES = ['Initial SAR', 'Continuing SAR', 'Joint SAR'];
 const FILING_METHODS = ['Electronic', 'Paper'];
 const REGULATORS = ['FinCEN', 'OCC', 'FRB', 'FDIC', 'FIU-IND'];
 const SAR_TYPES = ['BSA (Bank Secrecy Act)', 'Other'];
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'INR'];
+const CURRENCIES = ['USD', 'EUR', 'GBP'];
 const ACTIVITY_TYPES = [
   'Structuring', 'Money Laundering', 'Fraud', 'Terrorist Financing',
   'Identity Theft', 'Bribery/Corruption', 'Cyber Crime', 'Human Trafficking',
@@ -37,7 +38,7 @@ const TXN_TYPES = [
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-function inrFmt(n) { return `₹${Number(n || 0).toLocaleString('en-IN')}`; }
+function usdFmt(n) { return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 function fmtTime(d) {
   if (!d) return '';
   const dt = new Date(d);
@@ -46,12 +47,13 @@ function fmtTime(d) {
 }
 
 const FINANCIAL_INSTITUTION = {
-  name: 'Crowe Bharat Bank Ltd.',
-  address: 'Lower Parel West, Mumbai 400013, IN',
-  fein: 'AAACR1234F',
-  contact_name: 'Compliance Operations',
-  contact_phone: '+91 22 4040 1212'
+  name: 'First National Bank - US',
+  address: '200 Park Avenue, New York, NY 10166, USA',
+  fein: '12-3456789',
+  contact_name: 'Compliance Department',
+  contact_phone: '212-555-0100'
 };
+const BSA_INSTITUTION_DEFAULT = 'First National Bank - US (FEIN: 12-3456789)';
 
 export default function SARFiling() {
   const { caseId } = useParams();
@@ -59,7 +61,7 @@ export default function SARFiling() {
   const isViewOnly = search.get('view') === '1';
   const { isManager, currentAnalyst } = useRole();
   const { push: pushToast } = useToast();
-  const navigate = useNavigate();
+  const { goTo } = useRoleNavigate();
 
   const [stepIdx, setStepIdx] = useState(0);
   const [caseInfo, setCaseInfo] = useState(null);
@@ -218,8 +220,8 @@ export default function SARFiling() {
     return (
       <SuccessScreen
         sar={success}
-        onViewRepo={() => navigate('/sars')}
-        onBackToCases={() => navigate('/cases')}
+        onViewRepo={() => goTo('sars')}
+        onBackToCases={() => goTo('cases')}
       />
     );
   }
@@ -241,7 +243,7 @@ export default function SARFiling() {
           isViewOnly={isViewOnly || isLocked}
           isLocked={isLocked}
           savingState={savingState}
-          onCancel={() => navigate('/sars')}
+          onCancel={() => goTo('sars')}
           onSaveDraft={() => saveDraft(false)}
           onSubmit={submitFinal}
           submittingFinal={submittingFinal}
@@ -249,6 +251,18 @@ export default function SARFiling() {
         />
 
         {isReturned && <RevisionBanner filing={filing} />}
+        {filing?.kyc_data_changed && !isLocked && (
+          <div className="bg-yellow-50 border border-yellow-300 rounded p-3 text-sm text-yellow-900 flex items-start gap-2">
+            <AlertTriangle size={14} className="mt-0.5 text-yellow-700" />
+            <div>
+              <div className="font-semibold">KYC data updated since draft was saved</div>
+              <div className="text-xs mt-0.5">
+                Customer record was last reviewed on <span className="font-mono">{filing.customer_kyc_status ? filing.customer_kyc_status : ''}</span>.
+                Re-check Step 2 (Subject Information) before submitting — auto-populated values may be stale.
+              </div>
+            </div>
+          </div>
+        )}
         {isLocked && filing.sar_status === 'Pending Approval' && (
           <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-800 flex items-start gap-2">
             <Lock size={14} className="mt-0.5" />
@@ -374,11 +388,11 @@ function buildInitialForm(c, cust, f) {
     sar_type:           fromFiling('sar_type', 'BSA (Bank Secrecy Act)'),
     detection_date:     fromFiling('detection_date', c.created_date || today()),
     date_of_report:     fromFiling('date_of_report', today()),
-    bsa_filing_institution: fromFiling('bsa_filing_institution', FINANCIAL_INSTITUTION.name),
+    bsa_filing_institution: fromFiling('bsa_filing_institution', BSA_INSTITUTION_DEFAULT),
     tin:                fromFiling('tin', cust?.government_id_number || FINANCIAL_INSTITUTION.fein),
     num_transactions:   fromFiling('num_transactions', ''),
     total_amount:       fromFiling('total_amount', ''),
-    currency:           fromFiling('currency', 'INR'),
+    currency:           fromFiling('currency', 'USD'),
     structuring_indicator: fromFiling('structuring_indicator', 0),
     prior_sars:         fromFiling('prior_sars', 0),
     prior_sar_count:    fromFiling('prior_sar_count', ''),
@@ -887,7 +901,7 @@ function StepActivity({ form, setForm, errors }) {
           onChange={v => setForm({ activity_date_from: v })} />
         <DateInput label="Activity Date To" value={form.activity_date_to}
           onChange={v => setForm({ activity_date_to: v })} />
-        <NumberInput label="Total Amount Involved (₹)" value={form.amount_involved_inr}
+        <NumberInput label="Total Amount Involved ($)" value={form.amount_involved_inr}
           onChange={v => setForm({ amount_involved_inr: v })} />
       </div>
 
@@ -1168,7 +1182,7 @@ function StepReview({ form, setForm, errors, docs, includeDocIds, caseInfo, cust
         <ReviewGrid items={[
           ['Activity From', form.activity_date_from || '—'],
           ['Activity To', form.activity_date_to || '—'],
-          ['Amount Involved', inrFmt(form.amount_involved_inr)],
+          ['Amount Involved', usdFmt(form.amount_involved_inr)],
           ['Activity Types', (form.suspicious_activity_types || []).join(', ') || '—'],
           ['Transaction Types', (form.transaction_types || []).join(', ') || '—'],
           ['IPs', form.ip_addresses || '—']

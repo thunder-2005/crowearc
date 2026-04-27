@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
+import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import { KpiCard } from '../components/shared/Card.jsx';
 import Card from '../components/shared/Card.jsx';
 import Table from '../components/shared/Table.jsx';
@@ -19,6 +19,7 @@ const DONUT_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#8
 
 export default function Dashboard() {
   const { isManager, isEmployee, currentAnalyst } = useRole();
+  const { makePath } = useRoleNavigate();
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
   const [range, setRange] = useState('30d');
@@ -153,11 +154,11 @@ export default function Dashboard() {
 
         <Card title="Quick Links" action={<Target size={14} className="text-slate-400" />}>
           <ul className="text-sm space-y-2">
-            <li><a href="/alerts" className="text-blue-600 hover:underline">→ {isManager ? 'Team alert queue' : 'My alert queue'}</a></li>
-            <li><a href="/cases" className="text-blue-600 hover:underline">→ {isManager ? 'All cases' : 'My cases'}</a></li>
-            <li><a href="/sars" className="text-blue-600 hover:underline">→ SAR Repository</a></li>
-            {isManager && <li><a href="/retention" className="text-blue-600 hover:underline">→ Retention Monitor</a></li>}
-            {isManager && <li><a href="/audit" className="text-blue-600 hover:underline">→ Audit Trail</a></li>}
+            <li><a href={makePath('alerts')} className="text-blue-600 hover:underline">→ {isManager ? 'Team alert queue' : 'My alert queue'}</a></li>
+            <li><a href={makePath('cases')} className="text-blue-600 hover:underline">→ {isManager ? 'All cases' : 'My cases'}</a></li>
+            <li><a href={makePath('sars')} className="text-blue-600 hover:underline">→ SAR Repository</a></li>
+            {isManager && <li><a href={makePath('retention')} className="text-blue-600 hover:underline">→ Retention Monitor</a></li>}
+            {isManager && <li><a href={makePath('audit')} className="text-blue-600 hover:underline">→ Audit Trail</a></li>}
           </ul>
         </Card>
       </div>
@@ -234,7 +235,7 @@ function fmtRemaining(hrs) {
 }
 
 function SlaWatch() {
-  const navigate = useNavigate();
+  const { goTo } = useRoleNavigate();
   const [items, setItems] = useState([]);
   useEffect(() => {
     const load = () => api.get('/sla/status').then(r => setItems(r.data.slice(0, 5))).catch(() => {});
@@ -247,7 +248,7 @@ function SlaWatch() {
       title="SLA Watch"
       subtitle="Top 5 alerts closest to breaching · refreshes every 60s"
       action={
-        <button onClick={() => navigate('/alerts')}
+        <button onClick={() => goTo('alerts')}
           className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1">
           View All <Eye size={12} />
         </button>

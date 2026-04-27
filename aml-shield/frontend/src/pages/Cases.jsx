@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
 import Badge from '../components/shared/Badge.jsx';
 import { X, UserPlus, FileText, ExternalLink, Upload, FolderOpen } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
+import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import { useInvestigationTabs } from '../state/InvestigationTabsContext.jsx';
 
 const COLUMNS = [
@@ -19,12 +19,12 @@ const ACCENT = {
   'Closed':           'border-t-slate-500'
 };
 
-function inr(n) { return `₹${Number(n || 0).toLocaleString('en-IN')}`; }
+function usd(n) { return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 
 export default function Cases() {
   const { isManager, isEmployee, currentAnalyst } = useRole();
   const { openTab } = useInvestigationTabs();
-  const navigate = useNavigate();
+  const { goTo } = useRoleNavigate();
   const [cases, setCases] = useState([]);
   const [selected, setSelected] = useState(null);
 
@@ -33,13 +33,13 @@ export default function Cases() {
     try {
       const { data: alert } = await api.get(`/alerts/${c.source_alert_id}`);
       openTab(alert);
-      navigate('/alerts');
+      goTo('alerts');
     } catch (_e) {
-      navigate('/alerts');
+      goTo('alerts');
     }
   };
 
-  const goFileSar = (c) => navigate(`/sar-filing/${c.case_id}`);
+  const goFileSar = (c) => goTo(`sar-filing/${c.case_id}`);
 
   const load = () => {
     const params = {};
@@ -145,7 +145,7 @@ export default function Cases() {
                             </button>
                           ) : (
                             <button
-                              onClick={(e) => { e.stopPropagation(); navigate(`/sars?sar_id=${c.linked_sar_id}`); }}
+                              onClick={(e) => { e.stopPropagation(); goTo(`sars?sar_id=${c.linked_sar_id}`); }}
                               className="text-[11px] border border-green-300 text-green-700 hover:bg-green-50 rounded-md py-1.5 inline-flex items-center justify-center gap-1"
                             >
                               <FileText size={11} /> View SAR
@@ -173,7 +173,7 @@ export default function Cases() {
           onAssign={() => assignToMe(selected)}
           onOpenInvestigation={() => openCaseInvestigation(selected)}
           onFileSar={() => goFileSar(selected)}
-          onViewSar={() => navigate(`/sars?sar_id=${selected.linked_sar_id}`)}
+          onViewSar={() => goTo(`sars?sar_id=${selected.linked_sar_id}`)}
         />
       )}
     </div>
@@ -214,12 +214,18 @@ function CaseDetail({ c, onClose, onRefresh, onAssign, onOpenInvestigation, onFi
           <section className="px-5 py-4 border-b border-slate-100">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-semibold text-navy-900">Source Alert</div>
-              <span className="text-xs text-slate-500 font-mono">{alert.alert_id}</span>
+              <button
+                onClick={onOpenInvestigation}
+                className="text-xs font-mono text-blue-600 hover:underline"
+                title="Open the investigation tab for this alert"
+              >
+                {alert.alert_id} →
+              </button>
             </div>
             <div className="text-xs text-slate-600 bg-slate-50 p-3 rounded space-y-1">
               <div><span className="text-slate-500">Priority:</span> <Badge value={alert.priority} /></div>
               <div><span className="text-slate-500">Risk Score:</span> {alert.risk_score}/100</div>
-              <div><span className="text-slate-500">Amount:</span> {inr(alert.amount_flagged_inr)}</div>
+              <div><span className="text-slate-500">Amount:</span> {usd(alert.amount_flagged_inr)}</div>
               <div><span className="text-slate-500">Counterparty:</span> {alert.counterparty_country}</div>
               <div><span className="text-slate-500">SLA:</span> {alert.due_status}</div>
               <div className="pt-2 text-slate-700">{alert.scenario_description}</div>
@@ -248,9 +254,13 @@ function CaseDetail({ c, onClose, onRefresh, onAssign, onOpenInvestigation, onFi
           <section className="px-5 py-4 border-b border-slate-100">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-semibold text-navy-900">Linked SAR</div>
-              <a href="/sars" className="text-xs text-blue-600 inline-flex items-center gap-1">
-                Open in SAR Repo <ExternalLink size={11} />
-              </a>
+              <button
+                onClick={onViewSar}
+                className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
+                title="Open this SAR in the repository"
+              >
+                {sar.sar_id} <ExternalLink size={11} />
+              </button>
             </div>
             <div className="text-xs text-slate-600 bg-slate-50 p-3 rounded space-y-1">
               <div><span className="text-slate-500">SAR ID:</span> <span className="font-mono">{sar.sar_id}</span></div>

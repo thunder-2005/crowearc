@@ -48,7 +48,7 @@ function slaSnapshot(a, now = Date.now()) {
   return { label: `${days}d ${remH}h`, tone: 'text-green-700 bg-green-50', bucket: 'ok', remainingMs };
 }
 
-function inr(n) { return `₹${Number(n || 0).toLocaleString('en-IN')}`; }
+function usd(n) { return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 
 export default function Alerts() {
   const { isManager, isEmployee, currentAnalyst } = useRole();
@@ -236,7 +236,7 @@ function KanbanBoard({
                       </div>
                       <div className="text-xs text-slate-500 mt-0.5">{a.scenario}</div>
                       <div className="text-[11px] text-slate-400 mt-0.5">
-                        {inr(a.amount_flagged_inr)} · {a.txn_count_flagged} txn · {a.counterparty_country}
+                        {usd(a.amount_flagged_inr)} · {a.txn_count_flagged} txn · {a.counterparty_country}
                       </div>
                       <div className="mt-2 flex items-center justify-between text-xs">
                         <div className="text-slate-500 truncate max-w-[55%]">
@@ -299,7 +299,7 @@ function KanbanBoard({
                 <Row k="Risk Score" v={`${selected.risk_score}/100`} />
                 <Row k="SLA" v={<span className={selected.sla_breached ? 'text-red-600 font-semibold' : 'text-green-600'}>{selected.due_status}</span>} />
                 <Row k="Age" v={`${selected.age_days} / ${selected.sla_days} days`} />
-                <Row k="Amount" v={inr(selected.amount_flagged_inr)} />
+                <Row k="Amount" v={usd(selected.amount_flagged_inr)} />
                 <Row k="Txn count" v={selected.txn_count_flagged} />
                 <Row k="Counterparty" v={selected.counterparty_country} />
                 <Row k="Channel" v={selected.channel} />

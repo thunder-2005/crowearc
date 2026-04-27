@@ -123,10 +123,27 @@ router.get('/:id', (req, res) => {
       FROM kyc_reviews WHERE customer_id = ? AND id <> ? ORDER BY id DESC LIMIT 10
   `).all(customer.customer_id, row.id) : [];
 
+  let triggeredBySar = null;
+  if (row.triggered_by_sar_id) {
+    triggeredBySar = db.prepare(`
+      SELECT sar_id, sar_status, filed_date, prepared_by, customer_name, alert_scenario
+        FROM sar_filings WHERE sar_id = ?
+    `).get(row.triggered_by_sar_id);
+  }
+  let triggeredByAlert = null;
+  if (row.triggered_by_alert_id) {
+    triggeredByAlert = db.prepare(`
+      SELECT alert_id, scenario, alert_status, priority, created_date
+        FROM alerts WHERE alert_id = ?
+    `).get(row.triggered_by_alert_id);
+  }
+
   res.json({
     ...deserialize(row),
     customer: customer ? { ...customer, accounts } : null,
-    alerts, sars, documents, previous_reviews: previousReviews
+    alerts, sars, documents, previous_reviews: previousReviews,
+    triggered_by_sar: triggeredBySar,
+    triggered_by_alert: triggeredByAlert
   });
 });
 

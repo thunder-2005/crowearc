@@ -119,17 +119,45 @@ router.post('/', (req, res) => {
   res.status(201).json(deserialize(row));
 });
 
+function enrich(row) {
+  if (!row) return row;
+  const out = deserialize(row);
+  if (out.customer_id) {
+    const cust = db.prepare(`
+      SELECT customer_name, customer_risk_rating, cdd_level,
+             last_kyc_review_date, next_kyc_due_date, kyc_review_status, exit_status, updated_at
+        FROM customers WHERE customer_id = ?
+    `).get(out.customer_id);
+    if (cust) {
+      out.customer_risk_rating = cust.customer_risk_rating;
+      out.customer_cdd_level   = cust.cdd_level;
+      out.customer_kyc_status  = cust.kyc_review_status;
+      out.customer_exit_status = cust.exit_status;
+      const draftAt = out.created_at || out.draft_created_date;
+      const lastKyc = cust.last_kyc_review_date;
+      out.kyc_data_changed = !!(draftAt && lastKyc && lastKyc > draftAt.slice(0, 10));
+    }
+  }
+  const kyc = db.prepare(`
+    SELECT id FROM kyc_reviews
+     WHERE triggered_by_sar_id = ?
+     ORDER BY id DESC LIMIT 1
+  `).get(out.sar_id);
+  out.kyc_review_id = kyc ? kyc.id : null;
+  return out;
+}
+
 router.get('/by-case/:case_id', (req, res) => {
   const row = db.prepare('SELECT * FROM sar_filings WHERE case_id = ?').get(req.params.case_id);
   if (!row) return res.status(404).json({ error: 'No SAR filing for case' });
-  res.json(deserialize(row));
+  res.json(enrich(row));
 });
 
 router.get('/:id', (req, res) => {
   const row = db.prepare('SELECT * FROM sar_filings WHERE sar_id = ? OR id = ?')
     .get(req.params.id, req.params.id);
   if (!row) return res.status(404).json({ error: 'SAR not found' });
-  res.json(deserialize(row));
+  res.json(enrich(row));
 });
 
 router.patch('/:id', (req, res) => {

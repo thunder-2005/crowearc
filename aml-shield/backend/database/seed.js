@@ -202,7 +202,7 @@ Scenario:       ${s.alert_scenario}
 Document Type:  ${docType}
 Prepared by:    ${s.prepared_by}
 Regulator Ref:  ${s.regulator_reference || '(not yet assigned)'}
-Amount (INR):   ${s.amount_involved_inr}
+Amount (USD):   ${s.amount_involved_inr}
 
 ${s.narrative_summary}
 `;
@@ -297,7 +297,7 @@ const CITIES = ['Mumbai', 'Delhi', 'Bengaluru', 'Hyderabad', 'Chennai', 'Pune', 
 const DIRECTOR_FIRSTS = ['Arjun', 'Priya', 'Rahul', 'Sneha', 'Vikram', 'Anjali', 'Rohan', 'Meera', 'Karan', 'Divya', 'Aditya', 'Kavya'];
 const DIRECTOR_LASTS  = ['Sharma', 'Iyer', 'Menon', 'Desai', 'Kapoor', 'Reddy', 'Patel', 'Bose', 'Agarwal', 'Chopra', 'Pillai', 'Saxena'];
 const BUSINESS_TYPES  = ['LLC', 'Private Limited', 'Partnership', 'LLP'];
-const TURNOVER_RANGES = ['INR 5 Cr – 25 Cr', 'INR 25 Cr – 100 Cr', 'INR 100 Cr – 500 Cr', 'INR 500 Cr – 1000 Cr', 'INR 1000 Cr +'];
+const TURNOVER_RANGES = ['$1M – $10M', '$10M – $50M', '$50M – $250M', '$250M – $500M', '$500M +'];
 const CDD_BY_RISK     = { 'Low': 'Standard', 'Medium': 'Standard', 'High': 'Enhanced', 'Very High': 'Enhanced' };
 const SRC_OF_FUNDS    = ['Trading receipts', 'Export proceeds', 'Contract revenues', 'Investment income', 'Working capital credit line'];
 const SRC_OF_WEALTH   = ['Founders capital + retained earnings', 'Family office holdings', 'Promoter group investments', 'Public listing proceeds'];
@@ -329,7 +329,7 @@ const customerRows = [...firstAlertByCustomer.entries()].map(([cid, a]) => {
   const empMedian  = a.segment?.includes('NBFC') || a.segment?.includes('Real Estate') ? 80 : 250;
   const empCount   = empMedian + Math.floor(r() * 400);
   const expVolume  = 120 + Math.floor(r() * 400);
-  const expValue   = 50000000 + Math.floor(r() * 500000000);
+  const expValue   = 600000 + Math.floor(r() * 6000000);
   return {
     customer_id: cid,
     customer_name: a.customer_name,
@@ -433,14 +433,14 @@ const accountByCustomer = new Map();
 for (const c of customerRows) {
   const r = rng(c.customer_id + '_acct');
   const accountNumber = `ACC${c.customer_id.replace('CUS-', '')}001`;
-  const balance = 5000000 + Math.floor(r() * 150000000);
-  insertAccount.run(accountNumber, c.customer_id, 'Current Account', 'INR', 'Active',
+  const balance = 60000 + Math.floor(r() * 1800000);
+  insertAccount.run(accountNumber, c.customer_id, 'Current Account', 'USD', 'Active',
                    c.date_of_incorporation, balance);
-  accountByCustomer.set(c.customer_id, { account_number: accountNumber, currency: 'INR', current_balance: balance });
+  accountByCustomer.set(c.customer_id, { account_number: accountNumber, currency: 'USD', current_balance: balance });
 
   if (r() > 0.5) {
     const escrow = `ACC${c.customer_id.replace('CUS-', '')}002`;
-    insertAccount.run(escrow, c.customer_id, 'Escrow', 'INR', 'Active',
+    insertAccount.run(escrow, c.customer_id, 'Escrow', 'USD', 'Active',
                      c.date_of_incorporation, Math.floor(balance * 0.3));
   }
 }
@@ -549,7 +549,7 @@ for (const c of customerRows) {
 
   txns.sort((a, b) => (a.txn_date + a.txn_time).localeCompare(b.txn_date + b.txn_time));
 
-  let running = Math.max(1000000, account.current_balance - txns.reduce((s, t) => s + (t.txn_type === 'Credit' ? t.amount : -t.amount), 0));
+  let running = Math.max(12000, account.current_balance - txns.reduce((s, t) => s + (t.txn_type === 'Credit' ? t.amount : -t.amount), 0));
   for (const t of txns) {
     running = running + (t.txn_type === 'Credit' ? t.amount : -t.amount);
     insertTxn.run(

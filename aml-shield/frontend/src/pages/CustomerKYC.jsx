@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import api from '../api/client.js';
 import Card, { KpiCard } from '../components/shared/Card.jsx';
 import Table from '../components/shared/Table.jsx';
@@ -7,6 +7,7 @@ import Badge from '../components/shared/Badge.jsx';
 import { Search, Filter, Eye, AlertTriangle, ArrowLeft, ShieldCheck, Clock, CheckCircle2, FileText } from 'lucide-react';
 import { KycProfileBlock } from '../components/investigation/InvestigationWorkspace.jsx';
 import { useRole } from '../state/RoleContext.jsx';
+import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import { useToast } from '../state/ToastContext.jsx';
 
 export default function CustomerKYC() {
@@ -25,7 +26,7 @@ function dueLabel(dateStr) {
 }
 
 function CustomerDirectory() {
-  const nav = useNavigate();
+  const { goTo } = useRoleNavigate();
   const { isManager } = useRole();
   const { push } = useToast();
   const [rows, setRows] = useState([]);
@@ -65,7 +66,7 @@ function CustomerDirectory() {
         assigned_by: 'Compliance Manager'
       });
       push(`Review created — ${r.customer_name}`, 'success');
-      nav('/kyc-reviews');
+      goTo('kyc-reviews');
     } catch (e) {
       push('Failed to create review: ' + (e.response?.data?.error || e.message), 'error');
     }
@@ -132,7 +133,7 @@ function CustomerDirectory() {
 
       <Card bodyClassName="p-0">
         <Table
-          onRowClick={r => nav(`/customers/${r.customer_id}`)}
+          onRowClick={r => goTo(`customers/${r.customer_id}`)}
           columns={[
             { key: 'customer_id', label: 'Customer ID', cellClass: 'font-mono text-xs text-navy-900 font-medium' },
             { key: 'customer_name', label: 'Name', cellClass: 'font-medium' },
@@ -157,7 +158,7 @@ function CustomerDirectory() {
               key: 'actions', label: '',
               render: r => (
                 <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => nav(`/customers/${r.customer_id}`)}
+                  <button onClick={() => goTo(`customers/${r.customer_id}`)}
                     className="p-1.5 rounded hover:bg-slate-100 text-slate-600" title="View profile">
                     <Eye size={14} />
                   </button>
@@ -181,7 +182,7 @@ function CustomerDirectory() {
 }
 
 function CustomerProfilePage({ customerId }) {
-  const nav = useNavigate();
+  const { goTo } = useRoleNavigate();
   const { isManager } = useRole();
   const { push } = useToast();
   const [cust, setCust] = useState(null);
@@ -211,7 +212,7 @@ function CustomerProfilePage({ customerId }) {
       });
       push('Review created', 'success');
       reload();
-      nav('/kyc-reviews');
+      goTo('kyc-reviews');
     } catch (e) {
       push('Failed: ' + (e.response?.data?.error || e.message), 'error');
     }
@@ -219,10 +220,33 @@ function CustomerProfilePage({ customerId }) {
 
   return (
     <div className="space-y-4">
-      <button onClick={() => nav('/customers')}
+      <button onClick={() => goTo('customers')}
         className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-navy-900">
         <ArrowLeft size={14} /> Back to directory
       </button>
+
+      {sars.length > 0 && (
+        <div className="bg-red-50 border border-red-300 rounded p-3 flex items-center gap-3">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-600 text-white text-xs font-semibold">
+            <AlertTriangle size={12} /> SAR Filed
+          </span>
+          <div className="text-sm text-red-900 flex-1">
+            <span className="font-semibold">{sars.length}</span> SAR{sars.length === 1 ? '' : 's'} on record for this customer
+            {sars[0] && (
+              <span className="text-xs text-red-700 ml-2">
+                · most recent: <span className="font-mono">{sars[0].sar_id}</span>
+                {sars[0].filed_date ? ` filed ${sars[0].filed_date}` : ' (draft)'}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+      {cust.exit_status === 'Pending Exit' && (
+        <div className="bg-orange-50 border border-orange-300 rounded p-3 text-sm text-orange-900 inline-flex items-center gap-2">
+          <AlertTriangle size={14} />
+          <span>This customer is flagged <span className="font-semibold">Pending Exit</span> from a prior KYC review recommendation.</span>
+        </div>
+      )}
 
       <Card title="KYC Review Status" bodyClassName="p-4"
         action={
@@ -250,7 +274,7 @@ function CustomerProfilePage({ customerId }) {
             <div className="text-[10px] text-slate-500 uppercase tracking-wider">Open Review</div>
             <div className="mt-0.5">
               {open
-                ? <button onClick={() => nav(`/kyc-review/${open.id}`)}
+                ? <button onClick={() => goTo(`kyc-review/${open.id}`)}
                     className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1">
                     <FileText size={11} /> Review #{open.id}
                   </button>
@@ -280,7 +304,7 @@ function CustomerProfilePage({ customerId }) {
             <Row k="Employees" v={cust.number_of_employees} />
             <Row k="Source of Funds" v={cust.source_of_funds} />
             <Row k="Source of Wealth" v={cust.source_of_wealth} />
-            <Row k="Expected Vol/Val" v={`${cust.expected_monthly_volume} txn · ₹${(cust.expected_monthly_value || 0).toLocaleString('en-IN')}`} />
+            <Row k="Expected Vol/Val" v={`${cust.expected_monthly_volume} txn · $${Number(cust.expected_monthly_value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
           </div>
           <div className="mt-4 grid grid-cols-2 gap-4">
             <Section title={`Beneficial Owners (${cust.beneficial_owners?.length || 0})`}>

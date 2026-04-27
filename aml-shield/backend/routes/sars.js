@@ -51,8 +51,27 @@ router.get('/:id', (req, res) => {
   const source_alert = sar.source_alert_id
     ? db.prepare('SELECT * FROM alerts WHERE alert_id = ?').get(sar.source_alert_id)
     : null;
+  const linked_case = sar.case_id
+    ? db.prepare('SELECT * FROM cases WHERE case_id = ?').get(sar.case_id)
+    : null;
+  const triggeredReview = db.prepare(`
+    SELECT id, status, due_date, assigned_to, recommendation
+      FROM kyc_reviews WHERE triggered_by_sar_id = ?
+     ORDER BY id DESC LIMIT 1
+  `).get(sar.sar_id);
+  const customer = sar.customer_id
+    ? db.prepare(`
+        SELECT customer_id, customer_name, customer_risk_rating, cdd_level,
+               kyc_review_status, last_kyc_review_date, next_kyc_due_date, exit_status
+          FROM customers WHERE customer_id = ?
+      `).get(sar.customer_id)
+    : null;
 
-  res.json({ ...sar, documents, audit_trail, source_alert });
+  res.json({
+    ...sar, documents, audit_trail, source_alert, linked_case, customer,
+    kyc_review_id: triggeredReview ? triggeredReview.id : null,
+    triggered_kyc_review: triggeredReview || null
+  });
 });
 
 router.patch('/:id', (req, res) => {
@@ -143,7 +162,7 @@ router.get('/:id/export', (req, res) => {
     `Regulator Ref:   ${sar.regulator_reference || '-'}`,
     `Retention:       ${sar.retention_status || '-'} (expires ${sar.retention_expiry_date || '-'})`,
     `Legal Hold:      ${sar.law_enforcement_hold ? 'YES' : 'no'}`,
-    `Amount (INR):    ${sar.amount_involved_inr}`,
+    `Amount (USD):    ${sar.amount_involved_inr}`,
     ``,
     `NARRATIVE`,
     `---------`,

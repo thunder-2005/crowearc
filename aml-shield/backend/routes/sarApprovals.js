@@ -213,6 +213,52 @@ router.post('/:id/approve', (req, res) => {
     );
   }
 
+  // Immediately trigger a SAR-driven KYC review for the customer
+  if (existing.customer_id) {
+    const cust = db.prepare(`
+      SELECT customer_risk_rating, cdd_level FROM customers WHERE customer_id = ?
+    `).get(existing.customer_id);
+    const openExisting = db.prepare(`
+      SELECT id FROM kyc_reviews
+       WHERE customer_id = ?
+         AND review_type = 'triggered_sar'
+         AND status NOT IN ('completed', 'rejected')
+       ORDER BY id DESC LIMIT 1
+    `).get(existing.customer_id);
+    if (!openExisting) {
+      db.prepare(`
+        INSERT INTO kyc_reviews
+          (customer_id, review_type, status, priority, due_date,
+           previous_risk_rating, previous_cdd_level,
+           triggered_by_sar_id, triggered_by_alert_id)
+        VALUES (?, 'triggered_sar', 'pending', 'Urgent', ?, ?, ?, ?, ?)
+      `).run(
+        existing.customer_id, today,
+        cust?.customer_risk_rating || null,
+        cust?.cdd_level || null,
+        existing.sar_id,
+        existing.source_alert_id || null
+      );
+      db.prepare(`
+        INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_id, related_type, tone)
+        VALUES (NULL, 'manager', 'kyc_triggered_sar', ?, ?, ?, 'kyc_review', 'error')
+      `).run(
+        `SAR-triggered KYC review — ${existing.customer_name}`,
+        `${existing.sar_id} was just filed for ${existing.customer_name}; assign an analyst to the new KYC review.`,
+        existing.customer_id
+      );
+    } else {
+      // Link the existing open triggered review to this SAR if not yet linked
+      db.prepare(`
+        UPDATE kyc_reviews
+           SET triggered_by_sar_id = COALESCE(triggered_by_sar_id, ?),
+               triggered_by_alert_id = COALESCE(triggered_by_alert_id, ?),
+               updated_at = datetime('now')
+         WHERE id = ?
+      `).run(existing.sar_id, existing.source_alert_id || null, openExisting.id);
+    }
+  }
+
   res.json(db.prepare('SELECT * FROM sar_filings WHERE sar_id = ?').get(existing.sar_id));
 });
 

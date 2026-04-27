@@ -4,7 +4,7 @@ const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
 
-const { db, initSchema, seedAdminDataIfEmpty } = require('./database/db');
+const { db, initSchema, seedAdminDataIfEmpty, migrateInrToUsd, backfillKycTriggerLinks } = require('./database/db');
 
 const alertsRouter = require('./routes/alerts');
 const casesRouter = require('./routes/cases');
@@ -33,6 +33,8 @@ const UPLOAD_DIR = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 initSchema();
+migrateInrToUsd();
+backfillKycTriggerLinks();
 seedAdminDataIfEmpty();
 
 app.use(cors());

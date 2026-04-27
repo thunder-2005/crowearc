@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import api from '../api/client.js';
+import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import Card from '../components/shared/Card.jsx';
 import Badge from '../components/shared/Badge.jsx';
 import { useRole } from '../state/RoleContext.jsx';
@@ -34,13 +35,13 @@ const CHECKLIST_ITEMS = [
   { k: 'deadline',   label: 'Filing deadline is within regulatory timeframe' }
 ];
 
-function inrFmt(n) { return `₹${Number(n || 0).toLocaleString('en-IN')}`; }
+function usdFmt(n) { return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 
 export default function SARApprovalReview() {
   const { sarId } = useParams();
   const { isManager } = useRole();
   const { push } = useToast();
-  const navigate = useNavigate();
+  const { goTo } = useRoleNavigate();
 
   const [tab, setTab] = useState('details');
   const [sar, setSar] = useState(null);
@@ -84,7 +85,7 @@ export default function SARApprovalReview() {
         checklist
       });
       push(`SAR ${sarId} approved and filed successfully`, 'success');
-      navigate('/sar-approvals');
+      goTo('sar-approvals');
     } catch (e) {
       push('Approval failed: ' + (e.response?.data?.error || e.message), 'error');
     } finally { setSubmitting(false); }
@@ -100,7 +101,7 @@ export default function SARApprovalReview() {
         checklist
       });
       push(`SAR ${sarId} returned for revision`, 'warning');
-      navigate('/sar-approvals');
+      goTo('sar-approvals');
     } catch (e) {
       push('Reject failed: ' + (e.response?.data?.error || e.message), 'error');
     } finally { setSubmitting(false); }
@@ -126,7 +127,7 @@ export default function SARApprovalReview() {
   return (
     <div className="space-y-4">
       <ReviewHeader sar={sar}
-        onBack={() => navigate('/sar-approvals')}
+        onBack={() => goTo('sar-approvals')}
         onApprove={() => setShowApprove(true)}
         onReject={() => setShowReject(true)}
         canApprove={allChecked && sar.sar_status !== 'Filed'} />
@@ -371,7 +372,7 @@ function ActivityView({ sar }) {
       <Grid items={[
         ['Activity From', sar.activity_date_from],
         ['Activity To',   sar.activity_date_to],
-        ['Total Amount Involved', inrFmt(sar.amount_involved_inr)]
+        ['Total Amount Involved', usdFmt(sar.amount_involved_inr)]
       ]} />
 
       <SectionTitle title="Activity Types" />
@@ -438,7 +439,7 @@ function AlertedTxnsTable({ customerId, alertId }) {
               <td className="px-2 py-1 font-mono">{t.transaction_id}</td>
               <td className="px-2 py-1">{t.txn_type}</td>
               <td className="px-2 py-1 truncate max-w-[180px]">{t.counterparty}</td>
-              <td className="px-2 py-1 text-right font-mono">{inrFmt(t.amount)}</td>
+              <td className="px-2 py-1 text-right font-mono">{usdFmt(t.amount)}</td>
             </tr>
           ))}
         </tbody>
@@ -717,7 +718,7 @@ function CaseContextCard({ sar }) {
   return (
     <Card title="Case Context" bodyClassName="p-4 text-sm space-y-2">
       <Row k="Scenario" v={a.scenario || sar.alert_scenario || '—'} />
-      <Row k="Alert Amount" v={inrFmt(a.amount_flagged_inr)} />
+      <Row k="Alert Amount" v={usdFmt(a.amount_flagged_inr)} />
       <Row k="Detection" v={sar.detection_date || a.created_date || '—'} />
       <Row k="Customer Risk" v={c.customer_risk_rating ? <Badge value={c.customer_risk_rating} /> : '—'} />
       <Row k="KYC Status" v={c.kyc_review_status || '—'} />

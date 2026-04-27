@@ -1,25 +1,28 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Search, Bell, User, ChevronDown, Briefcase, UserCheck, Check, FileText, AlertTriangle, ShieldAlert, X } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Search, Bell, User, ChevronDown, Briefcase, Check, FileText, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useRole } from '../state/RoleContext.jsx';
+import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import api from '../api/client.js';
 
 const TITLES = {
-  '/': 'Dashboard',
-  '/alerts': 'TM Alerts',
-  '/cases': 'SAR Cases',
-  '/investigations': 'Investigations',
-  '/customers': 'Customer KYC',
-  '/sars': 'SAR Repository',
-  '/sar-approvals': 'SAR Approval Queue',
-  '/sar-approval': 'SAR Review',
-  '/sar-filing': 'Create SAR',
-  '/retention': 'Retention Monitor',
-  '/audit': 'Audit Trail',
-  '/reports': 'Reports',
-  '/analytics': 'Analytics',
-  '/users': 'Users',
-  '/settings': 'Settings'
+  'dashboard':       'Dashboard',
+  'alerts':          'TM Alerts',
+  'cases':           'SAR Cases',
+  'investigations':  'Investigations',
+  'customers':       'Customer KYC',
+  'sars':            'SAR Repository',
+  'sar-approvals':   'SAR Approval Queue',
+  'sar-approval':    'SAR Review',
+  'sar-filing':      'Create SAR',
+  'kyc-reviews':     'KYC Reviews',
+  'kyc-review':      'KYC Review',
+  'retention':       'Retention Monitor',
+  'audit':           'Audit Trail',
+  'reports':         'Reports',
+  'analytics':       'Analytics',
+  'users':           'Users',
+  'settings':        'Settings'
 };
 
 const NOTIFICATION_ICONS = {
@@ -51,12 +54,12 @@ function relativeTime(iso) {
 
 export default function Topbar() {
   const loc = useLocation();
-  const navigate = useNavigate();
-  const { role, setRole, currentAnalyst, setCurrentAnalyst, analysts, isManager } = useRole();
-  const [open, setOpen] = useState(false);
+  const { goTo } = useRoleNavigate();
+  const { currentAnalyst, setCurrentAnalyst, analysts, isManager } = useRole();
   const [bellOpen, setBellOpen] = useState(false);
-  const popRef = useRef();
+  const [analystOpen, setAnalystOpen] = useState(false);
   const bellRef = useRef();
+  const analystRef = useRef();
 
   const [unread, setUnread] = useState(0);
   const [notifications, setNotifications] = useState([]);
@@ -89,25 +92,21 @@ export default function Topbar() {
   }, [refreshCount]);
 
   useEffect(() => { refreshCount(); }, [loc.pathname, refreshCount]);
-
-  useEffect(() => {
-    if (bellOpen) refreshList();
-  }, [bellOpen, refreshList]);
+  useEffect(() => { if (bellOpen) refreshList(); }, [bellOpen, refreshList]);
 
   useEffect(() => {
     const onClick = (e) => {
-      if (popRef.current && !popRef.current.contains(e.target)) setOpen(false);
       if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false);
+      if (analystRef.current && !analystRef.current.contains(e.target)) setAnalystOpen(false);
     };
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
-  const base = '/' + (loc.pathname.split('/')[1] || '');
-  const title = TITLES[base] || TITLES[loc.pathname] || 'AML Shield';
-
-  const identityName = isManager ? 'Compliance Manager' : (currentAnalyst || 'Compliance Analyst');
-  const identitySub  = isManager ? 'Manager View · full oversight' : `Employee View · ${currentAnalyst || '—'}`;
+  // Title comes from path segment after /manager or /employee
+  const seg = loc.pathname.split('/').filter(Boolean);
+  const sectionKey = seg[1] || 'dashboard';
+  const title = TITLES[sectionKey] || 'AML Shield';
 
   const onNotificationClick = async (n) => {
     if (!n.is_read) {
@@ -115,19 +114,19 @@ export default function Topbar() {
     }
     setBellOpen(false);
     if (n.related_type === 'sar') {
-      if (isManager && (n.type === 'sar_pending')) {
-        navigate(`/sar-approval/${n.related_id}`);
+      if (isManager && n.type === 'sar_pending') {
+        goTo(`sar-approval/${n.related_id}`);
       } else if (n.type === 'sar_rejected') {
         try {
           const { data } = await api.get(`/sar-filings/${n.related_id}`);
-          if (data?.case_id) navigate(`/sar-filing/${data.case_id}`);
-          else navigate('/sars');
-        } catch (_e) { navigate('/sars'); }
+          if (data?.case_id) goTo(`sar-filing/${data.case_id}`);
+          else goTo('sars');
+        } catch (_e) { goTo('sars'); }
       } else if (n.type === 'sar_approved') {
-        navigate('/sars');
+        goTo('sars');
       }
     } else if (n.related_type === 'alert') {
-      navigate('/alerts');
+      goTo('alerts');
     }
     refreshCount();
   };
@@ -156,7 +155,18 @@ export default function Topbar() {
           className="w-full pl-9 pr-3 py-2 text-sm bg-slate-100 rounded-md border border-transparent focus:border-blue-500 focus:bg-white focus:outline-none"
         />
       </div>
-      <div className="flex items-center gap-3 ml-auto relative">
+      <div className="flex items-center gap-3 ml-auto">
+        {/* Role badge — driven entirely by URL */}
+        <span className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
+          isManager
+            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+            : 'bg-green-50 text-green-700 border-green-200'
+        }`}>
+          {isManager ? <Briefcase size={12} /> : <User size={12} />}
+          {isManager ? 'Manager View' : 'Employee View'}
+        </span>
+
+        {/* Bell */}
         <div ref={bellRef} className="relative">
           <button
             onClick={() => setBellOpen(o => !o)}
@@ -211,7 +221,7 @@ export default function Topbar() {
               </div>
               {isManager && (
                 <button
-                  onClick={() => { setBellOpen(false); navigate('/sar-approvals'); }}
+                  onClick={() => { setBellOpen(false); goTo('sar-approvals'); }}
                   className="w-full text-center text-xs text-blue-600 hover:bg-slate-50 py-2 border-t border-slate-100"
                 >
                   View All in Approval Queue →
@@ -221,84 +231,69 @@ export default function Topbar() {
           )}
         </div>
 
-        <div ref={popRef} className="relative">
-          <button
-            onClick={() => setOpen(o => !o)}
-            className="flex items-center gap-2 pl-3 border-l border-slate-200 py-1 pr-2 rounded-md hover:bg-slate-50"
-            title="Switch view"
-          >
-            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white ${isManager ? 'bg-indigo-600' : 'bg-blue-600'}`}>
-              {isManager ? <Briefcase size={16} /> : <User size={16} />}
+        {/* Identity / analyst selector */}
+        {isManager ? (
+          <div className="flex items-center gap-2 pl-3 border-l border-slate-200 py-1 pr-2">
+            <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white">
+              <Briefcase size={16} />
             </div>
-            <div className="leading-tight text-left">
-              <div className="text-sm font-medium text-navy-900 flex items-center gap-1">
-                {identityName}
-                <ChevronDown size={14} className="text-slate-400" />
-              </div>
-              <div className="text-xs text-slate-500">{identitySub}</div>
+            <div className="leading-tight">
+              <div className="text-sm font-medium text-navy-900">Compliance Manager</div>
+              <div className="text-xs text-slate-500">Manager View · full oversight</div>
             </div>
-          </button>
-
-          {open && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-xl z-30 overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Switch View</div>
+          </div>
+        ) : (
+          <div ref={analystRef} className="relative">
+            <button
+              onClick={() => setAnalystOpen(o => !o)}
+              className="flex items-center gap-2 pl-3 border-l border-slate-200 py-1 pr-2 rounded-md hover:bg-slate-50"
+              title="Switch active analyst"
+            >
+              <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white">
+                <User size={16} />
               </div>
-
-              <button
-                onClick={() => { setRole('manager'); setOpen(false); }}
-                className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 ${role === 'manager' ? 'bg-indigo-50' : ''}`}
-              >
-                <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white shrink-0">
-                  <Briefcase size={16} />
+              <div className="leading-tight text-left">
+                <div className="text-sm font-medium text-navy-900 flex items-center gap-1">
+                  Logged in as: {currentAnalyst || 'Select…'}
+                  <ChevronDown size={14} className="text-slate-400" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-navy-900">Manager View</div>
-                    {role === 'manager' && <Check size={14} className="text-indigo-600" />}
+                <div className="text-xs text-slate-500">Employee View</div>
+              </div>
+            </button>
+            {analystOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-xl z-30 overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Active Analyst
                   </div>
-                  <div className="text-xs text-slate-500">Full team oversight, all alerts / cases / SARs, read-only SAR actions.</div>
-                </div>
-              </button>
-
-              <div className="border-t border-slate-100" />
-
-              <button
-                onClick={() => { setRole('employee'); setOpen(false); }}
-                className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-50 ${role === 'employee' ? 'bg-blue-50' : ''}`}
-              >
-                <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0">
-                  <UserCheck size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-navy-900">Employee View</div>
-                    {role === 'employee' && <Check size={14} className="text-blue-600" />}
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Stored locally — each browser tab keeps its own selection.
                   </div>
-                  <div className="text-xs text-slate-500">Personal queue — only alerts &amp; cases assigned to the selected analyst.</div>
                 </div>
-              </button>
-
-              {role === 'employee' && (
-                <div className="px-4 py-3 border-t border-slate-100 bg-blue-50/30">
-                  <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Analyst</label>
-                  <select
-                    value={currentAnalyst || ''}
-                    onChange={e => setCurrentAnalyst(e.target.value)}
-                    className="w-full text-sm border border-slate-200 rounded-md px-2 py-1.5 bg-white"
-                  >
-                    {analysts.length === 0 && <option>Loading…</option>}
-                    {analysts.map(a => <option key={a} value={a}>{a}</option>)}
-                  </select>
+                <div className="max-h-[280px] overflow-y-auto">
+                  {analysts.length === 0 && (
+                    <div className="px-4 py-3 text-sm text-slate-400">Loading analysts…</div>
+                  )}
+                  {analysts.map(a => (
+                    <button
+                      key={a}
+                      onClick={() => { setCurrentAnalyst(a); setAnalystOpen(false); }}
+                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 ${
+                        a === currentAnalyst ? 'bg-blue-50' : ''
+                      }`}
+                    >
+                      <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold">
+                        {a.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
+                      </div>
+                      <span className="text-sm text-navy-900 flex-1">{a}</span>
+                      {a === currentAnalyst && <Check size={14} className="text-blue-600" />}
+                    </button>
+                  ))}
                 </div>
-              )}
-
-              <div className="px-4 py-2 border-t border-slate-100 text-[11px] text-slate-400">
-                rakshit.sapra@crowe.com
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

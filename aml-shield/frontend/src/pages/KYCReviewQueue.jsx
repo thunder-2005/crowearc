@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
+import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import Card, { KpiCard } from '../components/shared/Card.jsx';
 import Badge from '../components/shared/Badge.jsx';
 import Table from '../components/shared/Table.jsx';
@@ -42,7 +42,7 @@ function daysFromToday(dateStr) {
 
 export default function KYCReviewQueue({ scope = 'manager' }) {
   const { isManager, currentAnalyst } = useRole();
-  const navigate = useNavigate();
+  const { goTo } = useRoleNavigate();
   const { push } = useToast();
   const isMine = scope === 'mine';
 
@@ -204,7 +204,7 @@ export default function KYCReviewQueue({ scope = 'manager' }) {
                     className="px-2 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center gap-1">
                     <UserPlus size={12} /> Assign
                   </button>
-                  <button onClick={() => navigate(`/kyc-review/${r.id}`)}
+                  <button onClick={() => goTo(`kyc-review/${r.id}`)}
                     title="View"
                     className="px-2 py-1 rounded text-xs border border-slate-200 hover:border-blue-400 hover:text-blue-600 inline-flex items-center gap-1">
                     <Eye size={12} /> View
