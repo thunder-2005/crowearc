@@ -23,6 +23,8 @@ const sarApprovalsRouter = require('./routes/sarApprovals');
 const notificationsRouter = require('./routes/notifications');
 const slaRouter = require('./routes/sla');
 const kycReviewsRouter = require('./routes/kycReviews');
+const analyticsRouter = require('./routes/analytics');
+const reportsRouter = require('./routes/reports');
 const slaMonitor = require('./jobs/slaMonitor');
 const kycReviewMonitor = require('./jobs/kycReviewMonitor');
 
@@ -62,6 +64,8 @@ app.use('/api/sar-approvals', sarApprovalsRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/sla', slaRouter);
 app.use('/api/kyc-reviews', kycReviewsRouter);
+app.use('/api/analytics', analyticsRouter);
+app.use('/api/reports', reportsRouter);
 
 app.use((err, _req, res, _next) => {
   console.error('[error]', err);

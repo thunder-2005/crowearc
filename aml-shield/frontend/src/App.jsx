@@ -15,6 +15,8 @@ import SARApprovalQueue from './pages/SARApprovalQueue.jsx';
 import SARApprovalReview from './pages/SARApprovalReview.jsx';
 import KYCReviewQueue from './pages/KYCReviewQueue.jsx';
 import KYCReviewWorkspace from './pages/KYCReviewWorkspace.jsx';
+import Analytics from './pages/Analytics.jsx';
+import Reports from './pages/Reports.jsx';
 import SLAPopup from './components/SLAPopup.jsx';
 import Placeholder from './pages/Placeholder.jsx';
 
@@ -55,8 +57,8 @@ export default function App() {
             <Route path="kyc-review/:reviewId"  element={<KYCReviewWorkspace />} />
             <Route path="retention"             element={<RetentionMonitor />} />
             <Route path="audit"                 element={<AuditLog />} />
-            <Route path="reports"               element={<Placeholder title="Reports" />} />
-            <Route path="analytics"             element={<Placeholder title="Analytics" />} />
+            <Route path="reports"               element={<Reports />} />
+            <Route path="analytics"             element={<Analytics />} />
             <Route path="users"                 element={<Users />} />
             <Route path="settings"              element={<Settings />} />
             <Route path="*"                     element={<Navigate to="/manager/dashboard" replace />} />
@@ -78,7 +80,7 @@ export default function App() {
             <Route path="sar-filing/:caseId"    element={<SARFiling />} />
             <Route path="kyc-reviews/mine"      element={<KYCReviewQueue scope="mine" />} />
             <Route path="kyc-review/:reviewId"  element={<KYCReviewWorkspace />} />
-            <Route path="reports"               element={<Placeholder title="My Reports" />} />
+            <Route path="reports"               element={<Reports />} />
             <Route path="settings"              element={<Settings />} />
             <Route path="*"                     element={<Navigate to="/employee/dashboard" replace />} />
           </Routes>

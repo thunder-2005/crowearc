@@ -375,6 +375,18 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_kyc_review_assigned ON kyc_reviews(assigned_to);
     CREATE INDEX IF NOT EXISTS idx_kyc_review_due      ON kyc_reviews(due_date);
     CREATE INDEX IF NOT EXISTS idx_kyc_review_docs     ON kyc_review_documents(review_id);
+
+    CREATE TABLE IF NOT EXISTS report_schedules (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      report_key    TEXT NOT NULL,
+      frequency     TEXT NOT NULL,
+      day_of        TEXT,
+      format        TEXT NOT NULL,
+      recipients    TEXT NOT NULL,
+      created_by    TEXT,
+      created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_report_schedules_key ON report_schedules(report_key);
   `);
 
   ensureColumns('customers', [
@@ -433,6 +445,10 @@ function initSchema() {
   ensureColumns('kyc_reviews', [
     ['triggered_by_sar_id',   'TEXT'],
     ['triggered_by_alert_id', 'TEXT']
+  ]);
+
+  ensureColumns('alerts', [
+    ['escalated_to', 'TEXT']
   ]);
 }
 

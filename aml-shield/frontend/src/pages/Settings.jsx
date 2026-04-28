@@ -46,39 +46,23 @@ function keysForSection(sectionK, allKeys) {
 }
 
 export default function Settings() {
-  const [tab, setTab] = useState('manager');
+  const { isManager } = useRole();
 
   return (
     <div className="space-y-4">
       <div>
-        <div className="text-xl font-bold text-navy-900">Settings</div>
+        <div className="text-xl font-bold text-navy-900">
+          {isManager ? 'Manager Settings' : 'My Settings'}
+        </div>
         <div className="text-sm text-slate-500">
-          Manager-level controls apply team-wide. Employee-level settings apply only to the selected analyst.
+          {isManager
+            ? 'Manager-level controls apply team-wide.'
+            : 'These preferences apply only to your account.'}
         </div>
       </div>
 
-      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
-        <TabButton active={tab === 'manager'} onClick={() => setTab('manager')}>
-          Manager Settings
-        </TabButton>
-        <TabButton active={tab === 'employee'} onClick={() => setTab('employee')}>
-          Employee Settings
-        </TabButton>
-      </div>
-
-      {tab === 'manager' ? <ManagerSettingsPane /> : <EmployeeSettingsPane />}
+      {isManager ? <ManagerSettingsPane /> : <EmployeeSettingsPane />}
     </div>
-  );
-}
-
-function TabButton({ active, onClick, children }) {
-  return (
-    <button onClick={onClick}
-      className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${
-        active ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-navy-900'
-      }`}>
-      {children}
-    </button>
   );
 }
 
