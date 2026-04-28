@@ -19,13 +19,23 @@ export function RoleProvider({ children }) {
   const [currentAnalyst, setCurrentAnalystState] = useState(() => {
     try { return localStorage.getItem(ANALYST_KEY) || null; } catch (_e) { return null; }
   });
-  const [analysts, setAnalysts] = useState([]);
+  const [analysts, setAnalysts] = useState([]);          // string[] (names)
+  const [analystProfiles, setAnalystProfiles] = useState({}); // { [name]: { role, team, level } }
 
-  // Pull analyst names once at mount
+  // Pull analyst profiles once at mount — gives us the L1/L2 level too
   useEffect(() => {
-    api.get('/alerts/analysts')
+    api.get('/users')
       .then(r => {
-        const names = r.data.map(a => a.analyst);
+        const profiles = {};
+        const names = [];
+        for (const u of r.data || []) {
+          if (!u.role || !/AML\s+Analyst/i.test(u.role)) continue;
+          const level = /L2/i.test(u.role) ? 'L2' : 'L1';
+          profiles[u.name] = { role: u.role, team: u.team, level };
+          names.push(u.name);
+        }
+        names.sort();
+        setAnalystProfiles(profiles);
         setAnalysts(names);
         setCurrentAnalystState(prev => {
           if (prev && names.includes(prev)) return prev;
@@ -51,16 +61,23 @@ export function RoleProvider({ children }) {
     else if (next === 'employee') navigate('/employee/dashboard');
   }, [navigate]);
 
+  const currentAnalystLevel = currentAnalyst && analystProfiles[currentAnalyst]?.level;
+  const isL2 = currentAnalystLevel === 'L2';
+  const isL1 = currentAnalystLevel === 'L1';
+
   const value = useMemo(() => ({
     role,
     setRole,
     currentAnalyst,
     setCurrentAnalyst,
     analysts,
+    analystProfiles,
+    currentAnalystLevel,
+    isL1, isL2,
     isManager: role === 'manager',
     isEmployee: role === 'employee',
     scopeParam: role === 'employee' && currentAnalyst ? { assigned_to: currentAnalyst } : {},
-  }), [role, setRole, currentAnalyst, setCurrentAnalyst, analysts]);
+  }), [role, setRole, currentAnalyst, setCurrentAnalyst, analysts, analystProfiles, currentAnalystLevel]);
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;
 }

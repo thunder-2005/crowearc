@@ -55,7 +55,7 @@ function relativeTime(iso) {
 export default function Topbar() {
   const loc = useLocation();
   const { goTo } = useRoleNavigate();
-  const { currentAnalyst, setCurrentAnalyst, analysts, isManager } = useRole();
+  const { currentAnalyst, setCurrentAnalyst, analysts, analystProfiles, currentAnalystLevel, isManager } = useRole();
   const [bellOpen, setBellOpen] = useState(false);
   const [analystOpen, setAnalystOpen] = useState(false);
   const bellRef = useRef();
@@ -255,9 +255,16 @@ export default function Topbar() {
               <div className="leading-tight text-left">
                 <div className="text-sm font-medium text-navy-900 flex items-center gap-1">
                   Logged in as: {currentAnalyst || 'Select…'}
+                  {currentAnalystLevel && (
+                    <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      currentAnalystLevel === 'L2'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>{currentAnalystLevel}</span>
+                  )}
                   <ChevronDown size={14} className="text-slate-400" />
                 </div>
-                <div className="text-xs text-slate-500">Employee View</div>
+                <div className="text-xs text-slate-500">Employee View · {analystProfiles[currentAnalyst]?.team || 'Analyst'}</div>
               </div>
             </button>
             {analystOpen && (
@@ -274,21 +281,31 @@ export default function Topbar() {
                   {analysts.length === 0 && (
                     <div className="px-4 py-3 text-sm text-slate-400">Loading analysts…</div>
                   )}
-                  {analysts.map(a => (
-                    <button
-                      key={a}
-                      onClick={() => { setCurrentAnalyst(a); setAnalystOpen(false); }}
-                      className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 ${
-                        a === currentAnalyst ? 'bg-blue-50' : ''
-                      }`}
-                    >
-                      <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold">
-                        {a.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
-                      </div>
-                      <span className="text-sm text-navy-900 flex-1">{a}</span>
-                      {a === currentAnalyst && <Check size={14} className="text-blue-600" />}
-                    </button>
-                  ))}
+                  {analysts.map(a => {
+                    const lvl = analystProfiles[a]?.level;
+                    return (
+                      <button
+                        key={a}
+                        onClick={() => { setCurrentAnalyst(a); setAnalystOpen(false); }}
+                        className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 ${
+                          a === currentAnalyst ? 'bg-blue-50' : ''
+                        }`}
+                      >
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${
+                          lvl === 'L2' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {a.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
+                        </div>
+                        <span className="text-sm text-navy-900 flex-1">{a}</span>
+                        {lvl && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mr-1 ${
+                            lvl === 'L2' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                          }`}>{lvl}</span>
+                        )}
+                        {a === currentAnalyst && <Check size={14} className="text-blue-600" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -7,7 +7,7 @@ import Table from '../components/shared/Table.jsx';
 import Badge from '../components/shared/Badge.jsx';
 import {
   AlertTriangle, Activity, CheckCircle2, Clock, TrendingUp, Briefcase,
-  Target, Users, ShieldCheck, Eye
+  Target, Users, ShieldCheck, Eye, ShieldAlert, ArrowUpRight
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -165,6 +165,8 @@ export default function Dashboard() {
 
       {isManager && <SlaWatch />}
 
+      {isManager && <L2OversightWidget />}
+
       <Card title="SLA Breaches — Top 10" subtitle={isEmployee ? 'Your most overdue alerts' : 'Oldest breaching alerts (team-wide)'}>
         <Table
           columns={[
@@ -232,6 +234,79 @@ function fmtRemaining(hrs) {
   const d = Math.floor(hrs / 24);
   const h = Math.floor(hrs % 24);
   return `${d}d ${h}h`;
+}
+
+function L2OversightWidget() {
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    const load = () => api.get('/l2/stats/manager').then(r => setStats(r.data)).catch(() => {});
+    load();
+    const id = setInterval(load, 60_000);
+    return () => clearInterval(id);
+  }, []);
+  if (!stats) return null;
+
+  const decisionTone = (d) => d === 'escalated_sar' ? 'text-red-700 bg-red-50 border-red-200'
+    : d === 'closed' ? 'text-slate-700 bg-slate-50 border-slate-200'
+    : d === 'returned' ? 'text-yellow-700 bg-yellow-50 border-yellow-200'
+    : 'text-slate-600 bg-slate-50 border-slate-200';
+
+  return (
+    <Card
+      title="L2 Investigation Queue"
+      subtitle="L2 oversight · cases with L2 analysts and recent decisions"
+      action={<ShieldAlert size={14} className="text-purple-500" />}
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="space-y-2">
+          <div className="bg-purple-50 border border-purple-200 rounded p-3">
+            <div className="text-[10px] uppercase tracking-wide text-purple-700">Alerts with L2</div>
+            <div className="text-2xl font-bold text-purple-900 mt-1">{stats.total_open}</div>
+          </div>
+          <div className="bg-slate-50 border border-slate-200 rounded p-3">
+            <div className="text-[10px] uppercase tracking-wide text-slate-500">Avg days open</div>
+            <div className="text-2xl font-bold text-navy-900 mt-1">{stats.avg_days_open}<span className="text-sm text-slate-400">d</span></div>
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs font-semibold text-slate-500 uppercase mb-2">L2 Workload</div>
+          <div className="space-y-1.5">
+            {stats.workload.length === 0 && <div className="text-xs text-slate-400 italic">No active L2 cases</div>}
+            {stats.workload.map(w => (
+              <div key={w.analyst} className="flex items-center gap-2 text-xs border border-slate-200 rounded px-2 py-1.5">
+                <div className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-[10px]">
+                  {w.analyst.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
+                </div>
+                <span className="flex-1 text-navy-900">{w.analyst}</span>
+                <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-semibold">{w.open_cases} open</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Recent Decisions (last 5)</div>
+          <div className="space-y-1.5">
+            {stats.recent_decisions.length === 0 && <div className="text-xs text-slate-400 italic">No decisions yet</div>}
+            {stats.recent_decisions.map((r, i) => (
+              <div key={i} className={`text-xs border rounded px-2 py-1.5 ${decisionTone(r.decision)}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium truncate">{r.customer_name || r.alert_id}</span>
+                  <span className="text-[10px] uppercase font-bold whitespace-nowrap">
+                    {r.decision === 'escalated_sar' ? 'SAR' : r.decision === 'closed' ? 'CLOSED' : r.decision === 'returned' ? 'RETURNED' : '—'}
+                  </span>
+                </div>
+                <div className="text-[10px] mt-0.5">
+                  {r.decision_by || '—'} · {(r.decision_made_at || '').slice(0, 10)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 function SlaWatch() {

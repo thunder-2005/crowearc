@@ -25,6 +25,7 @@ const slaRouter = require('./routes/sla');
 const kycReviewsRouter = require('./routes/kycReviews');
 const analyticsRouter = require('./routes/analytics');
 const reportsRouter = require('./routes/reports');
+const l2Router = require('./routes/l2');
 const slaMonitor = require('./jobs/slaMonitor');
 const kycReviewMonitor = require('./jobs/kycReviewMonitor');
 
@@ -66,6 +67,7 @@ app.use('/api/sla', slaRouter);
 app.use('/api/kyc-reviews', kycReviewsRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/l2', l2Router);
 
 app.use((err, _req, res, _next) => {
   console.error('[error]', err);

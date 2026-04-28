@@ -450,6 +450,72 @@ function initSchema() {
   ensureColumns('alerts', [
     ['escalated_to', 'TEXT']
   ]);
+
+  // L2 Escalation Workspace
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS l2_cases (
+      id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+      l2_case_id               TEXT UNIQUE NOT NULL,
+      alert_id                 TEXT NOT NULL,
+      customer_id              TEXT,
+      customer_name            TEXT,
+      scenario                 TEXT,
+      priority                 TEXT,
+      escalated_by             TEXT,
+      escalated_at             TEXT NOT NULL,
+      escalation_reason        TEXT,
+      assigned_to              TEXT,
+      assigned_at              TEXT,
+      status                   TEXT NOT NULL DEFAULT 'Pending Assignment',
+      risk_score               INTEGER,
+      risk_factors             TEXT,
+      counterparty_analysis    TEXT,
+      l2_narrative             TEXT,
+      decision                 TEXT,
+      decision_made_at         TEXT,
+      decision_by              TEXT,
+      return_reason            TEXT,
+      return_instructions      TEXT,
+      sar_priority             TEXT,
+      created_at               TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at               TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_l2_cases_alert    ON l2_cases(alert_id);
+    CREATE INDEX IF NOT EXISTS idx_l2_cases_assigned ON l2_cases(assigned_to);
+    CREATE INDEX IF NOT EXISTS idx_l2_cases_status   ON l2_cases(status);
+
+    CREATE TABLE IF NOT EXISTS l2_notes (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      l2_case_id      TEXT NOT NULL,
+      note_text       TEXT NOT NULL,
+      analyst_id      TEXT,
+      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_l2_notes_case ON l2_notes(l2_case_id);
+
+    CREATE TABLE IF NOT EXISTS l2_documents (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      l2_case_id      TEXT NOT NULL,
+      document_name   TEXT NOT NULL,
+      file_path       TEXT NOT NULL,
+      document_type   TEXT,
+      uploaded_by     TEXT,
+      uploaded_at     TEXT NOT NULL DEFAULT (datetime('now')),
+      file_size       INTEGER DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_l2_docs_case ON l2_documents(l2_case_id);
+  `);
+
+  ensureColumns('alerts', [
+    ['escalated_to_l2_at',      'TEXT'],
+    ['l2_case_id',              'TEXT'],
+    ['l2_analyst_id',           'TEXT'],
+    ['l2_decision',             'TEXT'],
+    ['l2_decision_at',          'TEXT'],
+    ['returned_from_l2_at',     'TEXT'],
+    ['l2_return_reason',        'TEXT'],
+    ['l2_return_instructions',  'TEXT']
+  ]);
 }
 
 const { MANAGER_DEFAULTS, EMPLOYEE_DEFAULTS, colorForName } = require('./admin_defaults');

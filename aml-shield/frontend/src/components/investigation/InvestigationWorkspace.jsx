@@ -35,7 +35,30 @@ export default function InvestigationWorkspace({ alertId }) {
   }
 
   return (
-    <div className="flex gap-4 min-w-0 h-[calc(100vh-200px)]">
+    <div className="flex flex-col gap-3 min-w-0">
+      {alert.returned_from_l2_at && (
+        <div className="bg-yellow-50 border border-yellow-300 rounded-md px-4 py-3 text-sm">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={16} className="text-yellow-700 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <div className="font-semibold text-yellow-800">
+                Returned by L2 · {new Date(alert.returned_from_l2_at).toLocaleString()}
+              </div>
+              {alert.l2_return_reason && (
+                <div className="text-yellow-800 mt-0.5">
+                  <span className="font-medium">Reason:</span> {alert.l2_return_reason}
+                </div>
+              )}
+              {alert.l2_return_instructions && (
+                <div className="text-yellow-800 mt-0.5 whitespace-pre-wrap">
+                  <span className="font-medium">L2 instructions:</span> {alert.l2_return_instructions}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="flex gap-4 min-w-0 h-[calc(100vh-200px)]">
       <section className="flex-[0.65] min-w-0 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
         <LeftTabBar tab={leftTab} onChange={setLeftTab} />
         <div className="flex-1 min-h-0 overflow-y-auto">
@@ -54,6 +77,7 @@ export default function InvestigationWorkspace({ alertId }) {
           {rightTab === 'linked' && <LinkedCasesTab alert={alert} />}
         </div>
       </section>
+      </div>
     </div>
   );
 }
@@ -721,7 +745,7 @@ function CaseInfoTab({ alert, onAlertChange }) {
       });
       pushToast('Alert closed as False Positive', 'success');
       setModal(null);
-      setTimeout(() => closeTab(alert.alert_id), 2000);
+      setTimeout(() => closeTab('L1:' + alert.alert_id), 2000);
     } catch (e) {
       pushToast('Failed to close alert: ' + (e.response?.data?.error || e.message), 'error');
     } finally { setSubmitting(false); }
@@ -730,20 +754,22 @@ function CaseInfoTab({ alert, onAlertChange }) {
   const finishEscalateL2 = async (notes) => {
     setSubmitting(true);
     try {
-      await api.patch(`/alerts/${alert.alert_id}/disposition`, {
-        disposition: 'Escalated — Level 2', performed_by: analyst
+      // Create L2 case via backend (handles notifications + alert status update + audit)
+      await api.post('/l2', {
+        alert_id: alert.alert_id,
+        escalated_by: analyst,
+        escalation_reason: notes || ''
       });
-      const { data: statusData } = await api.patch(`/alerts/${alert.alert_id}/status`, { alert_status: 'Escalated - L2' });
-      const { data: assignData } = await api.patch(`/alerts/${alert.alert_id}/assign`, { assigned_to: 'Unassigned (L2)' });
-      onAlertChange({ ...alert, ...statusData, ...assignData });
       await api.post('/case-notes', {
         alert_id: alert.alert_id,
-        note_text: `Alert escalated to Level 2 by ${analyst}.${notes ? ' Notes: ' + notes : ''}`,
+        note_text: `Alert escalated to Level 2 by ${analyst}.${notes ? ' Reason: ' + notes : ''}`,
         analyst
       });
+      const { data: refreshed } = await api.get(`/alerts/${alert.alert_id}`);
+      onAlertChange(refreshed);
       pushToast('Alert escalated to Level 2', 'success');
       setModal(null);
-      setTimeout(() => closeTab(alert.alert_id), 1500);
+      setTimeout(() => closeTab('L1:' + alert.alert_id), 1500);
     } catch (e) {
       pushToast('Failed to escalate: ' + (e.response?.data?.error || e.message), 'error');
     } finally { setSubmitting(false); }
@@ -777,7 +803,7 @@ function CaseInfoTab({ alert, onAlertChange }) {
       pushToast('SAR Case created — redirecting to SAR Filing', 'success');
       setModal(null);
       setTimeout(() => {
-        closeTab(alert.alert_id);
+        closeTab('L1:' + alert.alert_id);
         goTo(`sar-filing/${caseId}`);
       }, 1500);
     } catch (e) {

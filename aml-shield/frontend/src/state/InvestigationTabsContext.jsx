@@ -21,25 +21,33 @@ export function InvestigationTabsProvider({ children }) {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs, activeId }));
   }, [tabs, activeId]);
 
-  const openTab = (alert) => {
+  const tabKey = (level, id) => `${level}:${id}`;
+
+  const openTab = (alert, opts = {}) => {
+    const level = opts.level || 'L1';
+    const id = opts.l2_case_id || alert.alert_id;
+    const key = tabKey(level, id);
     setTabs(prev => {
-      if (prev.some(t => t.alert_id === alert.alert_id)) return prev;
+      if (prev.some(t => t.key === key)) return prev;
       return [...prev, {
+        key,
+        level,
         alert_id: alert.alert_id,
+        l2_case_id: opts.l2_case_id || null,
         customer_id: alert.customer_id,
         customer_name: alert.customer_name,
         scenario: alert.scenario,
         priority: alert.priority
       }];
     });
-    setActiveId(alert.alert_id);
+    setActiveId(key);
   };
 
-  const closeTab = (alertId) => {
+  const closeTab = (key) => {
     setTabs(prev => {
-      const next = prev.filter(t => t.alert_id !== alertId);
-      if (activeId === alertId) {
-        setActiveId(next.length ? next[next.length - 1].alert_id : null);
+      const next = prev.filter(t => t.key !== key);
+      if (activeId === key) {
+        setActiveId(next.length ? next[next.length - 1].key : null);
       }
       return next;
     });
