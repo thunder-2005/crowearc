@@ -3,7 +3,8 @@
     "allow": [
       "Bash(node -e ' *)",
       "Bash(npx vite *)",
-      "Bash(node database/seed_full.js)"
+      "Bash(node database/seed_full.js)",
+      "Read(//c/Projects/**)"
     ]
   }
 }

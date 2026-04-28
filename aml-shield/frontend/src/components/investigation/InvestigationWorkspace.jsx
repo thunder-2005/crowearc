@@ -2,13 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import api from '../../api/client.js';
 import Badge from '../shared/Badge.jsx';
 import { useRole } from '../../state/RoleContext.jsx';
-import { useRoleNavigate } from '../../state/useRoleNavigate.js';
 import { useInvestigationTabs } from '../../state/InvestigationTabsContext.jsx';
 import { useToast } from '../../state/ToastContext.jsx';
 import {
   AlertCircle, Filter, Flame, FileText, MessageSquare, FolderOpen, ListChecks,
   User, Briefcase, ClipboardList, Link2, Upload, Trash2, Download, Eye, X,
-  ShieldAlert, Send, ArrowRight, Loader2, Clock, ArrowUpRight, AlertTriangle
+  Send, ArrowRight, Loader2, Clock, ArrowUpRight, AlertTriangle
 } from 'lucide-react';
 
 const usd = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -709,7 +708,6 @@ function CaseInfoTab({ alert, onAlertChange }) {
   const { isEmployee, currentAnalyst, isManager } = useRole();
   const { closeTab } = useInvestigationTabs();
   const { push: pushToast } = useToast();
-  const { goTo } = useRoleNavigate();
 
   const [disposition, setDisposition] = useState('');
   const [modal, setModal] = useState(null);
@@ -775,47 +773,10 @@ function CaseInfoTab({ alert, onAlertChange }) {
     } finally { setSubmitting(false); }
   };
 
-  const finishEscalateSar = async () => {
-    setSubmitting(true);
-    try {
-      let caseId = alert.case_id;
-      if (!caseId) {
-        const { data: caseRow } = await api.post('/cases', {
-          source_alert_id: alert.alert_id,
-          customer_id: alert.customer_id,
-          customer_name: alert.customer_name,
-          scenario: alert.scenario,
-          assigned_to: analyst,
-          case_status: 'Work In Progress'
-        });
-        caseId = caseRow.case_id;
-      }
-      await api.patch(`/alerts/${alert.alert_id}/disposition`, {
-        disposition: 'Escalated — SAR Filing', performed_by: analyst
-      });
-      const { data: statusData } = await api.patch(`/alerts/${alert.alert_id}/status`, { alert_status: 'Escalated - SAR' });
-      onAlertChange({ ...alert, ...statusData, case_id: caseId });
-      await api.post('/case-notes', {
-        alert_id: alert.alert_id,
-        note_text: `Alert escalated to SAR Filing by ${analyst}. Case ${caseId} created.`,
-        analyst
-      });
-      pushToast('SAR Case created — redirecting to SAR Filing', 'success');
-      setModal(null);
-      setTimeout(() => {
-        closeTab('L1:' + alert.alert_id);
-        goTo(`sar-filing/${caseId}`);
-      }, 1500);
-    } catch (e) {
-      pushToast('Failed to escalate to SAR: ' + (e.response?.data?.error || e.message), 'error');
-    } finally { setSubmitting(false); }
-  };
-
   const onSubmit = () => {
     if (!disposition) return;
-    if (disposition === 'fp')   setModal({ kind: 'fp' });
-    if (disposition === 'l2')   setModal({ kind: 'l2' });
-    if (disposition === 'sar')  setModal({ kind: 'sar' });
+    if (disposition === 'fp') setModal({ kind: 'fp' });
+    if (disposition === 'l2') setModal({ kind: 'l2' });
   };
 
   return (
@@ -855,7 +816,6 @@ function CaseInfoTab({ alert, onAlertChange }) {
             <option value="">— pick a disposition —</option>
             <option value="fp">False Positive — Close Alert</option>
             <option value="l2">Escalate to Level 2</option>
-            <option value="sar">Escalate to SAR Filing</option>
           </select>
           <button
             onClick={onSubmit}
@@ -888,14 +848,6 @@ function CaseInfoTab({ alert, onAlertChange }) {
           submitting={submitting}
           onCancel={() => setModal(null)}
           onConfirm={finishEscalateL2}
-        />
-      )}
-      {modal?.kind === 'sar' && (
-        <EscalateSarModal
-          alertId={alert.alert_id}
-          submitting={submitting}
-          onCancel={() => setModal(null)}
-          onConfirm={finishEscalateSar}
         />
       )}
     </div>
@@ -989,30 +941,6 @@ function EscalateL2Modal({ alertId, submitting, onCancel, onConfirm }) {
           disabled={submitting}
           className="text-sm px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white"
         >{submitting ? 'Escalating…' : 'Confirm Escalate'}</button>
-      </div>
-    </ModalShell>
-  );
-}
-
-function EscalateSarModal({ alertId, submitting, onCancel, onConfirm }) {
-  return (
-    <ModalShell icon={ShieldAlert} title={`Create SAR case for ${alertId}?`} tone="red" onCancel={onCancel}>
-      <div className="p-5 space-y-3">
-        <div className="text-sm text-slate-600">
-          A new SAR case will be created and linked to this alert. You'll be redirected to the SAR Filing wizard to draft the report.
-        </div>
-        <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded p-2">
-          <AlertTriangle size={12} className="inline mr-1 text-orange-500" />
-          Once a SAR case is opened the alert can no longer be reverted to False Positive without manager approval.
-        </div>
-      </div>
-      <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
-        <button onClick={onCancel} className="text-sm px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50">Cancel</button>
-        <button
-          onClick={onConfirm}
-          disabled={submitting}
-          className="text-sm px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white"
-        >{submitting ? 'Creating case…' : 'Create SAR Case'}</button>
       </div>
     </ModalShell>
   );
