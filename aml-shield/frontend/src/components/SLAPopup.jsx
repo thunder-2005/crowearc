@@ -64,13 +64,24 @@ export default function SLAPopup() {
   const enrichAndAdd = useCallback(async (notifications) => {
     const candidates = notifications.filter(n => SLA_TYPES.has(n.type) && !seenIdsRef.current.has(n.id));
     if (candidates.length === 0) return;
-    const enriched = await Promise.all(candidates.map(async (n) => {
+    const closedStatuses = new Set([
+      'Completed', 'Closed', 'Filed', 'False Positive',
+      'Closed - L2 Review', 'Closed by L2',
+      'Escalated - L2', 'Escalated - SAR'
+    ]);
+    const enriched = (await Promise.all(candidates.map(async (n) => {
       seenIdsRef.current.add(n.id);
       let alert = null;
       try {
         const { data } = await api.get(`/alerts/${n.related_id}`);
         alert = data;
       } catch (_e) { /* alert may have been removed; show with what we have */ }
+      // Suppress SLA popups for alerts that have been closed since the
+      // notification was issued — a closed alert has no live SLA timer.
+      if (alert && (closedStatuses.has(alert.alert_status) || alert.closed_date)) {
+        try { await api.patch(`/notifications/${n.id}/read`); } catch (_e) {}
+        return null;
+      }
       const deadline = (() => {
         if (!alert) return null;
         if (alert.sla_deadline) {
@@ -95,7 +106,7 @@ export default function SLAPopup() {
         sla_days: alert?.sla_days,
         created_at: n.created_at
       };
-    }));
+    }))).filter(Boolean);
     setPopups(prev => [...prev, ...enriched]);
     if (enriched.some(p => p.is_breach)) tryPlaySound();
   }, []);

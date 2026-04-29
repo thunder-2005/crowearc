@@ -8,6 +8,8 @@ import InvestigationWorkspace from '../components/investigation/InvestigationWor
 import L2InvestigationWorkspace from '../components/investigation/L2InvestigationWorkspace.jsx';
 import L2QueuePage from '../components/investigation/L2QueuePage.jsx';
 import ManagerAlertsTable from '../components/alerts/ManagerAlertsTable.jsx';
+import { isAlertClosed, slaSnapshot } from '../utils/alertStatus.js';
+import OutcomeCard from '../components/shared/OutcomeCard.jsx';
 
 const COLUMNS = ['Unassigned', 'Not Started', 'Work in Progress', 'Escalated', 'Completed'];
 const COLUMN_ACCENT = {
@@ -18,38 +20,6 @@ const COLUMN_ACCENT = {
   'Completed':        'border-t-green-500'
 };
 const ESCALATED_STATUSES = new Set(['Escalated - L2', 'Escalated - SAR']);
-
-function slaDeadline(a) {
-  if (a.sla_deadline) {
-    const d = new Date(a.sla_deadline.length <= 10 ? `${a.sla_deadline}T23:59:59` : a.sla_deadline);
-    if (!isNaN(d.getTime())) return d;
-  }
-  if (a.created_date && a.sla_days != null) {
-    const c = new Date(a.created_date.length <= 10 ? `${a.created_date}T00:00:00` : a.created_date);
-    if (!isNaN(c.getTime())) return new Date(c.getTime() + a.sla_days * 86400000);
-  }
-  return null;
-}
-
-function slaSnapshot(a, now = Date.now()) {
-  const dl = slaDeadline(a);
-  if (!dl) return { label: a.due_status || '—', tone: 'text-slate-600 bg-slate-100', bucket: 'unknown', remainingMs: null };
-  const remainingMs = dl.getTime() - now;
-  if (remainingMs <= 0) {
-    const ago = Math.floor(Math.abs(remainingMs) / 3600000);
-    const h = ago, m = Math.floor((Math.abs(remainingMs) % 3600000) / 60000);
-    return { label: `Breached ${h}h ${m}m ago`, tone: 'text-red-700 bg-red-100', bucket: 'breached', remainingMs };
-  }
-  const totalMin = Math.floor(remainingMs / 60000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  if (remainingMs <= 24 * 3600000) {
-    return { label: `${h}h ${m}m`, tone: 'text-orange-700 bg-orange-50', bucket: 'critical', remainingMs };
-  }
-  const days = Math.floor(h / 24);
-  const remH = h % 24;
-  return { label: `${days}d ${remH}h`, tone: 'text-green-700 bg-green-50', bucket: 'ok', remainingMs };
-}
 
 function usd(n) { return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 
@@ -261,6 +231,7 @@ function AlertCard({ alert: a, column, isEmployee, currentAnalyst, onSelect, onA
   const breached = sla.bucket === 'breached';
   const critical = sla.bucket === 'critical';
   const isEscalated = column === 'Escalated';
+  const closed = isAlertClosed(a);
   const wasReturnedFromL2 = !!a.returned_from_l2_at;
 
   // Escalated cards are read-only for the L1 owner: muted styling, no action buttons
@@ -280,10 +251,10 @@ function AlertCard({ alert: a, column, isEmployee, currentAnalyst, onSelect, onA
       <div className="flex items-center justify-between gap-2">
         <div className="text-xs font-mono text-slate-500 flex items-center gap-1">
           {a.alert_id}
-          {critical && !isEscalated && <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" title="< 24h to breach" />}
+          {critical && !isEscalated && !closed && <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" title="< 24h to breach" />}
         </div>
         <div className="flex items-center gap-1">
-          {breached && !isEscalated && (
+          {breached && !isEscalated && !closed && (
             <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-red-600 text-white inline-flex items-center gap-0.5">
               <AlertTriangle size={9} /> BREACHED
             </span>
@@ -332,6 +303,8 @@ function AlertCard({ alert: a, column, isEmployee, currentAnalyst, onSelect, onA
 
 function SelectedDetail({ selected, setSelected, tab, setTab, isEmployee, isManager, assignToMe, startInvestigation }) {
   const isEscalated = ESCALATED_STATUSES.has(selected.alert_status);
+  const closed = isAlertClosed(selected);
+  const sla = slaSnapshot(selected);
   return (
     <aside className="w-[440px] shrink-0 bg-white rounded-lg border border-slate-200 shadow-lg h-[calc(100vh-96px)] sticky top-20 flex flex-col">
       <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-slate-100">
@@ -363,7 +336,11 @@ function SelectedDetail({ selected, setSelected, tab, setTab, isEmployee, isMana
             <Row k="Status" v={<Badge value={selected.alert_status} />} />
             <Row k="Priority" v={<Badge value={selected.priority} />} />
             <Row k="Risk Score" v={`${selected.risk_score}/100`} />
-            <Row k="SLA" v={<span className={selected.sla_breached ? 'text-red-600 font-semibold' : 'text-green-600'}>{selected.due_status}</span>} />
+            <Row k="SLA" v={
+              closed
+                ? <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium ${sla.tone}`}>{sla.label}</span>
+                : <span className={selected.sla_breached ? 'text-red-600 font-semibold' : 'text-green-600'}>{selected.due_status}</span>
+            } />
             <Row k="Age" v={`${selected.age_days} / ${selected.sla_days} days`} />
             <Row k="Amount" v={usd(selected.amount_flagged_inr)} />
             <Row k="Txn count" v={selected.txn_count_flagged} />
@@ -386,6 +363,7 @@ function SelectedDetail({ selected, setSelected, tab, setTab, isEmployee, isMana
                 {selected.l2_return_instructions && <div className="mt-0.5"><span className="text-yellow-700">Instructions:</span> {selected.l2_return_instructions}</div>}
               </div>
             )}
+            {closed && <OutcomeCard alert={selected} />}
           </div>
         )}
         {tab === 'customer' && (
@@ -403,34 +381,42 @@ function SelectedDetail({ selected, setSelected, tab, setTab, isEmployee, isMana
       </div>
 
       <div className="px-5 py-3 border-t border-slate-100 flex gap-2">
-        {isEmployee && !selected.assigned_to && !isEscalated && (
-          <button
-            onClick={() => assignToMe(selected)}
-            className="flex-1 text-sm bg-slate-600 hover:bg-slate-700 text-white rounded-md px-3 py-2 inline-flex items-center justify-center gap-1"
-          >
-            <UserPlus size={14} /> Assign to Me
-          </button>
-        )}
-        {!isEscalated && (
-          <button
-            onClick={() => startInvestigation(selected)}
-            className="flex-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 py-2 inline-flex items-center justify-center gap-1"
-          >
-            <PlayCircle size={14} /> Start Investigation
-          </button>
-        )}
-        {isEscalated && (
+        {closed ? (
           <div className="flex-1 text-xs text-slate-500 italic text-center px-3 py-2">
-            Read-only · alert is with L2
+            Read-only · alert is closed
           </div>
-        )}
-        {isEmployee && !isEscalated && (
-          <button
-            className="text-sm border border-red-200 text-red-600 hover:bg-red-50 rounded-md px-3 py-2 inline-flex items-center gap-1"
-            title="Flag for manager"
-          >
-            <Flag size={14} />
-          </button>
+        ) : (
+          <>
+            {isEmployee && !selected.assigned_to && !isEscalated && (
+              <button
+                onClick={() => assignToMe(selected)}
+                className="flex-1 text-sm bg-slate-600 hover:bg-slate-700 text-white rounded-md px-3 py-2 inline-flex items-center justify-center gap-1"
+              >
+                <UserPlus size={14} /> Assign to Me
+              </button>
+            )}
+            {!isEscalated && (
+              <button
+                onClick={() => startInvestigation(selected)}
+                className="flex-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 py-2 inline-flex items-center justify-center gap-1"
+              >
+                <PlayCircle size={14} /> Start Investigation
+              </button>
+            )}
+            {isEscalated && (
+              <div className="flex-1 text-xs text-slate-500 italic text-center px-3 py-2">
+                Read-only · alert is with L2
+              </div>
+            )}
+            {isEmployee && !isEscalated && (
+              <button
+                className="text-sm border border-red-200 text-red-600 hover:bg-red-50 rounded-md px-3 py-2 inline-flex items-center gap-1"
+                title="Flag for manager"
+              >
+                <Flag size={14} />
+              </button>
+            )}
+          </>
         )}
       </div>
     </aside>

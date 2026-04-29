@@ -3,11 +3,12 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, AlertTriangle, Briefcase, Search, FileText,
   FolderOpen, Clock, ShieldCheck, Activity, BarChart3, Users, Settings,
-  Shield, IdCard, Inbox, ClipboardCheck
+  IdCard, Inbox, ClipboardCheck
 } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
 import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import api from '../api/client.js';
+import CroweTraceLogo from './CroweTraceLogo.jsx';
 
 const MANAGER_SECTIONS = [
   {
@@ -128,11 +129,9 @@ export default function Sidebar() {
   return (
     <aside className="w-64 shrink-0 bg-navy-900 text-slate-200 flex flex-col h-screen sticky top-0">
       <div className="flex items-center gap-2 px-5 py-5 border-b border-navy-800">
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isManager ? 'bg-indigo-600' : 'bg-blue-600'}`}>
-          <Shield size={20} className="text-white" />
-        </div>
+        <CroweTraceLogo size={36} />
         <div>
-          <div className="text-white font-semibold leading-tight">AML Shield</div>
+          <div className="text-white font-semibold leading-tight">CroweTrace</div>
           <div className="text-[11px] text-slate-400 leading-tight">
             {isManager ? 'Manager Workspace' : 'Analyst Workspace'}
           </div>

@@ -766,18 +766,17 @@ alertPlan.forEach((a, i) => a.status_label = statusQueue[i]);
 const openAlerts = alertPlan.filter(a => !a.status_label.startsWith('Closed-'));
 const closedAlerts = alertPlan.filter(a => a.status_label.startsWith('Closed-'));
 
-// SLA quotas across all 250: 180 on-time / 45 breached / 15 at-risk / 10 warning
-// Closed alerts: ~150 (90+35+25). Open alerts: 100. Warning/at-risk only apply to open.
-//   - Allocate 25 of the 45 breached to OPEN alerts (oldest), 20 to CLOSED-late
-//   - 15 at-risk + 10 warning go to OPEN
-//   - Remaining open (50): on-time
-//   - Remaining closed (130): on-time
+// SLA quotas across all 250: 200 on-time / 25 warning / 20 at-risk / 5 breached.
+// Breached alerts only land on CLOSED items (very old, already-late closures).
+// Nothing currently OPEN is breached — the team looks healthy and on top of
+// their work, with a handful approaching the deadline.
+//   Open (100):   0 breached / 25 warning / 20 at-risk / 55 on-time
+//   Closed (150): 5 breached / 0  warning / 0  at-risk / 145 on-time
 
 const openSlaMix = [
-  ...Array(25).fill('breached'),
-  ...Array(15).fill('at_risk'),
-  ...Array(10).fill('warning'),
-  ...Array(50).fill('on_time')
+  ...Array(25).fill('warning'),
+  ...Array(20).fill('at_risk'),
+  ...Array(55).fill('on_time')
 ];
 for (let i = openSlaMix.length - 1; i > 0; i--) {
   const j = Math.floor(r0() * (i + 1));
@@ -786,8 +785,8 @@ for (let i = openSlaMix.length - 1; i > 0; i--) {
 openAlerts.forEach((a, i) => a.sla_label = openSlaMix[i]);
 
 const closedSlaMix = [
-  ...Array(20).fill('breached'),
-  ...Array(closedAlerts.length - 20).fill('on_time')
+  ...Array(5).fill('breached'),
+  ...Array(closedAlerts.length - 5).fill('on_time')
 ];
 for (let i = closedSlaMix.length - 1; i > 0; i--) {
   const j = Math.floor(r0() * (i + 1));
@@ -795,15 +794,21 @@ for (let i = closedSlaMix.length - 1; i > 0; i--) {
 }
 closedAlerts.forEach((a, i) => a.sla_label = closedSlaMix[i]);
 
-// Assign analyst (Rohit 60, Priya 55, Amit 50, Neha 45, Sanjay 40, plus 15 unassigned)
-// Unassigned alerts already have status_label='Unassigned'
+// Assign analyst.  Spec-listed counts (60/55/50/45/40 + 15 unassigned) sum to
+// 265 which exceeds the 250-alert total, so we keep the same relative ordering
+// and rank-spread but scale the assigned-pool to exactly 235 = 250 − 15:
+//   Rohit Sharma  56   (L1 lead — heaviest load)
+//   Priya Nair    52
+//   Amit Verma    47   (L2)
+//   Neha Iyer     42   (L2)
+//   Sanjay Patil  38
 const analystQueue = [
-  ...Array(60).fill('Rohit Sharma'),
-  ...Array(55).fill('Priya Nair'),
-  ...Array(50).fill('Amit Verma'),
-  ...Array(45).fill('Neha Iyer'),
-  ...Array(40).fill('Sanjay Patil')
-];   // total 250
+  ...Array(56).fill('Rohit Sharma'),
+  ...Array(52).fill('Priya Nair'),
+  ...Array(47).fill('Amit Verma'),
+  ...Array(42).fill('Neha Iyer'),
+  ...Array(38).fill('Sanjay Patil')
+];   // total 235 (every name is consumed; no slop)
 
 for (let i = analystQueue.length - 1; i > 0; i--) {
   const j = Math.floor(r0() * (i + 1));
@@ -1634,7 +1639,7 @@ KYC_PLAN_DETAIL.forEach((p, idx) => {
   );
 });
 
-// ─────────────────────────────────────────────── 13. NOTIFICATIONS (14)
+// ─────────────────────────────────────────────── 13. NOTIFICATIONS (15)
 
 const insertNotif = db.prepare(`
   INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_id, related_type, tone, is_read, created_at)
@@ -1689,12 +1694,13 @@ overdueKycCustomers.forEach((cid, i) => {
   );
 });
 
-// 4 read/dismissed notifications across analysts
+// 5 read/dismissed notifications across analysts
 const readNotifs = [
-  { who: 'Rohit Sharma', role: 'employee', title: 'New alert assigned', message: 'A new alert was assigned to you', tone: 'blue', daysAgo: 3 },
-  { who: 'Priya Nair',   role: 'employee', title: 'SAR approved',       message: 'Your submitted SAR was approved', tone: 'green', daysAgo: 5 },
-  { who: 'Amit Verma',   role: 'employee', title: 'Note added by lead', message: 'Team lead added a note on your case', tone: 'blue', daysAgo: 6 },
-  { who: 'Neha Iyer',    role: 'employee', title: 'KYC reminder',       message: 'KYC review due next week', tone: 'orange', daysAgo: 4 }
+  { who: 'Rohit Sharma', role: 'employee', title: 'New alert assigned',         message: 'A new alert was assigned to you', tone: 'blue', daysAgo: 3 },
+  { who: 'Priya Nair',   role: 'employee', title: 'SAR approved',               message: 'Your submitted SAR was approved', tone: 'green', daysAgo: 5 },
+  { who: 'Amit Verma',   role: 'employee', title: 'Note added by lead',         message: 'Team lead added a note on your case', tone: 'blue', daysAgo: 6 },
+  { who: 'Neha Iyer',    role: 'employee', title: 'KYC reminder',               message: 'KYC review due next week', tone: 'orange', daysAgo: 4 },
+  { who: 'Sanjay Patil', role: 'employee', title: 'Case escalated to L2',       message: 'A case you were investigating has been escalated to L2', tone: 'orange', daysAgo: 2 }
 ];
 readNotifs.forEach((n, i) => {
   insertNotif.run(n.who, n.role, 'system', n.title, n.message, null, null, n.tone, 1, notifTime(n.daysAgo));

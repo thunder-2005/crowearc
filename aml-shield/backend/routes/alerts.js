@@ -141,4 +141,89 @@ router.patch('/:id/assign', (req, res) => {
   res.json(db.prepare('SELECT * FROM alerts WHERE alert_id = ?').get(existing.alert_id));
 });
 
+const CLOSED_ALERT_STATUSES = new Set([
+  'Completed', 'Closed', 'Filed', 'False Positive',
+  'Closed - L2 Review', 'Closed by L2',
+  'Escalated - L2', 'Escalated - SAR'
+]);
+
+router.patch('/bulk-close', (req, res) => {
+  const { alert_ids, disposition, reason, notes, closed_by } = req.body || {};
+  if (!Array.isArray(alert_ids) || alert_ids.length === 0) {
+    return res.status(400).json({ error: 'alert_ids array required' });
+  }
+  if (disposition !== 'False Positive') {
+    return res.status(400).json({ error: 'disposition must be "False Positive"' });
+  }
+  if (!reason || !String(reason).trim()) {
+    return res.status(400).json({ error: 'reason required' });
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const performedBy = (closed_by && String(closed_by).trim()) || 'Compliance Manager';
+  const reasonText = String(reason).trim();
+  const noteText = notes ? String(notes).trim() : '';
+  const detailsLine = noteText ? `${reasonText} — ${noteText}` : reasonText;
+
+  const selectStmt = db.prepare('SELECT * FROM alerts WHERE alert_id = ?');
+  const updateStmt = db.prepare(`
+    UPDATE alerts
+       SET alert_status = ?,
+           disposition = ?,
+           closed_date = ?,
+           last_activity_date = ?
+     WHERE alert_id = ?
+  `);
+  const insertAuditStmt = db.prepare(`
+    INSERT INTO audit_trail (sar_id, action, performed_by, timestamp, details)
+    VALUES (?, ?, ?, datetime('now'), ?)
+  `);
+  const insertNoteStmt = db.prepare(`
+    INSERT INTO case_notes (alert_id, note_text, analyst, timestamp)
+    VALUES (?, ?, ?, datetime('now'))
+  `);
+
+  let closed = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  db.exec('BEGIN');
+  try {
+    for (const id of alert_ids) {
+      const row = selectStmt.get(id);
+      if (!row) { failed++; continue; }
+      if (CLOSED_ALERT_STATUSES.has(row.alert_status) || row.closed_date) {
+        skipped++;
+        continue;
+      }
+      updateStmt.run(
+        'Completed',
+        'False Positive — Closed',
+        today,
+        today,
+        row.alert_id
+      );
+      insertAuditStmt.run(
+        row.alert_id,
+        'Bulk closed as False Positive',
+        performedBy,
+        detailsLine
+      );
+      insertNoteStmt.run(
+        row.alert_id,
+        `Closed as False Positive (bulk action). Reason: ${reasonText}` +
+          (noteText ? `\nNotes: ${noteText}` : ''),
+        performedBy
+      );
+      closed++;
+    }
+    db.exec('COMMIT');
+  } catch (e) {
+    try { db.exec('ROLLBACK'); } catch (_e) { /* ignore */ }
+    return res.status(500).json({ error: e.message || 'bulk-close failed' });
+  }
+
+  res.json({ closed, skipped, failed });
+});
+
 module.exports = router;

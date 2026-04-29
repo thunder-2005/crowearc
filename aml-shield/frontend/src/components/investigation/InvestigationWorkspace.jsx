@@ -7,8 +7,10 @@ import { useToast } from '../../state/ToastContext.jsx';
 import {
   AlertCircle, Filter, Flame, FileText, MessageSquare, FolderOpen, ListChecks,
   User, Briefcase, ClipboardList, Link2, Upload, Trash2, Download, Eye, X,
-  Send, ArrowRight, Loader2, Clock, ArrowUpRight, AlertTriangle
+  Send, ArrowRight, Loader2, Clock, ArrowUpRight, AlertTriangle, Lock
 } from 'lucide-react';
+import OutcomeCard from '../shared/OutcomeCard.jsx';
+import { isAlertClosed, slaSnapshot } from '../../utils/alertStatus.js';
 
 const usd = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -33,8 +35,16 @@ export default function InvestigationWorkspace({ alertId }) {
     );
   }
 
+  const closed = isAlertClosed(alert);
+
   return (
     <div className="flex flex-col gap-3 min-w-0">
+      {closed && (
+        <div className="bg-slate-100 border border-slate-200 rounded-md px-4 py-2.5 text-sm text-slate-700 flex items-center gap-2">
+          <Lock size={14} className="text-slate-500 shrink-0" />
+          <span>This alert is closed — viewing in read only mode</span>
+        </div>
+      )}
       {alert.returned_from_l2_at && (
         <div className="bg-yellow-50 border border-yellow-300 rounded-md px-4 py-3 text-sm">
           <div className="flex items-start gap-2">
@@ -144,12 +154,13 @@ function TransactionsTab({ alert }) {
     for (const k of ['from', 'to', 'txn_type', 'min_amount', 'max_amount']) {
       if (filters[k]) params[k] = filters[k];
     }
-    if (filters.alerted_only) params.alerted_only = 1;
+    // alerted_only is applied client-side so the summary bar can compute
+    // alerted % of the full loaded set in both toggle states
     api.get(`/alerts/${alert.alert_id}/transactions`, { params })
       .then(r => setData(r.data));
   };
 
-  useEffect(() => { fetchTxns(); }, [alert.alert_id, filters]);
+  useEffect(() => { fetchTxns(); }, [alert.alert_id, filters.from, filters.to, filters.txn_type, filters.min_amount, filters.max_amount]);
 
   useEffect(() => {
     api.get(`/customers/${alert.customer_id}`).then(r => setCustomer(r.data));
@@ -158,6 +169,13 @@ function TransactionsTab({ alert }) {
   if (!data || !customer) return <div className="p-8 text-center text-slate-400">Loading transactions…</div>;
 
   const acct = customer.accounts?.[0];
+
+  const allTxns = data.transactions;
+  const alertedTxns = allTxns.filter(t => t.is_alerted);
+  const totalSum = allTxns.reduce((s, t) => s + (t.amount || 0), 0);
+  const alertedSum = alertedTxns.reduce((s, t) => s + (t.amount || 0), 0);
+  const alertedPct = totalSum > 0 ? ((alertedSum / totalSum) * 100).toFixed(1) : '0.0';
+  const displayTxns = filters.alerted_only ? alertedTxns : allTxns;
 
   return (
     <div className="flex flex-col h-full">
@@ -193,13 +211,42 @@ function TransactionsTab({ alert }) {
         </label>
       </div>
 
-      <div className="px-5 py-2 border-b border-slate-100 bg-red-50/40 text-xs text-slate-700 flex flex-wrap gap-x-4 gap-y-1">
-        <span>{data.summary.shown} transactions shown</span>
-        <span className="text-red-600 font-medium">
-          <Flame size={11} className="inline mr-1" />
-          {data.summary.alerted_count} alerted ({data.summary.this_alert_count} from this alert)
-        </span>
-        <span>Total alerted amount: <span className="font-semibold text-red-700">{usd(data.summary.alerted_total_amount)}</span></span>
+      <div className="px-5 py-3 border-b border-slate-100">
+        {filters.alerted_only ? (
+          <div className="bg-slate-100 rounded-md px-4 py-3 flex items-center justify-between gap-4">
+            <div className="text-xs text-slate-600">
+              <Flame size={12} className="inline mr-1 text-red-500" />
+              Showing <span className="font-semibold text-navy-900">{alertedTxns.length}</span> alerted transactions
+            </div>
+            <div className="text-center">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">Total Alerted Amount</div>
+              <div className="text-lg font-bold text-red-600 font-mono">{usd(alertedSum)}</div>
+            </div>
+            <div className="text-xs text-slate-600 text-right">
+              <span className="font-semibold text-navy-900">{alertedPct}%</span>
+              <span className="text-slate-500"> of total transaction value</span>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-100 rounded-md px-4 py-2.5 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1 text-xs">
+            <div className="flex items-center justify-between sm:block">
+              <span className="text-slate-500">All Transactions</span>
+              <span className="ml-2 font-semibold text-navy-900">{allTxns.length}</span>
+            </div>
+            <div className="flex items-center justify-between sm:block">
+              <span className="text-slate-500">Total</span>
+              <span className="ml-2 font-mono font-semibold text-navy-900">{usd(totalSum)}</span>
+            </div>
+            <div className="flex items-center justify-between sm:block">
+              <span className="text-slate-500">Alerted</span>
+              <span className="ml-2 font-semibold text-navy-900">{alertedTxns.length}</span>
+            </div>
+            <div className="flex items-center justify-between sm:block">
+              <span className="text-slate-500">Alerted Sum</span>
+              <span className="ml-2 font-mono font-bold text-red-600">{usd(alertedSum)}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
@@ -218,7 +265,7 @@ function TransactionsTab({ alert }) {
             </tr>
           </thead>
           <tbody>
-            {data.transactions.map(t => {
+            {displayTxns.map(t => {
               const isAlerted = !!t.is_alerted;
               const isThis = !!t.is_this_alert;
               const isOpen = expanded === t.transaction_id;
@@ -271,7 +318,7 @@ function TransactionsTab({ alert }) {
             })}
           </tbody>
         </table>
-        {data.transactions.length === 0 && (
+        {displayTxns.length === 0 && (
           <div className="py-12 text-center text-slate-400 text-xs">No transactions match filters</div>
         )}
       </div>
@@ -281,6 +328,8 @@ function TransactionsTab({ alert }) {
 
 function CaseNotesTab({ alert }) {
   const { isEmployee, currentAnalyst } = useRole();
+  const closed = isAlertClosed(alert);
+  const canEdit = isEmployee && !closed;
   const [notes, setNotes] = useState([]);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
@@ -304,7 +353,7 @@ function CaseNotesTab({ alert }) {
 
   return (
     <div className="p-5 space-y-4">
-      {isEmployee ? (
+      {canEdit ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
             <div className="text-slate-500">Recording as <span className="font-semibold text-navy-900">{currentAnalyst}</span></div>
@@ -326,7 +375,9 @@ function CaseNotesTab({ alert }) {
         </div>
       ) : (
         <div className="text-xs text-slate-500 italic border border-slate-200 rounded-md p-3 bg-slate-50">
-          Manager view · notes are read-only here. Switch to Employee view to add.
+          {closed
+            ? 'Alert is closed · notes are read-only.'
+            : 'Manager view · notes are read-only here. Switch to Employee view to add.'}
         </div>
       )}
 
@@ -353,6 +404,8 @@ function CaseNotesTab({ alert }) {
 
 function DocumentsTab({ alert }) {
   const { isEmployee, currentAnalyst } = useRole();
+  const closed = isAlertClosed(alert);
+  const canEdit = isEmployee && !closed;
   const [docs, setDocs] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -394,7 +447,7 @@ function DocumentsTab({ alert }) {
 
   return (
     <div className="p-5 space-y-4">
-      {isEmployee && (
+      {canEdit && (
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -415,7 +468,7 @@ function DocumentsTab({ alert }) {
         </div>
       )}
 
-      {isEmployee && (
+      {canEdit && (
         <div className="grid grid-cols-3 gap-2">
           <select value={docType} onChange={e => setDocType(e.target.value)}
             className="col-span-1 text-xs border border-slate-200 rounded-md px-2 py-1.5 bg-white">
@@ -429,6 +482,12 @@ function DocumentsTab({ alert }) {
           <input value={description} onChange={e => setDescription(e.target.value)}
             placeholder="Short description (optional)"
             className="col-span-2 text-xs border border-slate-200 rounded-md px-2 py-1.5" />
+        </div>
+      )}
+
+      {closed && isEmployee && (
+        <div className="text-xs text-slate-500 italic border border-slate-200 rounded-md p-3 bg-slate-50">
+          Alert is closed · uploads disabled.
         </div>
       )}
 
@@ -461,7 +520,7 @@ function DocumentsTab({ alert }) {
                       className="p-1.5 rounded hover:bg-slate-100 text-slate-600" title="Download">
                       <Download size={14} />
                     </a>
-                    {isEmployee && (
+                    {canEdit && (
                       <button onClick={() => remove(d.id)}
                         className="p-1.5 rounded hover:bg-red-50 text-red-500" title="Delete">
                         <Trash2 size={14} />
@@ -709,6 +768,9 @@ function CaseInfoTab({ alert, onAlertChange }) {
   const { closeTab } = useInvestigationTabs();
   const { push: pushToast } = useToast();
 
+  const closed = isAlertClosed(alert);
+  const sla = slaSnapshot(alert);
+
   const [disposition, setDisposition] = useState('');
   const [modal, setModal] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -793,12 +855,16 @@ function CaseInfoTab({ alert, onAlertChange }) {
 
       <Section title="SLA">
         <Row k="Deadline" v={alert.sla_deadline || '—'} />
-        <Row k="Countdown" v={
-          <span className={`font-mono ${alert.sla_breached ? 'text-red-600 font-semibold' : daysLeft <= 3 ? 'text-orange-600' : 'text-green-700'}`}>
-            <Clock size={12} className="inline mr-1" />
-            {alert.due_status || (daysLeft != null ? `${daysLeft}d` : '—')}
-          </span>
-        } />
+        {closed
+          ? <Row k="Result" v={
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium ${sla.tone}`}>{sla.label}</span>
+            } />
+          : <Row k="Countdown" v={
+              <span className={`font-mono ${alert.sla_breached ? 'text-red-600 font-semibold' : daysLeft <= 3 ? 'text-orange-600' : 'text-green-700'}`}>
+                <Clock size={12} className="inline mr-1" />
+                {alert.due_status || (daysLeft != null ? `${daysLeft}d` : '—')}
+              </span>
+            } />}
       </Section>
 
       <Section title="Linked">
@@ -806,7 +872,13 @@ function CaseInfoTab({ alert, onAlertChange }) {
         <Row k="SAR ID" v={alert.linked_sar_id || '—'} />
       </Section>
 
-      {isEmployee && (
+      {closed && (
+        <Section title="Outcome">
+          <OutcomeCard alert={alert} />
+        </Section>
+      )}
+
+      {isEmployee && !closed && (
         <Section title="Disposition">
           <select
             value={disposition}
@@ -827,7 +899,7 @@ function CaseInfoTab({ alert, onAlertChange }) {
         </Section>
       )}
 
-      {isManager && (
+      {isManager && !closed && (
         <div className="text-xs text-slate-500 italic border border-slate-200 rounded-md p-3 bg-slate-50">
           Manager view · dispose and close actions are hidden.
         </div>

@@ -5,8 +5,10 @@ import { useRole } from '../../state/RoleContext.jsx';
 import { useToast } from '../../state/ToastContext.jsx';
 import {
   Search, Filter, X, ChevronLeft, ChevronRight, UserPlus, Loader2,
-  Eye, ChevronDown, AlertTriangle, ArrowUpDown
+  Eye, ChevronDown, AlertTriangle, ArrowUpDown, ShieldOff, AlertCircle
 } from 'lucide-react';
+import OutcomeCard from '../shared/OutcomeCard.jsx';
+import { isAlertClosed, slaSnapshot } from '../../utils/alertStatus.js';
 
 const PAGE_SIZE = 25;
 const ESCALATED_STATUSES = new Set(['Escalated - L2', 'Escalated - SAR']);
@@ -19,14 +21,16 @@ const SLA_STATUSES = ['On Time', 'At Risk', 'Breached'];
 
 const usd = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-function slaSnapshot(a, now = Date.now()) {
-  if (!a.sla_deadline) return { label: a.due_status || '—', tone: 'text-slate-600 bg-slate-100', bucket: 'unknown' };
-  const dl = new Date(a.sla_deadline.length <= 10 ? `${a.sla_deadline}T23:59:59` : a.sla_deadline);
-  if (isNaN(dl.getTime())) return { label: a.due_status || '—', tone: 'text-slate-600 bg-slate-100', bucket: 'unknown' };
-  const remainingMs = dl.getTime() - now;
-  if (remainingMs <= 0) return { label: 'Breached', tone: 'text-red-700 bg-red-100', bucket: 'breached' };
-  if (remainingMs <= 24 * 3600000) return { label: 'At Risk', tone: 'text-orange-700 bg-orange-50', bucket: 'at_risk' };
-  return { label: 'On Time', tone: 'text-green-700 bg-green-50', bucket: 'on_time' };
+// Wrap the shared slaSnapshot: collapse the live-countdown phrasing
+// ("3h 12m") into the table-friendly bucket labels ("On Time" / "At Risk" /
+// "Breached") and pass-through the new "Closed on time" / "Closed late"
+// kinds for closed alerts.
+function tableSlaSnapshot(a) {
+  const snap = slaSnapshot(a);
+  if (snap.bucket === 'breached') return { ...snap, label: 'Breached' };
+  if (snap.bucket === 'critical') return { ...snap, label: 'At Risk', bucket: 'at_risk' };
+  if (snap.bucket === 'ok')       return { ...snap, label: 'On Time', bucket: 'on_time' };
+  return snap;
 }
 
 const COLS = [
@@ -59,6 +63,7 @@ export default function ManagerAlertsTable({ onSelect }) {
   const [selected, setSelected] = useState(new Set()); // Set of alert_id
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkConfirm, setBulkConfirm] = useState(null); // { analyst, count }
+  const [bulkClose, setBulkClose] = useState(false);    // false-positive bulk close modal
   const [singleAssign, setSingleAssign] = useState(null); // alert object
   const [submitting, setSubmitting] = useState(false);
   const [viewing, setViewing] = useState(null);
@@ -86,12 +91,13 @@ export default function ManagerAlertsTable({ onSelect }) {
 
   const enriched = useMemo(() => {
     return alerts.map(a => {
-      const sla = slaSnapshot(a);
+      const sla = tableSlaSnapshot(a);
       return {
         ...a,
         team: analystProfiles[a.assigned_to]?.team || '—',
         sla_status: sla.label,
-        sla_bucket: sla.bucket
+        sla_bucket: sla.bucket,
+        sla_tone: sla.tone
       };
     });
   }, [alerts, analystProfiles]);
@@ -188,6 +194,33 @@ export default function ManagerAlertsTable({ onSelect }) {
       await load();
     } catch (e) {
       push('Bulk assign failed: ' + (e.response?.data?.error || e.message), 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const performBulkClose = async ({ reason, notes }) => {
+    const ids = [...selected];
+    if (ids.length === 0 || !reason) return;
+    setSubmitting(true);
+    try {
+      const { data } = await api.patch('/alerts/bulk-close', {
+        alert_ids: ids,
+        disposition: 'False Positive',
+        reason,
+        notes: notes || '',
+        closed_by: 'Compliance Manager'
+      });
+      const closedCount = data?.closed ?? 0;
+      const skippedCount = data?.skipped ?? 0;
+      const parts = [`${closedCount} alert${closedCount === 1 ? '' : 's'} closed as False Positive`];
+      if (skippedCount > 0) parts.push(`${skippedCount} skipped`);
+      push(parts.join(' · '), 'success');
+      setBulkClose(false);
+      clearSelection();
+      await load();
+    } catch (e) {
+      push('Failed to close alerts. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -299,6 +332,12 @@ export default function ManagerAlertsTable({ onSelect }) {
                 </div>
               )}
             </div>
+            <button
+              onClick={() => setBulkClose(true)}
+              className="text-sm border border-red-300 text-red-700 hover:bg-red-50 rounded-md px-3 py-1.5 inline-flex items-center gap-1"
+            >
+              <ShieldOff size={13} /> Close as False Positive
+            </button>
             <button onClick={clearSelection}
               className="text-sm border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md px-3 py-1.5">
               Clear Selection
@@ -346,9 +385,12 @@ export default function ManagerAlertsTable({ onSelect }) {
                 {!loading && pageRows.map(a => {
                   const isChecked = selected.has(a.alert_id);
                   const isEscalated = ESCALATED_STATUSES.has(a.alert_status);
+                  const closed = isAlertClosed(a);
                   const slaCls = a.sla_bucket === 'breached' ? 'bg-red-50 text-red-700'
                     : a.sla_bucket === 'at_risk' ? 'bg-orange-50 text-orange-700'
                     : a.sla_bucket === 'on_time' ? 'bg-green-50 text-green-700'
+                    : a.sla_bucket === 'closed_on_time' ? 'bg-green-50 text-green-700'
+                    : a.sla_bucket === 'closed_late' ? 'bg-slate-100 text-slate-600'
                     : 'bg-slate-50 text-slate-600';
                   return (
                     <tr key={a.alert_id} className={`border-b border-slate-100 hover:bg-slate-50 ${isChecked ? 'bg-indigo-50/40' : ''}`}>
@@ -364,12 +406,12 @@ export default function ManagerAlertsTable({ onSelect }) {
                       <td className="py-2 px-3">{a.team}</td>
                       <td className="py-2 px-3 text-right font-mono">{usd(a.amount_flagged_inr)}</td>
                       <td className="py-2 px-3 text-right">
-                        {a.sla_breached ? <span className="text-red-600 font-semibold">{a.age_days}d</span> : `${a.age_days}d`}
+                        {!closed && a.sla_breached ? <span className="text-red-600 font-semibold">{a.age_days}d</span> : `${a.age_days}d`}
                       </td>
                       <td className="py-2 px-3 text-[11px] text-slate-500">{a.sla_deadline || '—'}</td>
                       <td className="py-2 px-3">
                         <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${slaCls}`}>
-                          {a.sla_bucket === 'breached' && <AlertTriangle size={10} className="mr-1" />}
+                          {!closed && a.sla_bucket === 'breached' && <AlertTriangle size={10} className="mr-1" />}
                           {a.sla_status}
                         </span>
                       </td>
@@ -380,7 +422,8 @@ export default function ManagerAlertsTable({ onSelect }) {
                           <Eye size={11} /> View
                         </button>
                         <button onClick={() => setSingleAssign(a)}
-                          disabled={isEscalated}
+                          disabled={isEscalated || closed}
+                          title={closed ? 'Alert is closed' : ''}
                           className="text-[11px] bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded px-2 py-1 inline-flex items-center gap-1">
                           <UserPlus size={11} /> Assign
                         </button>
@@ -430,6 +473,16 @@ export default function ManagerAlertsTable({ onSelect }) {
           submitting={submitting}
           onCancel={() => setSingleAssign(null)}
           onSubmit={(analyst) => performSingleAssign(singleAssign, analyst)}
+        />
+      )}
+
+      {/* Bulk close as False Positive */}
+      {bulkClose && (
+        <BulkFalsePositiveModal
+          alerts={enriched.filter(a => selected.has(a.alert_id))}
+          submitting={submitting}
+          onCancel={() => setBulkClose(false)}
+          onConfirm={performBulkClose}
         />
       )}
     </div>
@@ -498,6 +551,8 @@ function Pagination({ page, totalPages, onChange }) {
 }
 
 function ManagerDetail({ alert, onClose }) {
+  const closed = isAlertClosed(alert);
+  const sla = slaSnapshot(alert);
   return (
     <aside className="w-[400px] shrink-0 bg-white rounded-lg border border-slate-200 shadow-lg h-[calc(100vh-96px)] sticky top-20 flex flex-col">
       <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-slate-100">
@@ -522,10 +577,16 @@ function ManagerDetail({ alert, onClose }) {
         <Row k="Created" v={alert.created_date} />
         <Row k="SLA Due" v={alert.sla_deadline || '—'} />
         <Row k="Age" v={`${alert.age_days} / ${alert.sla_days} days`} />
-        <Row k="SLA" v={<span className={alert.sla_breached ? 'text-red-600 font-semibold' : 'text-green-600'}>{alert.sla_status}</span>} />
-        <Row k="Disposition" v={alert.disposition || '—'} />
+        <Row k="SLA" v={
+          closed
+            ? <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${sla.tone}`}>{sla.label}</span>
+            : <span className={alert.sla_breached ? 'text-red-600 font-semibold' : 'text-green-600'}>{alert.sla_status}</span>
+        } />
         <Row k="Case ID" v={alert.case_id || '—'} />
         <Row k="Linked SAR" v={alert.linked_sar_id || '—'} />
+        {closed
+          ? <div className="pt-2"><OutcomeCard alert={alert} /></div>
+          : <Row k="Disposition" v={alert.disposition || '—'} />}
         <div className="pt-2 text-slate-600 bg-slate-50 p-2 rounded">{alert.scenario_description}</div>
       </div>
     </aside>
@@ -583,6 +644,168 @@ function SingleAssignModal({ alert, analysts, analystProfiles, analystOpenCounts
           <button onClick={() => onSubmit(target)} disabled={!target || submitting}
             className="text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded px-3 py-1.5">
             {submitting ? 'Assigning…' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const FP_REASONS = [
+  'Rule threshold too sensitive',
+  'Customer activity explained by business type',
+  'Duplicate of existing alert',
+  'Transaction within expected profile',
+  'Counterparty verified and low risk',
+  'Insufficient evidence of suspicion',
+  'Other'
+];
+
+function BulkFalsePositiveModal({ alerts, submitting, onCancel, onConfirm }) {
+  const [reason, setReason] = useState('');
+  const [otherText, setOtherText] = useState('');
+  const [notes, setNotes] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
+  const [showSkipped, setShowSkipped] = useState(false);
+
+  const skippedAlerts  = alerts.filter(a => isAlertClosed(a));
+  const closeableAlerts = alerts.filter(a => !isAlertClosed(a));
+  const closeableCount = closeableAlerts.length;
+  const skippedCount   = skippedAlerts.length;
+
+  const scenarioCounts = closeableAlerts.reduce((m, a) => {
+    const k = a.scenario || 'Unknown';
+    m[k] = (m[k] || 0) + 1;
+    return m;
+  }, {});
+  const scenarioEntries = Object.entries(scenarioCounts).sort((a, b) => b[1] - a[1]);
+
+  const effectiveReason = reason === 'Other' ? otherText.trim() : reason;
+  const reasonValid = reason && (reason !== 'Other' || otherText.trim().length > 0);
+  const canSubmit = closeableCount > 0 && reasonValid && confirmed && !submitting;
+
+  const submit = () => {
+    if (!canSubmit) return;
+    onConfirm({ reason: effectiveReason, notes });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onCancel}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+          <div className="font-semibold text-navy-900 inline-flex items-center gap-2">
+            <ShieldOff size={16} className="text-red-600" />
+            Close Alerts as False Positive
+          </div>
+          <button onClick={onCancel} className="p-1 rounded hover:bg-slate-100">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4 text-sm overflow-y-auto">
+          <div className="text-slate-700">
+            You are closing <span className="font-semibold text-navy-900">{closeableCount}</span> alert{closeableCount === 1 ? '' : 's'} as False Positive.
+          </div>
+
+          {scenarioEntries.length > 1 && (
+            <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Scenario breakdown</div>
+              <div className="space-y-0.5">
+                {scenarioEntries.map(([s, n]) => (
+                  <div key={s} className="flex items-center justify-between">
+                    <span className="text-slate-700">{s}</span>
+                    <span className="font-semibold text-navy-900">{n}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {skippedCount > 0 && (
+            <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <AlertCircle size={12} />
+                {skippedCount} alert{skippedCount === 1 ? ' is' : 's are'} already closed and will be skipped.
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSkipped(s => !s)}
+                className="mt-1 text-amber-800 hover:underline text-[11px] inline-flex items-center gap-0.5"
+              >
+                {showSkipped ? '▴ Hide skipped alerts' : '▾ Show skipped alerts'}
+              </button>
+              {showSkipped && (
+                <div className="mt-1.5 max-h-28 overflow-y-auto font-mono text-[11px] text-amber-900 space-y-0.5">
+                  {skippedAlerts.map(a => (
+                    <div key={a.alert_id}>{a.alert_id} <span className="text-amber-700">· {a.alert_status}</span></div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">
+              Reason for False Positive closure <span className="text-red-600">*</span>
+            </label>
+            <select
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              className="w-full text-sm border border-slate-200 rounded-md px-2 py-1.5 bg-white"
+            >
+              <option value="">— select a reason —</option>
+              {FP_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+            {reason === 'Other' && (
+              <input
+                type="text"
+                value={otherText}
+                onChange={e => setOtherText(e.target.value)}
+                placeholder="Specify the reason"
+                className="mt-2 w-full text-sm border border-slate-200 rounded-md px-2 py-1.5"
+              />
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">
+              Additional notes (optional)
+            </label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Add any context for the audit trail..."
+              className="w-full text-sm border border-slate-200 rounded-md px-2 py-1.5 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={e => setConfirmed(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>I confirm these alerts have been reviewed and are not suspicious</span>
+          </label>
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            disabled={submitting}
+            className="text-sm border border-slate-300 rounded px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            disabled={!canSubmit}
+            className="text-sm bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded px-3 py-1.5 inline-flex items-center gap-1"
+          >
+            {submitting && <Loader2 size={13} className="animate-spin" />}
+            {submitting ? 'Closing…' : `Close ${closeableCount} Alert${closeableCount === 1 ? '' : 's'}`}
           </button>
         </div>
       </div>
