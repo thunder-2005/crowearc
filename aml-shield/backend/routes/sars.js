@@ -107,7 +107,7 @@ router.get('/:id/export', (req, res) => {
     .get(req.params.id, req.params.id);
   if (!sar) return res.status(404).json({ error: 'SAR not found' });
   const documents = db.prepare('SELECT * FROM documents WHERE sar_id = ?').all(sar.sar_id);
-  const audit = db.prepare('SELECT * FROM audit_trail WHERE sar_id = ? ORDER BY timestamp ASC')
+  const audit = db.prepare('SELECT * FROM audit_trail WHERE sar_id = ? ORDER BY timestamp DESC')
     .all(sar.sar_id);
 
   const requester = req.query.requested_by || 'system';

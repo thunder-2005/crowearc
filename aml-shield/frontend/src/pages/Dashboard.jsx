@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import api from '../api/client.js';
 import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import { KpiCard } from '../components/shared/Card.jsx';
@@ -7,7 +7,7 @@ import Table from '../components/shared/Table.jsx';
 import Badge from '../components/shared/Badge.jsx';
 import {
   AlertTriangle, Activity, CheckCircle2, Clock, TrendingUp, Briefcase,
-  Target, Users, ShieldCheck, Eye, ShieldAlert, ArrowUpRight
+  Target, Users, ShieldCheck, Eye, ShieldAlert, ArrowUpRight, X
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
   const [range, setRange] = useState('30d');
+  const [drawer, setDrawer] = useState(null); // { kind, title, filter, navigateFilter }
 
   useEffect(() => {
     const params = {};
@@ -32,6 +33,8 @@ export default function Dashboard() {
       .then(r => setStats(r.data))
       .catch(e => setError(e.message));
   }, [range, isEmployee, currentAnalyst]);
+
+  const openDrawer = (cfg) => isManager && setDrawer(cfg);
 
   if (error) return <div className="text-red-600">Failed to load: {error}</div>;
   if (!stats) return <div className="text-slate-500">Loading dashboard…</div>;
@@ -66,14 +69,26 @@ export default function Dashboard() {
       </div>
 
       <div className={`grid grid-cols-2 md:grid-cols-3 ${isManager ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-4`}>
-        <KpiCard label={isManager ? 'Total Alerts' : 'My Alerts'} value={k.total_alerts} icon={AlertTriangle} />
-        <KpiCard label="In Progress" value={k.in_progress} tone="blue" icon={Activity} />
-        <KpiCard label="Completed" value={k.completed} tone="green" icon={CheckCircle2} />
-        <KpiCard label="SLA Breaches" value={k.sla_breaches} tone="red" icon={Clock} />
-        <KpiCard label="Avg Aging (days)" value={k.avg_aging_days} tone="orange" icon={TrendingUp} />
+        <Clickable enabled={isManager} onClick={() => openDrawer({ kind: 'all-alerts', title: 'All Alerts', navigateFilter: {} })}>
+          <KpiCard label={isManager ? 'Total Alerts' : 'My Alerts'} value={k.total_alerts} icon={AlertTriangle} />
+        </Clickable>
+        <Clickable enabled={isManager} onClick={() => openDrawer({ kind: 'in-progress', title: 'Alerts In Progress', navigateFilter: { alert_status: 'Work in Progress' } })}>
+          <KpiCard label="In Progress" value={k.in_progress} tone="blue" icon={Activity} />
+        </Clickable>
+        <Clickable enabled={isManager} onClick={() => openDrawer({ kind: 'closed', title: 'Recently Closed Alerts', navigateFilter: { alert_status: 'Completed' } })}>
+          <KpiCard label="Completed" value={k.completed} tone="green" icon={CheckCircle2} />
+        </Clickable>
+        <Clickable enabled={isManager} onClick={() => openDrawer({ kind: 'sla-breaches', title: 'SLA Breaches', navigateFilter: { sla_breached: '1' } })}>
+          <KpiCard label="SLA Breaches" value={k.sla_breaches} tone="red" icon={Clock} />
+        </Clickable>
+        <Clickable enabled={isManager} onClick={() => openDrawer({ kind: 'aging', title: 'Alerts by Aging Bucket', navigateFilter: {} })}>
+          <KpiCard label="Avg Aging (days)" value={k.avg_aging_days} tone="orange" icon={TrendingUp} />
+        </Clickable>
         {isManager && (
-          <KpiCard label="Cases Converted" value={k.cases_converted} tone="blue" icon={Briefcase}
-                   sub={`FP rate: ${k.false_positive_rate_pct}%`} />
+          <Clickable enabled={isManager} onClick={() => openDrawer({ kind: 'cases-converted', title: 'Escalated SAR Cases', navigateFilter: {} })}>
+            <KpiCard label="Cases Converted" value={k.cases_converted} tone="blue" icon={Briefcase}
+                     sub={`FP rate: ${k.false_positive_rate_pct}%`} />
+          </Clickable>
         )}
       </div>
 
@@ -83,8 +98,10 @@ export default function Dashboard() {
                    sub="Avg across analysts" />
           <KpiCard label="False Positive Rate" value={`${k.false_positive_rate_pct}%`} tone="orange"
                    icon={Target} sub={`${k.closed} closed alerts`} />
-          <KpiCard label="Unassigned Queue" value={k.unassigned} tone="red" icon={ShieldCheck}
-                   sub="Needs triage" />
+          <Clickable enabled={isManager} onClick={() => openDrawer({ kind: 'unassigned', title: 'Unassigned Queue', navigateFilter: { alert_status: 'Unassigned' } })}>
+            <KpiCard label="Unassigned Queue" value={k.unassigned} tone="red" icon={ShieldCheck}
+                     sub="Needs triage" />
+          </Clickable>
         </div>
       )}
 
@@ -104,11 +121,16 @@ export default function Dashboard() {
           </div>
         </Card>
 
-        <Card title="Alerts by Status">
+        <Card title="Alerts by Status" subtitle={isManager ? 'Click a slice to drill down' : undefined}>
           <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer>
               <PieChart>
-                <Pie data={stats.by_status} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
+                <Pie data={stats.by_status} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}
+                     onClick={(d) => isManager && d?.name && openDrawer({
+                       kind: 'by-status', title: `Alerts · Status: ${d.name}`,
+                       statusName: d.name, navigateFilter: { alert_status: d.name }
+                     })}
+                     cursor={isManager ? 'pointer' : 'default'}>
                   {stats.by_status.map((_, i) => (
                     <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
                   ))}
@@ -122,7 +144,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card title="SLA Breaches by Aging Bucket">
+        <Card title="SLA Breaches by Aging Bucket" subtitle={isManager ? 'Click a bar to drill down' : undefined}>
           <div style={{ width: '100%', height: 240 }}>
             <ResponsiveContainer>
               <BarChart data={stats.sla_buckets}>
@@ -130,17 +152,27 @@ export default function Dashboard() {
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                 <Tooltip />
-                <Bar dataKey="value" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="value" fill="#ef4444" radius={[4, 4, 0, 0]}
+                     cursor={isManager ? 'pointer' : 'default'}
+                     onClick={(d) => isManager && d?.name && openDrawer({
+                       kind: 'aging-bucket', title: `Breached Alerts · ${d.name}`,
+                       bucketName: d.name, navigateFilter: { sla_breached: '1' }
+                     })} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
-        <Card title="Alerts by Scenario">
+        <Card title="Alerts by Scenario" subtitle={isManager ? 'Click a slice to drill down' : undefined}>
           <div style={{ width: '100%', height: 240 }}>
             <ResponsiveContainer>
               <PieChart>
-                <Pie data={stats.by_scenario} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
+                <Pie data={stats.by_scenario} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}
+                     onClick={(d) => isManager && d?.name && openDrawer({
+                       kind: 'by-scenario', title: `Alerts · ${d.name}`,
+                       scenarioName: d.name, navigateFilter: { scenario: d.name }
+                     })}
+                     cursor={isManager ? 'pointer' : 'default'}>
                   {stats.by_scenario.map((_, i) => (
                     <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />
                   ))}
@@ -217,8 +249,315 @@ export default function Dashboard() {
           />
         </Card>
       )}
+
+      {drawer && (
+        <DashboardDrawer
+          drawer={drawer}
+          onClose={() => setDrawer(null)}
+          onViewAll={(filter) => {
+            setDrawer(null);
+            const qs = new URLSearchParams(filter || {}).toString();
+            const target = makePath(qs ? `alerts?${qs}` : 'alerts');
+            window.location.href = target;
+          }}
+        />
+      )}
     </div>
   );
+}
+
+// ─────────────────────────────────────────────── interactive helpers
+
+function Clickable({ enabled, onClick, children }) {
+  if (!enabled) return children;
+  return (
+    <div onClick={onClick}
+         className="cursor-pointer transition hover:shadow-md hover:-translate-y-0.5 active:translate-y-0">
+      {children}
+    </div>
+  );
+}
+
+const usd = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const daysSinceIso = (iso) => {
+  if (!iso) return '—';
+  const d = (Date.now() - new Date(iso.length <= 10 ? iso + 'T00:00:00' : iso.replace(' ', 'T')).getTime()) / 86400000;
+  return Math.max(0, Math.floor(d));
+};
+
+function DashboardDrawer({ drawer, onClose, onViewAll }) {
+  const [allAlerts, setAllAlerts] = useState(null);
+  const [allCases, setAllCases] = useState(null);
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDir, setSortDir] = useState('desc');
+
+  useEffect(() => {
+    setAllAlerts(null); setAllCases(null);
+    if (drawer.kind === 'cases-converted') {
+      api.get('/cases').then(r => setAllCases(r.data));
+    } else {
+      api.get('/alerts').then(r => setAllAlerts(r.data));
+    }
+  }, [drawer.kind]);
+
+  const view = useMemo(() => buildDrawerView(drawer, allAlerts, allCases), [drawer, allAlerts, allCases]);
+
+  const sortedRows = useMemo(() => {
+    if (!view?.rows || !sortKey) return view?.rows || [];
+    const arr = [...view.rows];
+    arr.sort((a, b) => {
+      const av = a[sortKey] ?? '';
+      const bv = b[sortKey] ?? '';
+      if (typeof av === 'number' && typeof bv === 'number') return sortDir === 'asc' ? av - bv : bv - av;
+      return sortDir === 'asc' ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+    });
+    return arr;
+  }, [view, sortKey, sortDir]);
+
+  const onSort = (key) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('desc'); }
+  };
+
+  const loading = (drawer.kind === 'cases-converted' && allCases === null) || (drawer.kind !== 'cases-converted' && allAlerts === null);
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
+      <aside className="fixed top-0 right-0 h-screen w-[520px] bg-white border-l border-slate-200 shadow-2xl z-50 flex flex-col">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between">
+          <div className="min-w-0">
+            <div className="text-base font-semibold text-navy-900 truncate">{drawer.title}</div>
+            {view?.subtitle && <div className="text-xs text-slate-500 mt-0.5">{view.subtitle}</div>}
+          </div>
+          <button onClick={onClose} className="p-1 rounded hover:bg-slate-100" aria-label="Close">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {loading && <div className="py-12 text-center text-slate-400 text-sm">Loading…</div>}
+
+          {!loading && view?.groups && (
+            <div className="p-4 space-y-4">
+              {view.groups.map((g, gi) => (
+                <div key={gi}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="text-sm font-semibold text-navy-900">{g.name}</div>
+                    <span className="text-xs bg-slate-100 rounded-full px-2 py-0.5">{g.rows.length}</span>
+                  </div>
+                  <DrawerTable
+                    columns={view.columns}
+                    rows={g.rows}
+                    sortKey={sortKey} sortDir={sortDir} onSort={onSort}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loading && !view?.groups && view?.columns && (
+            <div className="p-4">
+              <DrawerTable
+                columns={view.columns}
+                rows={sortedRows}
+                sortKey={sortKey} sortDir={sortDir} onSort={onSort}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between gap-2 bg-slate-50">
+          <div className="text-xs text-slate-500">
+            {view?.rows ? `${view.rows.length} item${view.rows.length === 1 ? '' : 's'}` : ''}
+          </div>
+          <button
+            onClick={() => onViewAll(drawer.navigateFilter)}
+            className="text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 py-1.5 inline-flex items-center gap-1"
+          >
+            View All <ArrowUpRight size={13} />
+          </button>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function DrawerTable({ columns, rows, sortKey, sortDir, onSort }) {
+  if (!rows || rows.length === 0) {
+    return (
+      <div className="text-xs text-slate-400 italic py-8 text-center bg-slate-50 rounded">
+        No matching alerts
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-xs">
+        <thead className="bg-slate-50 border-b border-slate-200">
+          <tr>
+            {columns.map(c => (
+              <th key={c.key}
+                onClick={() => onSort(c.key)}
+                className="text-left py-1.5 px-2 font-semibold text-slate-500 uppercase tracking-wider cursor-pointer select-none whitespace-nowrap">
+                {c.label}{sortKey === c.key && (sortDir === 'desc' ? ' ▼' : ' ▲')}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
+              {columns.map(c => (
+                <td key={c.key} className={`py-1.5 px-2 whitespace-nowrap ${c.cellClass || ''}`}>
+                  {c.render ? c.render(r) : (r[c.key] ?? '—')}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function buildDrawerView(drawer, allAlerts, allCases) {
+  const slaCols = [
+    { key: 'alert_id',     label: 'Alert ID', cellClass: 'font-mono' },
+    { key: 'customer_name',label: 'Customer' },
+    { key: 'assigned_to',  label: 'Analyst', render: r => r.assigned_to || '—' },
+    { key: 'breached_by_days', label: 'Breached By', render: r => <span className="text-red-600 font-semibold">{r.breached_by_days}d</span> },
+    { key: 'scenario',     label: 'Scenario' },
+    { key: 'priority',     label: 'Priority', render: r => <Badge value={r.priority} /> }
+  ];
+  const ipCols = [
+    { key: 'alert_id',     label: 'Alert ID', cellClass: 'font-mono' },
+    { key: 'customer_name',label: 'Customer' },
+    { key: 'assigned_to',  label: 'Analyst', render: r => r.assigned_to || '—' },
+    { key: 'age_days',     label: 'Age (d)' },
+    { key: 'sla_remaining',label: 'SLA Remaining', render: r => r.sla_remaining }
+  ];
+  const closedCols = [
+    { key: 'alert_id',     label: 'Alert ID', cellClass: 'font-mono' },
+    { key: 'customer_name',label: 'Customer' },
+    { key: 'assigned_to',  label: 'Closed By', render: r => r.assigned_to || '—' },
+    { key: 'closed_date',  label: 'Closed Date' },
+    { key: 'disposition',  label: 'Disposition', render: r => r.disposition || '—' }
+  ];
+  const summaryCols = [
+    { key: 'alert_id',     label: 'Alert ID', cellClass: 'font-mono' },
+    { key: 'customer_name',label: 'Customer' },
+    { key: 'alert_status', label: 'Status', render: r => <Badge value={r.alert_status} /> },
+    { key: 'priority',     label: 'Priority', render: r => <Badge value={r.priority} /> },
+    { key: 'assigned_to',  label: 'Analyst', render: r => r.assigned_to || '—' }
+  ];
+  const caseCols = [
+    { key: 'case_id',         label: 'Case ID', cellClass: 'font-mono' },
+    { key: 'source_alert_id', label: 'Alert ID', cellClass: 'font-mono' },
+    { key: 'customer_name',   label: 'Customer' },
+    { key: 'assigned_to',     label: 'Assigned To', render: r => r.assigned_to || '—' },
+    { key: 'case_status',     label: 'Status', render: r => <Badge value={r.case_status} /> }
+  ];
+
+  if (drawer.kind === 'cases-converted') {
+    if (!allCases) return null;
+    return {
+      columns: caseCols,
+      rows: allCases,
+      subtitle: `${allCases.length} cases · escalated SAR cases team-wide`
+    };
+  }
+
+  if (!allAlerts) return null;
+
+  const slaRemaining = (a) => {
+    if (!a.sla_deadline) return a.due_status || '—';
+    const ms = new Date(a.sla_deadline.length <= 10 ? `${a.sla_deadline}T23:59:59` : a.sla_deadline).getTime() - Date.now();
+    if (ms <= 0) return <span className="text-red-600">Breached</span>;
+    const d = Math.floor(ms / 86400000);
+    const h = Math.floor((ms % 86400000) / 3600000);
+    return d > 0 ? `${d}d ${h}h` : `${h}h`;
+  };
+  const breachedByDays = (a) => {
+    if (!a.sla_deadline) return 0;
+    const dl = new Date(a.sla_deadline.length <= 10 ? `${a.sla_deadline}T23:59:59` : a.sla_deadline).getTime();
+    const closeOrNow = a.closed_date ? new Date(a.closed_date + 'T23:59:59').getTime() : Date.now();
+    return Math.max(0, Math.floor((closeOrNow - dl) / 86400000));
+  };
+  const enrich = (rows) => rows.map(r => ({
+    ...r,
+    sla_remaining: slaRemaining(r),
+    breached_by_days: breachedByDays(r)
+  }));
+
+  switch (drawer.kind) {
+    case 'all-alerts':
+      return { columns: summaryCols, rows: allAlerts, subtitle: `${allAlerts.length} alerts team-wide` };
+
+    case 'sla-breaches': {
+      const rows = enrich(allAlerts.filter(a => a.sla_breached === 1));
+      rows.sort((a, b) => b.breached_by_days - a.breached_by_days);
+      return { columns: slaCols, rows, subtitle: `${rows.length} breached alerts · sorted by most breached` };
+    }
+
+    case 'in-progress': {
+      const rows = enrich(allAlerts.filter(a => a.alert_status === 'Work in Progress'));
+      return { columns: ipCols, rows, subtitle: `${rows.length} in-progress alerts` };
+    }
+
+    case 'closed': {
+      const rows = allAlerts
+        .filter(a => a.alert_status === 'Completed')
+        .sort((a, b) => (b.closed_date || '').localeCompare(a.closed_date || ''))
+        .slice(0, 100);
+      return { columns: closedCols, rows, subtitle: `Most recent ${rows.length} closed alerts` };
+    }
+
+    case 'unassigned': {
+      const rows = allAlerts.filter(a => a.alert_status === 'Unassigned');
+      return { columns: summaryCols, rows, subtitle: `${rows.length} unassigned · awaiting triage` };
+    }
+
+    case 'aging': {
+      const buckets = { '0-7 days': [], '7-15 days': [], '15-30 days': [], '30+ days': [] };
+      for (const a of allAlerts) {
+        if (a.alert_status === 'Completed') continue;
+        const age = a.age_days || 0;
+        const k = age < 7 ? '0-7 days' : age < 15 ? '7-15 days' : age < 30 ? '15-30 days' : '30+ days';
+        buckets[k].push(a);
+      }
+      const groups = Object.entries(buckets).map(([name, rows]) => ({ name, rows }));
+      const total = groups.reduce((s, g) => s + g.rows.length, 0);
+      return { columns: summaryCols, groups, rows: allAlerts, subtitle: `${total} open alerts grouped by age` };
+    }
+
+    case 'aging-bucket': {
+      const map = {
+        '0-7':  a => a.age_days < 7,
+        '8-14': a => a.age_days >= 8 && a.age_days <= 14,
+        '15-21': a => a.age_days >= 15 && a.age_days <= 21,
+        '22-30': a => a.age_days >= 22 && a.age_days <= 30,
+        '30+':  a => a.age_days > 30
+      };
+      const filt = map[drawer.bucketName] || (() => true);
+      const rows = enrich(allAlerts.filter(a => a.sla_breached === 1 && filt(a)));
+      rows.sort((a, b) => b.breached_by_days - a.breached_by_days);
+      return { columns: slaCols, rows, subtitle: `${rows.length} breached alerts in ${drawer.bucketName}` };
+    }
+
+    case 'by-status': {
+      const rows = allAlerts.filter(a => a.alert_status === drawer.statusName);
+      return { columns: summaryCols, rows, subtitle: `${rows.length} alerts · status "${drawer.statusName}"` };
+    }
+
+    case 'by-scenario': {
+      const rows = allAlerts.filter(a => a.scenario === drawer.scenarioName);
+      return { columns: summaryCols, rows, subtitle: `${rows.length} alerts · scenario "${drawer.scenarioName}"` };
+    }
+
+    default:
+      return { columns: summaryCols, rows: allAlerts, subtitle: '' };
+  }
 }
 
 function fmtRemaining(hrs) {

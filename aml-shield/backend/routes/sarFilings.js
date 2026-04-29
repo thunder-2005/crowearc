@@ -269,7 +269,7 @@ router.get('/:id/preview', (req, res) => {
   const row = db.prepare('SELECT * FROM sar_filings WHERE sar_id = ? OR id = ?')
     .get(req.params.id, req.params.id);
   if (!row) return res.status(404).json({ error: 'SAR not found' });
-  const audit = db.prepare('SELECT * FROM audit_trail WHERE sar_id = ? ORDER BY timestamp ASC').all(row.sar_id);
+  const audit = db.prepare('SELECT * FROM audit_trail WHERE sar_id = ? ORDER BY timestamp DESC').all(row.sar_id);
   res.json({ ...deserialize(row), audit_trail: audit });
 });
 

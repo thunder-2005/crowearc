@@ -31,8 +31,7 @@ const MANAGER_SECTIONS = [
     items: [
       { to: 'sars',                 icon: FileText,    label: 'SAR Repository' },
       { to: 'sar-approvals',        icon: Inbox,       label: 'SAR Approvals', badge: 'pendingApprovals' },
-      { to: 'retention',            icon: Clock,       label: 'Retention Monitor' },
-      { to: 'audit',                icon: ShieldCheck, label: 'Audit Trail' }
+      { to: 'retention',            icon: Clock,       label: 'Retention Monitor' }
     ]
   },
   {

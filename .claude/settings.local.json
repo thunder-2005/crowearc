@@ -4,7 +4,9 @@
       "Bash(node -e ' *)",
       "Bash(npx vite *)",
       "Bash(node database/seed_full.js)",
-      "Read(//c/Projects/**)"
+      "Read(//c/Projects/**)",
+      "Bash(sed -n '95,120p' /c/Projects/aml-shield/backend/routes/sars.js)",
+      "Bash(sed -n '265,280p' /c/Projects/aml-shield/backend/routes/sarFilings.js)"
     ]
   }
 }

@@ -7,6 +7,7 @@ import { useInvestigationTabs } from '../state/InvestigationTabsContext.jsx';
 import InvestigationWorkspace from '../components/investigation/InvestigationWorkspace.jsx';
 import L2InvestigationWorkspace from '../components/investigation/L2InvestigationWorkspace.jsx';
 import L2QueuePage from '../components/investigation/L2QueuePage.jsx';
+import ManagerAlertsTable from '../components/alerts/ManagerAlertsTable.jsx';
 
 const COLUMNS = ['Unassigned', 'Not Started', 'Work in Progress', 'Escalated', 'Completed'];
 const COLUMN_ACCENT = {
@@ -133,6 +134,8 @@ export default function Alerts() {
         )
       ) : showL2Page ? (
         <L2QueuePage />
+      ) : isManager ? (
+        <ManagerAlertsTable />
       ) : (
         <KanbanBoard
           alerts={alerts}

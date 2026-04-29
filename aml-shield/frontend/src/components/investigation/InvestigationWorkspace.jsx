@@ -553,7 +553,7 @@ function ActivityLogTab({ alert }) {
       ev.push({ ts: `${alert.last_activity_date} 11:30:00`, kind: 'SAR filed',
         who: alert.assigned_to, detail: `Linked SAR ${alert.linked_sar_id}` });
     }
-    return ev.sort((a, b) => a.ts.localeCompare(b.ts));
+    return ev.sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
   }, [alert, notes, docs]);
 
   return (
