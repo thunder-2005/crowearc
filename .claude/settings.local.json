@@ -6,7 +6,18 @@
       "Bash(node database/seed_full.js)",
       "Read(//c/Projects/**)",
       "Bash(sed -n '95,120p' /c/Projects/aml-shield/backend/routes/sars.js)",
-      "Bash(sed -n '265,280p' /c/Projects/aml-shield/backend/routes/sarFilings.js)"
+      "Bash(sed -n '265,280p' /c/Projects/aml-shield/backend/routes/sarFilings.js)",
+      "Bash(npm run *)",
+      "Bash(pkill -f \"node server.js\")",
+      "Bash(pkill -f \"node.*server\\\\.js\")",
+      "Bash(curl -s \"http://localhost:4000/api/dashboard/drawer/total-alerts\")",
+      "Bash(node -e \"let b='';process.stdin.on\\('data',d=>b+=d\\);process.stdin.on\\('end',\\(\\)=>{const r=JSON.parse\\(b\\);console.log\\('total-alerts drawer total:', r.total, 'breakdown:', r.breakdown?.length || 0, 'items'\\)}\\)\")",
+      "Bash(curl -s \"http://localhost:4000/api/sars\")",
+      "Bash(node -e \"let b='';process.stdin.on\\('data',d=>b+=d\\);process.stdin.on\\('end',\\(\\)=>{const r=JSON.parse\\(b\\);console.log\\('sars list total:', r.total\\)}\\)\")",
+      "Bash(curl -s \"http://localhost:4000/api/customers\")",
+      "Bash(node -e \"let b='';process.stdin.on\\('data',d=>b+=d\\);process.stdin.on\\('end',\\(\\)=>{const r=JSON.parse\\(b\\);console.log\\('customers count:', r.length\\)}\\)\")",
+      "Read(//c/Users/saprar/AppData/**)",
+      "Read(//c/Users/saprar/AppData/Roaming/Code/User/workspaceStorage//**)"
     ]
   }
 }
