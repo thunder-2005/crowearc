@@ -397,6 +397,10 @@ function initSchema() {
     ['sla_warning_notified_at', 'TEXT'],
     ['sla_breach_notified_at',  'TEXT']
   ]);
+  ensureColumns('user_profiles', [
+    ['username', 'TEXT'],
+    ['password', 'TEXT']
+  ]);
 
   ensureColumns('sar_filings', [
     ['filing_type',              'TEXT'],
@@ -521,16 +525,20 @@ function initSchema() {
 const { MANAGER_DEFAULTS, EMPLOYEE_DEFAULTS, colorForName } = require('./admin_defaults');
 
 const USER_ROLE_MAP = {
-  'Rohit Sharma':  { role: 'AML Analyst L2', team: 'T2 Investigations' },
-  'Priya Nair':    { role: 'AML Analyst L2', team: 'T2 Investigations' },
-  'Amit Verma':    { role: 'AML Analyst L1', team: 'T1 Monitoring' },
-  'Neha Iyer':     { role: 'AML Analyst L1', team: 'T1 Monitoring' },
-  'Sanjay Patil':  { role: 'AML Analyst L1', team: 'T1 Monitoring' },
-  'Ananya Sen':    { role: 'Team Lead',         team: 'T2 Investigations' },
-  'Vikram Mehta':  { role: 'Team Lead',         team: 'T2 Investigations' },
-  'Farah Khan':    { role: 'Team Lead',         team: 'T2 Investigations' },
-  'Arjun Malhotra':{ role: 'Compliance Manager', team: 'Oversight' },
-  'Nisha Rao':     { role: 'Compliance Manager', team: 'Oversight' }
+  // L2 — T2 Investigations
+  'Olivia Brown':  { role: 'analyst_l2',         team: 'T2 Investigations' },
+  'Cassian Jude':  { role: 'analyst_l2',         team: 'T2 Investigations' },
+  'Marie Davis':   { role: 'analyst_l2',         team: 'T2 Investigations' },
+  'Hannah Louise': { role: 'analyst_l2',         team: 'T2 Investigations' },
+  // L1 — T1 Monitoring
+  'Robert Wright': { role: 'analyst_l1',         team: 'T1 Monitoring' },
+  'Arjun Sharma':  { role: 'analyst_l1',         team: 'T1 Monitoring' },
+  'Priya Nair':    { role: 'analyst_l1',         team: 'T1 Monitoring' },
+  'Rohit Mehta':   { role: 'analyst_l1',         team: 'T1 Monitoring' },
+  'Neha Iyer':     { role: 'analyst_l1',         team: 'T1 Monitoring' },
+  'Vikram Sinha':  { role: 'analyst_l1',         team: 'T1 Monitoring' },
+  // Compliance Manager
+  'Henry Morgan':  { role: 'compliance_manager', team: 'Management' }
 };
 
 function collectUserNames() {

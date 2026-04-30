@@ -29,8 +29,12 @@ export function RoleProvider({ children }) {
         const profiles = {};
         const names = [];
         for (const u of r.data || []) {
-          if (!u.role || !/AML\s+Analyst/i.test(u.role)) continue;
-          const level = /L2/i.test(u.role) ? 'L2' : 'L1';
+          if (!u.role) continue;
+          // Match both legacy display strings ("AML Analyst L1") and the new
+          // canonical role codes ("analyst_l1" / "analyst_l2").
+          const isAnalyst = /AML\s+Analyst/i.test(u.role) || /^analyst_(l1|l2)$/i.test(u.role);
+          if (!isAnalyst) continue;
+          const level = /L2|_l2/i.test(u.role) ? 'L2' : 'L1';
           profiles[u.name] = { role: u.role, team: u.team, level };
           names.push(u.name);
         }

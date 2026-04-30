@@ -156,7 +156,7 @@ Open two Chrome tabs:
 
 2. **Employee tab:** http://localhost:3000/employee/dashboard
    - Top-right shows a green **"Employee View"** badge.
-   - Click "Logged in as: …" to pick which analyst this tab represents (Amit Verma, Neha Iyer, Priya Nair, etc.). The selection persists in `localStorage` per browser-profile.
+   - Click "Logged in as: …" to pick which analyst this tab represents (Olivia Brown, Robert Wright, Priya Nair, etc.). The selection persists in `localStorage` per browser-profile.
    - Sidebar: MY WORK / CUSTOMERS / SAR MANAGEMENT / REPORTS / ADMIN.
 
 Both tabs read the same database. Changes made in one tab show up in the other within the next polling cycle (badges every 30 s, notification list on bell open).

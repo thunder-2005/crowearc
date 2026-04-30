@@ -104,31 +104,39 @@ for (const f of fs.readdirSync(UPLOAD_DIR)) {
 
 // ─────────────────────────────────────────────── 1. USER PROFILES
 
-const ANALYSTS_T1 = ['Rohit Sharma', 'Priya Nair', 'Sanjay Patil'];
-const ANALYSTS_T2 = ['Amit Verma', 'Neha Iyer'];
-const ANALYSTS_ALL = [...ANALYSTS_T1, ...ANALYSTS_T2];
-const TEAM_LEADS = ['Ananya Sen', 'Vikram Mehta', 'Farah Khan'];
-const MANAGERS = ['Arjun Malhotra', 'Nisha Rao'];
+// Canonical 11-person team. Each entry below carries the exact spec values
+// (name, role, team, username, password, avatar_color) so re-running the seed
+// always produces this team — no drift back to legacy names.
+const TEAM = [
+  { name: 'Olivia Brown',  role: 'analyst_l2',         team: 'T2 Investigations', username: 'olivia.brown',  password: 'Olivia@123',  avatar_color: '#6366F1' },
+  { name: 'Cassian Jude',  role: 'analyst_l2',         team: 'T2 Investigations', username: 'cassian.jude',  password: 'Cassian@123', avatar_color: '#8B5CF6' },
+  { name: 'Marie Davis',   role: 'analyst_l2',         team: 'T2 Investigations', username: 'marie.davis',   password: 'Marie@123',   avatar_color: '#EC4899' },
+  { name: 'Hannah Louise', role: 'analyst_l2',         team: 'T2 Investigations', username: 'hannah.louise', password: 'Hannah@123',  avatar_color: '#F59E0B' },
+  { name: 'Robert Wright', role: 'analyst_l1',         team: 'T1 Monitoring',     username: 'robert.wright', password: 'Robert@123',  avatar_color: '#3B82F6' },
+  { name: 'Arjun Sharma',  role: 'analyst_l1',         team: 'T1 Monitoring',     username: 'arjun.sharma',  password: 'Arjun@123',   avatar_color: '#10B981' },
+  { name: 'Priya Nair',    role: 'analyst_l1',         team: 'T1 Monitoring',     username: 'priya.nair',    password: 'Priya@123',   avatar_color: '#F97316' },
+  { name: 'Rohit Mehta',   role: 'analyst_l1',         team: 'T1 Monitoring',     username: 'rohit.mehta',   password: 'Rohit@123',   avatar_color: '#14B8A6' },
+  { name: 'Neha Iyer',     role: 'analyst_l1',         team: 'T1 Monitoring',     username: 'neha.iyer',     password: 'Neha@123',     avatar_color: '#EF4444' },
+  { name: 'Vikram Sinha',  role: 'analyst_l1',         team: 'T1 Monitoring',     username: 'vikram.sinha',  password: 'Vikram@123',  avatar_color: '#6B7280' },
+  { name: 'Henry Morgan',  role: 'compliance_manager', team: 'Management',        username: 'henry.morgan',  password: 'Henry@123',   avatar_color: '#0F172A' }
+];
 
-const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#0ea5e9'];
+const ANALYSTS_T1 = TEAM.filter(u => u.role === 'analyst_l1').map(u => u.name);
+const ANALYSTS_T2 = TEAM.filter(u => u.role === 'analyst_l2').map(u => u.name);
+const ANALYSTS_ALL = [...ANALYSTS_T1, ...ANALYSTS_T2];
+const TEAM_LEADS = [];                    // no team-lead role in the new structure
+const MANAGERS = TEAM.filter(u => u.role === 'compliance_manager').map(u => u.name);
 
 const userInsert = db.prepare(`
-  INSERT INTO user_profiles (user_id, name, role, team, status, avatar_color, email)
-  VALUES (?, ?, ?, ?, ?, ?, ?)
+  INSERT INTO user_profiles (user_id, name, role, team, status, avatar_color, email, username, password)
+  VALUES (?, ?, ?, ?, 'Active', ?, ?, ?, ?)
 `);
 
-let uidCounter = 1;
-const userOf = (name, role, team) => {
-  const uid = `USR-${String(uidCounter++).padStart(4,'0')}`;
-  const email = `${name.toLowerCase().replace(/\s+/g, '.')}@firstnationalbank.com`;
-  const color = COLORS[(uidCounter - 1) % COLORS.length];
-  userInsert.run(uid, name, role, team, 'Active', color, email);
-};
-
-ANALYSTS_T1.forEach(n => userOf(n, 'AML Analyst L1', 'T1 Monitoring'));
-ANALYSTS_T2.forEach(n => userOf(n, 'AML Analyst L2', 'T2 Investigations'));
-TEAM_LEADS.forEach(n => userOf(n, 'Team Lead', 'T2 Investigations'));
-MANAGERS.forEach(n => userOf(n, 'Compliance Manager', 'Oversight'));
+TEAM.forEach((u, i) => {
+  const uid = `USR-${String(i + 1).padStart(4, '0')}`;
+  const email = `${u.username}@firstnationalbank-us.com`;
+  userInsert.run(uid, u.name, u.role, u.team, u.avatar_color, email, u.username, u.password);
+});
 
 // ─────────────────────────────────────────────── 2. CUSTOMERS (25)
 
@@ -794,32 +802,37 @@ for (let i = closedSlaMix.length - 1; i > 0; i--) {
 }
 closedAlerts.forEach((a, i) => a.sla_label = closedSlaMix[i]);
 
-// Assign analyst.  Spec-listed counts (60/55/50/45/40 + 15 unassigned) sum to
-// 265 which exceeds the 250-alert total, so we keep the same relative ordering
-// and rank-spread but scale the assigned-pool to exactly 235 = 250 − 15:
-//   Rohit Sharma  56   (L1 lead — heaviest load)
-//   Priya Nair    52
-//   Amit Verma    47   (L2)
-//   Neha Iyer     42   (L2)
-//   Sanjay Patil  38
-const analystQueue = [
-  ...Array(56).fill('Rohit Sharma'),
-  ...Array(52).fill('Priya Nair'),
-  ...Array(47).fill('Amit Verma'),
-  ...Array(42).fill('Neha Iyer'),
-  ...Array(38).fill('Sanjay Patil')
-];   // total 235 (every name is consumed; no slop)
+// Assign analyst by tier:
+//   L1 alerts (Closed-FP / Work in Progress / Not Started)  → 6 L1 analysts
+//   L2 alerts (Closed-SAR / Closed-L2)                      → 4 L2 analysts
+//   Unassigned status                                       → null
+// Counts work out to: L1 = 90+55+30 = 175 (≈ 30/29/29/29/29/29 round-robin),
+//                     L2 = 35+25 = 60 (15 each), unassigned = 15.
+const L1_TIER_LABELS = new Set(['Closed-FP', 'Work in Progress', 'Not Started']);
+const L2_TIER_LABELS = new Set(['Closed-SAR', 'Closed-L2']);
 
-for (let i = analystQueue.length - 1; i > 0; i--) {
-  const j = Math.floor(r0() * (i + 1));
-  [analystQueue[i], analystQueue[j]] = [analystQueue[j], analystQueue[i]];
+function buildTierQueue(count, names) {
+  const q = [];
+  for (let i = 0; i < count; i++) q.push(names[i % names.length]);
+  for (let i = q.length - 1; i > 0; i--) {
+    const j = Math.floor(r0() * (i + 1));
+    [q[i], q[j]] = [q[j], q[i]];
+  }
+  return q;
 }
 
+const l1Count = alertPlan.filter(a => L1_TIER_LABELS.has(a.status_label)).length;
+const l2Count = alertPlan.filter(a => L2_TIER_LABELS.has(a.status_label)).length;
+const l1Queue = buildTierQueue(l1Count, ANALYSTS_T1);
+const l2Queue = buildTierQueue(l2Count, ANALYSTS_T2);
+
 // Assign analysts to non-Unassigned alerts; Unassigned gets null
-let aPtr = 0;
+let l1Ptr = 0, l2Ptr = 0;
 for (const a of alertPlan) {
-  if (a.status_label === 'Unassigned') a.assigned_to = null;
-  else { a.assigned_to = analystQueue[aPtr++]; }
+  if (a.status_label === 'Unassigned')      a.assigned_to = null;
+  else if (L1_TIER_LABELS.has(a.status_label)) a.assigned_to = l1Queue[l1Ptr++];
+  else if (L2_TIER_LABELS.has(a.status_label)) a.assigned_to = l2Queue[l2Ptr++];
+  else                                          a.assigned_to = ANALYSTS_T1[0]; // safety fallback
 }
 
 // Compute creation_date / closed_date / sla_deadline based on labels
@@ -1163,7 +1176,9 @@ closedSarAlerts.forEach((alert, i) => {
                    : 'Work In Progress';
 
   const preparedBy = alert.assigned_to || pick(r, ANALYSTS_ALL);
-  const reviewedBy = pick(r, TEAM_LEADS);
+  // Senior-tier review: no Team Lead role in the new team, so an L2 analyst
+  // does the technical review before the manager approves.
+  const reviewedBy = pick(r, ANALYSTS_T2);
   const approvedBy = sarStatus === 'Filed' ? pick(r, MANAGERS) : (sarStatus === 'Returned for Revision' ? pick(r, MANAGERS) : null);
 
   const retentionOffset = filedDate ? RETENTION_OFFSETS_DAYS[i % RETENTION_OFFSETS_DAYS.length] : null;
@@ -1694,13 +1709,13 @@ overdueKycCustomers.forEach((cid, i) => {
   );
 });
 
-// 5 read/dismissed notifications across analysts
+// 5 read/dismissed notifications across analysts (new team)
 const readNotifs = [
-  { who: 'Rohit Sharma', role: 'employee', title: 'New alert assigned',         message: 'A new alert was assigned to you', tone: 'blue', daysAgo: 3 },
-  { who: 'Priya Nair',   role: 'employee', title: 'SAR approved',               message: 'Your submitted SAR was approved', tone: 'green', daysAgo: 5 },
-  { who: 'Amit Verma',   role: 'employee', title: 'Note added by lead',         message: 'Team lead added a note on your case', tone: 'blue', daysAgo: 6 },
-  { who: 'Neha Iyer',    role: 'employee', title: 'KYC reminder',               message: 'KYC review due next week', tone: 'orange', daysAgo: 4 },
-  { who: 'Sanjay Patil', role: 'employee', title: 'Case escalated to L2',       message: 'A case you were investigating has been escalated to L2', tone: 'orange', daysAgo: 2 }
+  { who: 'Robert Wright', role: 'employee', title: 'New alert assigned',         message: 'A new alert was assigned to you', tone: 'blue', daysAgo: 3 },
+  { who: 'Priya Nair',    role: 'employee', title: 'SAR approved',               message: 'Your submitted SAR was approved', tone: 'green', daysAgo: 5 },
+  { who: 'Olivia Brown',  role: 'employee', title: 'Note added by lead',         message: 'Team lead added a note on your case', tone: 'blue', daysAgo: 6 },
+  { who: 'Neha Iyer',     role: 'employee', title: 'KYC reminder',               message: 'KYC review due next week', tone: 'orange', daysAgo: 4 },
+  { who: 'Vikram Sinha',  role: 'employee', title: 'Case escalated to L2',       message: 'A case you were investigating has been escalated to L2', tone: 'orange', daysAgo: 2 }
 ];
 readNotifs.forEach((n, i) => {
   insertNotif.run(n.who, n.role, 'system', n.title, n.message, null, null, n.tone, 1, notifTime(n.daysAgo));
