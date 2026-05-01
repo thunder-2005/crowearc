@@ -17,22 +17,41 @@ import { useRole } from '../state/RoleContext.jsx';
 
 const DONUT_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6'];
 
+// Resolve the dropdown selection to concrete YYYY-MM-DD bounds.
+//   '7d'  → today − 7 days
+//   '30d' → today − 30 days
+//   '90d' → today − 90 days
+//   'ytd' → Jan 1 of current year
+function dateRangeFor(range) {
+  const today = new Date();
+  const to = today.toISOString().slice(0, 10);
+  let from;
+  if (range === '7d')       from = new Date(today.getTime() -  7 * 86400000);
+  else if (range === '90d') from = new Date(today.getTime() - 90 * 86400000);
+  else if (range === 'ytd') from = new Date(today.getFullYear(), 0, 1);
+  else                      from = new Date(today.getTime() - 30 * 86400000); // '30d' default
+  return { from: from.toISOString().slice(0, 10), to };
+}
+
 export default function Dashboard() {
   const { isManager, isEmployee, currentAnalyst } = useRole();
   const { makePath } = useRoleNavigate();
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
   const [range, setRange] = useState('30d');
+  const [refetching, setRefetching] = useState(false);
   const [drawerKind, setDrawerKind] = useState(null);
+  const { from, to } = dateRangeFor(range);
 
   useEffect(() => {
-    const params = {};
+    const params = { from, to };
     if (isEmployee && currentAnalyst) params.assigned_to = currentAnalyst;
-    setStats(null);
+    setRefetching(true);
     api.get('/dashboard/stats', { params })
-      .then(r => setStats(r.data))
-      .catch(e => setError(e.message));
-  }, [range, isEmployee, currentAnalyst]);
+      .then(r => { setStats(r.data); setError(null); })
+      .catch(e => setError(e.message))
+      .finally(() => setRefetching(false));
+  }, [from, to, isEmployee, currentAnalyst]);
 
   const openDrawer = (kind) => isManager && setDrawerKind(kind);
 
@@ -68,7 +87,7 @@ export default function Dashboard() {
         </select>
       </div>
 
-      <div className={`grid grid-cols-2 md:grid-cols-3 ${isManager ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-4`}>
+      <div className={`transition-opacity ${refetching ? 'opacity-60 animate-pulse' : ''} grid grid-cols-2 md:grid-cols-3 ${isManager ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-4`}>
         <Clickable enabled={isManager} onClick={() => openDrawer('total-alerts')}>
           <KpiCard label={isManager ? 'Total Alerts' : 'My Alerts'} value={k.total_alerts} icon={AlertTriangle} />
         </Clickable>
@@ -86,14 +105,25 @@ export default function Dashboard() {
         </Clickable>
         {isManager && (
           <Clickable enabled={isManager} onClick={() => openDrawer('cases-converted')}>
-            <KpiCard label="Cases Converted" value={k.cases_converted} tone="blue" icon={Briefcase}
-                     sub={`FP rate: ${k.false_positive_rate_pct}%`} />
+            <KpiCard
+              label="Cases Converted"
+              value={`${k.conversion_rate_pct ?? 0}%`}
+              tone="blue"
+              icon={Briefcase}
+              sub={
+                <div className="space-y-0.5 text-[11px] leading-tight">
+                  <div>{k.total_alerts} alerts in period</div>
+                  <div>{k.total_cases ?? 0} cases created</div>
+                  <div>{k.total_sars ?? 0} SARs filed</div>
+                </div>
+              }
+            />
           </Clickable>
         )}
       </div>
 
       {isManager && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className={`transition-opacity ${refetching ? 'opacity-60 animate-pulse' : ''} grid grid-cols-1 md:grid-cols-3 gap-4`}>
           <Clickable enabled={isManager} onClick={() => openDrawer('team-capacity')}>
             <KpiCard label="Team Capacity" value={`${k.team_capacity_pct}%`} tone="blue" icon={Users}
                      sub="Avg across analysts" />
@@ -243,6 +273,8 @@ export default function Dashboard() {
         kind={drawerKind}
         onClose={() => setDrawerKind(null)}
         makePath={makePath}
+        from={from}
+        to={to}
       />
     </div>
   );
@@ -289,7 +321,7 @@ const TONE_ICON_BG = {
   orange:  'bg-orange-50 text-orange-600'
 };
 
-function DrawerContainer({ kind, onClose, makePath }) {
+function DrawerContainer({ kind, onClose, makePath, from, to }) {
   const open = kind !== null;
   const lastKindRef = useRef(null);
   if (kind) lastKindRef.current = kind;
@@ -334,10 +366,12 @@ function DrawerContainer({ kind, onClose, makePath }) {
       >
         {renderKind && (
           <DrawerBody
-            key={renderKind}
+            key={renderKind + '|' + from + '|' + to}
             kind={renderKind}
             onClose={onClose}
             makePath={makePath}
+            from={from}
+            to={to}
           />
         )}
       </aside>
@@ -345,7 +379,7 @@ function DrawerContainer({ kind, onClose, makePath }) {
   );
 }
 
-function DrawerBody({ kind, onClose, makePath }) {
+function DrawerBody({ kind, onClose, makePath, from, to }) {
   const meta = DRAWER_META[kind];
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -354,11 +388,11 @@ function DrawerBody({ kind, onClose, makePath }) {
   useEffect(() => {
     let cancelled = false;
     setData(null); setError(null);
-    api.get(`/dashboard/drawer/${kind}`)
+    api.get(`/dashboard/drawer/${kind}`, { params: { from, to } })
       .then(r => { if (!cancelled) setData(r.data); })
       .catch(e => { if (!cancelled) setError(e?.response?.data?.error || e.message || 'Failed to load'); });
     return () => { cancelled = true; };
-  }, [kind, loadAttempt]);
+  }, [kind, loadAttempt, from, to]);
 
   const onViewAll = () => {
     onClose();
@@ -740,11 +774,16 @@ function SlaBreachesContent({ data }) {
       <Section title="Most Overdue">
         <CompactTable
           columns={[
-            { key: 'alert_id', label: 'Alert', cellClass: 'font-mono text-[11px]' },
-            { key: 'customer_name', label: 'Customer', cellClass: 'truncate max-w-[100px]' },
-            { key: 'days_overdue', label: 'Overdue', align: 'right',
+            { key: 'alert_id', label: 'Alert ID', cellClass: 'font-mono text-[11px]' },
+            { key: 'assigned_to', label: 'Analyst', cellClass: 'text-[11px] truncate max-w-[90px]',
+              render: r => r.assigned_to || <span className="italic text-slate-400">Unassigned</span> },
+            { key: 'created_date', label: 'Assigned Date', cellClass: 'text-[11px] whitespace-nowrap',
+              render: r => formatAssignedDate(r.created_date) },
+            { key: 'days_overdue', label: 'Breached By (days)', align: 'right',
               render: r => <span className="font-medium text-red-700">{r.days_overdue}d</span> },
-            { key: 'scenario', label: 'Scenario', cellClass: 'text-[11px] truncate max-w-[100px]' }
+            { key: 'scenario', label: 'Scenario', cellClass: 'text-[11px] truncate max-w-[100px]' },
+            { key: 'priority', label: 'Priority', cellClass: 'text-[11px]',
+              render: r => <Badge value={r.priority} /> }
           ]}
           rows={data.most_overdue}
         />
@@ -1065,6 +1104,16 @@ function InlineAssignModal({ alert, analysts, onCancel, onAssigned }) {
   );
 }
 
+
+// Format an ISO-style date (YYYY-MM-DD or full ISO) as "DD MMM YYYY".
+function formatAssignedDate(raw) {
+  if (!raw) return '—';
+  const iso = raw.length <= 10 ? `${raw}T00:00:00` : raw;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return raw;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
 
 function fmtRemaining(hrs) {
   if (hrs == null) return '—';

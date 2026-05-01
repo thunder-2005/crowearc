@@ -5,11 +5,12 @@ const router = express.Router();
 
 router.get('/stats', (req, res) => {
   const { assigned_to } = req.query;
-  const whereParts = [];
-  const whereParams = [];
+  const { from, to } = parseRange(req);
+  const whereParts = ['date(created_date) BETWEEN ? AND ?'];
+  const whereParams = [from, to];
   if (assigned_to) { whereParts.push('assigned_to = ?'); whereParams.push(assigned_to); }
-  const where = whereParts.length ? ' WHERE ' + whereParts.join(' AND ') : '';
-  const withAnd = whereParts.length ? where + ' AND ' : ' WHERE ';
+  const where = ' WHERE ' + whereParts.join(' AND ');
+  const withAnd = where + ' AND ';
 
   const totalAlerts = db.prepare(`SELECT COUNT(*) AS c FROM alerts${where}`).get(...whereParams).c;
   const unassigned  = db.prepare(`SELECT COUNT(*) AS c FROM alerts${withAnd} alert_status = 'Unassigned'`).get(...whereParams).c;
@@ -73,9 +74,10 @@ router.get('/stats', (req, res) => {
            SUM(CASE WHEN alert_status = 'Completed' THEN 1 ELSE 0 END) AS completed
       FROM alerts
      WHERE assigned_to IS NOT NULL AND TRIM(assigned_to) <> ''
+       AND date(created_date) BETWEEN ? AND ?
      GROUP BY assigned_to
      ORDER BY total DESC
-  `).all().map(r => ({
+  `).all(from, to).map(r => ({
     analyst: r.analyst,
     total: r.total,
     in_progress: r.in_progress,
@@ -85,8 +87,15 @@ router.get('/stats', (req, res) => {
     utilization_pct: Math.min(100, Math.round(((r.in_progress + r.total * 0.2) / 15) * 100))
   }));
 
+  // Extra series the Cases-Converted card needs on its front face.
+  const totalCases = db.prepare('SELECT COUNT(*) AS c FROM cases WHERE date(created_date) BETWEEN ? AND ?').get(from, to).c;
+  const totalSars  = db.prepare("SELECT COUNT(*) AS c FROM sar_filings WHERE filed_date IS NOT NULL AND date(filed_date) BETWEEN ? AND ?").get(from, to).c;
+  const conversionRatePct = totalAlerts > 0
+    ? Math.round((casesConverted / totalAlerts) * 1000) / 10
+    : 0;
+
   res.json({
-    scope: { assigned_to: assigned_to || null },
+    scope: { assigned_to: assigned_to || null, from, to },
     kpis: {
       total_alerts: totalAlerts,
       unassigned,
@@ -97,6 +106,9 @@ router.get('/stats', (req, res) => {
       sla_breaches: slaBreaches,
       avg_aging_days: Math.round(avgAging * 10) / 10,
       cases_converted: casesConverted,
+      total_cases: totalCases,
+      total_sars: totalSars,
+      conversion_rate_pct: conversionRatePct,
       false_positive_rate_pct: falsePositiveRate,
       team_capacity_pct: workload.length
         ? Math.round(workload.reduce((s, w) => s + w.utilization_pct, 0) / workload.length)
@@ -133,6 +145,17 @@ function compareThisVsLast(table, column, where = '') {
   return { curr, prev, pct: trendPct(curr, prev) };
 }
 
+
+// Parse the user-supplied date range from query string.
+// Defaults to last 30 days (to=today, from=today-30d). Returns ISO YYYY-MM-DD.
+function parseRange(req) {
+  const q = req.query || {};
+  const today = new Date();
+  const to = q.to || today.toISOString().slice(0, 10);
+  const from = q.from || new Date(today.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+  return { from, to };
+}
+
 function avatarInitials(name) {
   return (name || '?').split(/\s+/).slice(0, 2).map(s => s[0] || '').join('').toUpperCase();
 }
@@ -153,12 +176,14 @@ function listAnalysts() {
 }
 
 // ─── 1. Total Alerts
-router.get('/drawer/total-alerts', (_req, res) => {
-  const total = db.prepare('SELECT COUNT(*) AS c FROM alerts').get().c;
+router.get('/drawer/total-alerts', (req, res) => {
+  const { from, to } = parseRange(req);
+  const total = db.prepare('SELECT COUNT(*) AS c FROM alerts WHERE date(created_date) BETWEEN ? AND ?').get(from, to).c;
   const breakdownRows = db.prepare(`
     SELECT alert_status AS name, COUNT(*) AS value
-      FROM alerts GROUP BY alert_status
-  `).all();
+      FROM alerts WHERE date(created_date) BETWEEN ? AND ?
+     GROUP BY alert_status
+  `).all(from, to);
   // Roll up Escalated - L2 / SAR into "Escalated"
   const breakdown = [];
   let escalated = 0;
@@ -168,23 +193,25 @@ router.get('/drawer/total-alerts', (_req, res) => {
   }
   if (escalated > 0) breakdown.push({ name: 'Escalated', value: escalated });
 
-  const high_priority = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE priority = 'High' AND alert_status NOT IN ('Completed','Closed')").get().c;
+  const high_priority = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE priority = 'High' AND alert_status NOT IN ('Completed','Closed') AND date(created_date) BETWEEN ? AND ?").get(from, to).c;
   const breaching_today = db.prepare(`
     SELECT COUNT(*) AS c FROM alerts
      WHERE alert_status NOT IN ('Completed','Closed')
        AND sla_deadline IS NOT NULL
        AND date(sla_deadline) = ${TODAY}
-  `).get().c;
-  const unassigned = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Unassigned'").get().c;
+       AND date(created_date) BETWEEN ? AND ?
+  `).get(from, to).c;
+  const unassigned = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Unassigned' AND date(created_date) BETWEEN ? AND ?").get(from, to).c;
 
   const top_scenarios = db.prepare(`
     SELECT scenario AS name, COUNT(*) AS count
       FROM alerts
      WHERE scenario IS NOT NULL
+       AND date(created_date) BETWEEN ? AND ?
      GROUP BY scenario
      ORDER BY count DESC
      LIMIT 3
-  `).all().map(s => ({
+  `).all(from, to).map(s => ({
     ...s,
     pct: total > 0 ? Math.round((s.count / total) * 1000) / 10 : 0
   }));
@@ -194,20 +221,22 @@ router.get('/drawer/total-alerts', (_req, res) => {
 });
 
 // ─── 2. In Progress
-router.get('/drawer/in-progress', (_req, res) => {
-  const total = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Work in Progress'").get().c;
+router.get('/drawer/in-progress', (req, res) => {
+  const { from, to } = parseRange(req);
+  const total = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Work in Progress' AND date(created_date) BETWEEN ? AND ?").get(from, to).c;
   const ipByAnalyst = db.prepare(`
     SELECT assigned_to AS analyst, COUNT(*) AS in_progress
       FROM alerts
      WHERE alert_status = 'Work in Progress'
        AND assigned_to IS NOT NULL AND TRIM(assigned_to) <> ''
+       AND date(created_date) BETWEEN ? AND ?
      GROUP BY assigned_to
      ORDER BY in_progress DESC
-  `).all();
+  `).all(from, to);
   const analysts = listAnalysts();
   const profileByName = Object.fromEntries(analysts.map(a => [a.name, a]));
   const by_analyst = ipByAnalyst.map(r => {
-    const total_open = db.prepare(`SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = ? AND alert_status NOT IN ('Completed','Closed')`).get(r.analyst).c;
+    const total_open = db.prepare(`SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = ? AND alert_status NOT IN ('Completed','Closed') AND date(created_date) BETWEEN ? AND ?`).get(r.analyst, from, to).c;
     const pct = Math.min(100, Math.round((total_open / ANALYST_CAPACITY) * 100));
     return {
       ...(profileByName[r.analyst] || { name: r.analyst, level: 'L1', initials: avatarInitials(r.analyst) }),
@@ -222,20 +251,22 @@ router.get('/drawer/in-progress', (_req, res) => {
     SELECT alert_id, customer_name, age_days, priority
       FROM alerts
      WHERE alert_status = 'Work in Progress'
+       AND date(created_date) BETWEEN ? AND ?
      ORDER BY age_days DESC
      LIMIT 3
-  `).all();
+  `).all(from, to);
 
   const trend = compareThisVsLast('alerts', 'last_activity_date', "alert_status = 'Work in Progress'");
   res.json({ total, by_analyst, oldest, trend });
 });
 
 // ─── 3. Completed
-router.get('/drawer/completed', (_req, res) => {
-  const total = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed'").get().c;
-  const fp = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND case_converted = 0").get().c;
-  const l2 = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND case_converted = 1 AND linked_sar_id IS NULL").get().c;
-  const sar = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND linked_sar_id IS NOT NULL").get().c;
+router.get('/drawer/completed', (req, res) => {
+  const { from, to } = parseRange(req);
+  const total = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND date(created_date) BETWEEN ? AND ?").get(from, to).c;
+  const fp = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND case_converted = 0 AND date(created_date) BETWEEN ? AND ?").get(from, to).c;
+  const l2 = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND case_converted = 1 AND linked_sar_id IS NULL AND date(created_date) BETWEEN ? AND ?").get(from, to).c;
+  const sar = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND linked_sar_id IS NOT NULL AND date(created_date) BETWEEN ? AND ?").get(from, to).c;
 
   // Last 4 weeks (Mon-start)
   const by_week = db.prepare(`
@@ -257,27 +288,29 @@ router.get('/drawer/completed', (_req, res) => {
       FROM alerts
      WHERE alert_status = 'Completed'
        AND closed_date IS NOT NULL
-       AND date(closed_date) >= ${THIS_MONTH_START}
+       AND date(created_date) BETWEEN ? AND ?
      ORDER BY days ASC
      LIMIT 3
-  `).all();
+  `).all(from, to);
 
   const trend = compareThisVsLast('alerts', 'closed_date', "alert_status = 'Completed'");
   res.json({ total, fp, l2, sar, by_week, fastest, trend });
 });
 
 // ─── 4. SLA Breaches
-router.get('/drawer/sla-breaches', (_req, res) => {
-  const total = db.prepare('SELECT COUNT(*) AS c FROM alerts WHERE sla_breached = 1').get().c;
+router.get('/drawer/sla-breaches', (req, res) => {
+  const { from, to } = parseRange(req);
+  const total = db.prepare('SELECT COUNT(*) AS c FROM alerts WHERE sla_breached = 1 AND date(created_date) BETWEEN ? AND ?').get(from, to).c;
 
   const overdue = db.prepare(`
-    SELECT alert_id, customer_name, scenario,
+    SELECT alert_id, customer_name, scenario, assigned_to, priority, created_date,
            CAST(MAX(0, julianday('now') - julianday(sla_deadline)) AS INTEGER) AS days_overdue
       FROM alerts
      WHERE sla_breached = 1
        AND sla_deadline IS NOT NULL
        AND alert_status NOT IN ('Completed','Closed')
-  `).all();
+       AND date(created_date) BETWEEN ? AND ?
+  `).all(from, to);
 
   const buckets = { gt7: 0, between3and7: 0, lt3: 0 };
   for (const r of overdue) {
@@ -291,9 +324,10 @@ router.get('/drawer/sla-breaches', (_req, res) => {
       FROM alerts
      WHERE sla_breached = 1
        AND assigned_to IS NOT NULL AND TRIM(assigned_to) <> ''
+       AND date(created_date) BETWEEN ? AND ?
      GROUP BY assigned_to
      ORDER BY breaches DESC
-  `).all();
+  `).all(from, to);
   const analysts = Object.fromEntries(listAnalysts().map(a => [a.name, a]));
   const by_analyst_enriched = by_analyst.map(r => ({
     ...(analysts[r.analyst] || { name: r.analyst, level: 'L1', initials: avatarInitials(r.analyst) }),
@@ -317,12 +351,14 @@ router.get('/drawer/sla-breaches', (_req, res) => {
 });
 
 // ─── 5. Avg Aging
-router.get('/drawer/avg-aging', (_req, res) => {
+router.get('/drawer/avg-aging', (req, res) => {
+  const { from, to } = parseRange(req);
   const open = db.prepare(`
     SELECT alert_id, customer_name, age_days, assigned_to
       FROM alerts
      WHERE alert_status NOT IN ('Completed','Closed')
-  `).all();
+       AND date(created_date) BETWEEN ? AND ?
+  `).all(from, to);
   const total_open = open.length;
   const avg = total_open > 0
     ? Math.round((open.reduce((s, a) => s + (a.age_days || 0), 0) / total_open) * 10) / 10
@@ -364,10 +400,14 @@ router.get('/drawer/avg-aging', (_req, res) => {
 });
 
 // ─── 6. Cases Converted
-router.get('/drawer/cases-converted', (_req, res) => {
-  const total = db.prepare('SELECT COUNT(*) AS c FROM alerts WHERE case_converted = 1').get().c;
-  const total_alerts = db.prepare('SELECT COUNT(*) AS c FROM alerts').get().c;
-  const filed = db.prepare("SELECT COUNT(*) AS c FROM sar_filings WHERE sar_status = 'Filed'").get().c;
+router.get('/drawer/cases-converted', (req, res) => {
+  const { from, to } = parseRange(req);
+  const total = db.prepare('SELECT COUNT(*) AS c FROM alerts WHERE case_converted = 1 AND date(created_date) BETWEEN ? AND ?').get(from, to).c;
+  const total_alerts = db.prepare('SELECT COUNT(*) AS c FROM alerts WHERE date(created_date) BETWEEN ? AND ?').get(from, to).c;
+  const total_cases = db.prepare('SELECT COUNT(*) AS c FROM cases WHERE date(created_date) BETWEEN ? AND ?').get(from, to).c;
+  const filed = db.prepare("SELECT COUNT(*) AS c FROM sar_filings WHERE sar_status = 'Filed' AND filed_date IS NOT NULL AND date(filed_date) BETWEEN ? AND ?").get(from, to).c;
+  const total_sars = db.prepare("SELECT COUNT(*) AS c FROM sar_filings WHERE filed_date IS NOT NULL AND date(filed_date) BETWEEN ? AND ?").get(from, to).c;
+  const conversion_rate_pct = total_alerts > 0 ? Math.round((total / total_alerts) * 1000) / 10 : 0;
   const pending_approval = db.prepare("SELECT COUNT(*) AS c FROM sar_filings WHERE sar_status IN ('Pending Approval','Under Manager Review')").get().c;
   const filed_this_month = db.prepare(`SELECT COUNT(*) AS c FROM sar_filings WHERE sar_status = 'Filed' AND filed_date IS NOT NULL AND date(filed_date) >= ${THIS_MONTH_START}`).get().c;
 
@@ -375,14 +415,19 @@ router.get('/drawer/cases-converted', (_req, res) => {
     SELECT c.case_id, c.customer_name, c.assigned_to AS filed_by, c.created_date AS date
       FROM cases c
      WHERE c.linked_sar_id IS NOT NULL
+       AND date(c.created_date) BETWEEN ? AND ?
      ORDER BY date(c.updated_date) DESC, c.id DESC
      LIMIT 4
-  `).all();
+  `).all(from, to);
 
   const trend = compareThisVsLast('alerts', 'last_activity_date', 'case_converted = 1');
 
   res.json({
     total,
+    total_alerts,
+    total_cases,
+    total_sars,
+    conversion_rate_pct,
     funnel: {
       alerts: total_alerts,
       escalated_sar: total,
@@ -396,10 +441,11 @@ router.get('/drawer/cases-converted', (_req, res) => {
 });
 
 // ─── 7. Team Capacity
-router.get('/drawer/team-capacity', (_req, res) => {
+router.get('/drawer/team-capacity', (req, res) => {
+  const { from, to } = parseRange(req);
   const analysts = listAnalysts();
   const enriched = analysts.map(a => {
-    const open = db.prepare(`SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = ? AND alert_status NOT IN ('Completed','Closed')`).get(a.name).c;
+    const open = db.prepare(`SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = ? AND alert_status NOT IN ('Completed','Closed') AND date(created_date) BETWEEN ? AND ?`).get(a.name, from, to).c;
     const pct = Math.min(100, Math.round((open / ANALYST_CAPACITY) * 100));
     return { ...a, open, capacity: ANALYST_CAPACITY, pct };
   });
@@ -407,7 +453,7 @@ router.get('/drawer/team-capacity', (_req, res) => {
   const team_pct = enriched.length > 0
     ? Math.round(enriched.reduce((s, a) => s + a.pct, 0) / enriched.length)
     : 0;
-  const total_unassigned = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Unassigned'").get().c;
+  const total_unassigned = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Unassigned' AND date(created_date) BETWEEN ? AND ?").get(from, to).c;
 
   res.json({
     team_pct,
@@ -419,9 +465,10 @@ router.get('/drawer/team-capacity', (_req, res) => {
 });
 
 // ─── 8. False Positive Rate
-router.get('/drawer/false-positive', (_req, res) => {
-  const closed = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed'").get().c;
-  const fp = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND case_converted = 0").get().c;
+router.get('/drawer/false-positive', (req, res) => {
+  const { from, to } = parseRange(req);
+  const closed = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND date(created_date) BETWEEN ? AND ?").get(from, to).c;
+  const fp = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND case_converted = 0 AND date(created_date) BETWEEN ? AND ?").get(from, to).c;
   const rate_pct = closed > 0 ? Math.round((fp / closed) * 1000) / 10 : 0;
 
   // This month vs last month FP rate
@@ -445,10 +492,11 @@ router.get('/drawer/false-positive', (_req, res) => {
            SUM(CASE WHEN alert_status = 'Completed' AND case_converted = 0 THEN 1 ELSE 0 END) AS fp_count
       FROM alerts
      WHERE alert_status = 'Completed' AND scenario IS NOT NULL
+       AND date(created_date) BETWEEN ? AND ?
      GROUP BY scenario
      ORDER BY (CAST(SUM(CASE WHEN alert_status = 'Completed' AND case_converted = 0 THEN 1.0 ELSE 0 END) AS REAL) / NULLIF(COUNT(*), 0)) DESC
      LIMIT 4
-  `).all().map(r => ({
+  `).all(from, to).map(r => ({
     scenario: r.scenario,
     total: r.total,
     fp_count: r.fp_count,
@@ -465,21 +513,23 @@ router.get('/drawer/false-positive', (_req, res) => {
 });
 
 // ─── 9. Unassigned Queue
-router.get('/drawer/unassigned', (_req, res) => {
-  const total = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Unassigned'").get().c;
+router.get('/drawer/unassigned', (req, res) => {
+  const { from, to } = parseRange(req);
+  const total = db.prepare("SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Unassigned' AND date(created_date) BETWEEN ? AND ?").get(from, to).c;
   const byPriority = db.prepare(`
     SELECT priority, COUNT(*) AS c
       FROM alerts
      WHERE alert_status = 'Unassigned'
+       AND date(created_date) BETWEEN ? AND ?
      GROUP BY priority
-  `).all();
+  `).all(from, to);
   const by_priority = { High: 0, Medium: 0, Low: 0 };
   for (const r of byPriority) by_priority[r.priority || 'Low'] = r.c;
 
   // Available analysts = under threshold capacity
   const analysts = listAnalysts();
   const available = analysts.map(a => {
-    const open = db.prepare(`SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = ? AND alert_status NOT IN ('Completed','Closed')`).get(a.name).c;
+    const open = db.prepare(`SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = ? AND alert_status NOT IN ('Completed','Closed') AND date(created_date) BETWEEN ? AND ?`).get(a.name, from, to).c;
     const pct = Math.min(100, Math.round((open / ANALYST_CAPACITY) * 100));
     return { ...a, open, capacity: ANALYST_CAPACITY, pct, can_take: Math.max(0, ANALYST_CAPACITY - open) };
   })
@@ -504,10 +554,11 @@ router.get('/drawer/unassigned', (_req, res) => {
     SELECT alert_id, scenario, priority, age_days
       FROM alerts
      WHERE alert_status = 'Unassigned'
+       AND date(created_date) BETWEEN ? AND ?
      ORDER BY CASE priority WHEN 'High' THEN 0 WHEN 'Medium' THEN 1 ELSE 2 END,
               age_days DESC
      LIMIT 5
-  `).all();
+  `).all(from, to);
 
   res.json({ total, by_priority, available_analysts: available, recommendation, top_5 });
 });

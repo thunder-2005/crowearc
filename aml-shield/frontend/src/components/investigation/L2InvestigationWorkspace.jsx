@@ -15,18 +15,22 @@ import {
 
 const usd = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// Each ticked factor adds exactly +10 to the score. With 10 factors, the
+// score lands on a 0..100 grid (multiples of 10) — checkboxes are the only
+// driver of the score; there is no manual slider.
+const RISK_FACTOR_WEIGHT = 10;
 const RISK_FACTORS = [
-  { k: 'structuring',          label: 'Structuring pattern confirmed',         weight: 12 },
-  { k: 'high_risk_jurisdiction', label: 'High risk jurisdiction involvement', weight: 10 },
-  { k: 'watchlist',            label: 'Watchlist/sanctions match',             weight: 18 },
-  { k: 'inconsistent_purpose', label: 'Inconsistent with stated business purpose', weight: 8 },
-  { k: 'rapid_movement',       label: 'Rapid movement of funds',                weight: 10 },
-  { k: 'shell_company',        label: 'Shell company involvement',              weight: 12 },
-  { k: 'pep',                  label: 'PEP connection',                         weight: 8 },
-  { k: 'prior_sar',            label: 'Prior SAR history',                      weight: 6 },
-  { k: 'unexplained_wealth',   label: 'Unexplained wealth',                     weight: 8 },
-  { k: 'uncooperative',        label: 'Uncooperative with information requests',weight: 8 }
-];
+  { k: 'structuring',            label: 'Structuring pattern confirmed' },
+  { k: 'high_risk_jurisdiction', label: 'High risk jurisdiction involvement' },
+  { k: 'watchlist',              label: 'Watchlist / sanctions match' },
+  { k: 'inconsistent_purpose',   label: 'Inconsistent with stated business purpose' },
+  { k: 'rapid_movement',         label: 'Rapid movement of funds' },
+  { k: 'shell_company',          label: 'Shell company involvement' },
+  { k: 'pep',                    label: 'PEP connection' },
+  { k: 'prior_sar',              label: 'Prior SAR history' },
+  { k: 'unexplained_wealth',     label: 'Unexplained wealth' },
+  { k: 'uncooperative',          label: 'Uncooperative with information requests' }
+].map(f => ({ ...f, weight: RISK_FACTOR_WEIGHT }));
 
 function riskBand(score) {
   if (score <= 30) return { label: 'Low', cls: 'text-green-700', bg: 'bg-green-100', track: 'bg-green-500' };
@@ -485,18 +489,18 @@ function DeepAnalysisTab({ l2, l2CaseId, riskScore, riskFactors, setRiskFactors,
             </span>
           </div>
           <div className="flex items-end gap-3">
-            <div className={`text-4xl font-bold ${band.cls.replace('animate-pulse', '')}`}>{riskScore}</div>
+            <div className={`text-4xl font-bold ${band.cls}`}>{riskScore}</div>
             <div className="text-xs text-slate-500 mb-1">/ 100</div>
           </div>
           <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
             <div className={`h-full ${band.track}`} style={{ width: `${Math.min(100, riskScore)}%` }} />
           </div>
           <div className="text-[10px] text-slate-500 mt-1">
-            1–30 Low · 31–60 Medium · 61–80 High · 81–100 Critical
+            0–30 Low · 31–60 Medium · 61–80 High · 81–100 Critical
           </div>
         </div>
         <div className="mt-3">
-          <div className="text-xs font-medium text-slate-700 mb-2">Risk Factors (multi-select — each adds to the score):</div>
+          <div className="text-xs font-medium text-slate-700 mb-2">Risk Factors (each ticked factor adds +10 to the score):</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {RISK_FACTORS.map(f => (
               <label key={f.k} className={`flex items-center gap-2 px-2 py-1.5 rounded border cursor-pointer ${

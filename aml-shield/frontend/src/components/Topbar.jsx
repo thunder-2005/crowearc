@@ -210,7 +210,7 @@ export default function Topbar() {
   // Title comes from path segment after /manager or /employee
   const seg = loc.pathname.split('/').filter(Boolean);
   const sectionKey = seg[1] || 'dashboard';
-  const title = TITLES[sectionKey] || 'CroweTrace';
+  const title = TITLES[sectionKey] || 'Crowe ARC';
 
   const onNotificationClick = async (n) => {
     if (!n.is_read) {
@@ -248,7 +248,7 @@ export default function Topbar() {
       <div>
         <div className="text-lg font-semibold text-navy-900">{title}</div>
         <div className="text-xs text-slate-500">
-          CroweTrace · Suspicious Activity &amp; SAR Management
+          Crowe ARC · Suspicious Activity &amp; SAR Management
         </div>
       </div>
       <div className="flex-1 flex justify-center mx-auto">

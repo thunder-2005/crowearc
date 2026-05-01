@@ -629,10 +629,10 @@ function FindingsTab({ findings, setFindings, newRating, setNewRating, newCdd, s
         <div className="text-[11px] text-slate-500 mt-1">{findings.length} chars · {wordCount} words</div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        <div className="flex flex-col">
           <label className="text-xs font-semibold text-slate-700">Risk Rating</label>
-          <div className="text-[11px] text-slate-500">Current: <Badge value={c.customer_risk_rating || review.previous_risk_rating} /></div>
+          <div className="text-[11px] text-slate-500 min-h-[18px]">Current: <Badge value={c.customer_risk_rating || review.previous_risk_rating} /></div>
           <select value={newRating} onChange={e => setNewRating(e.target.value)}
             disabled={isLocked}
             className="mt-1 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white">
@@ -640,9 +640,9 @@ function FindingsTab({ findings, setFindings, newRating, setNewRating, newCdd, s
             {RATINGS.map(r => <option key={r}>{r}</option>)}
           </select>
         </div>
-        <div>
+        <div className="flex flex-col">
           <label className="text-xs font-semibold text-slate-700">CDD Level</label>
-          <div className="text-[11px] text-slate-500">Current: {c.cdd_level || review.previous_cdd_level || '—'}</div>
+          <div className="text-[11px] text-slate-500 min-h-[18px]">Current: {c.cdd_level || review.previous_cdd_level || '—'}</div>
           <select value={newCdd} onChange={e => setNewCdd(e.target.value)}
             disabled={isLocked}
             className="mt-1 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white">
@@ -650,8 +650,9 @@ function FindingsTab({ findings, setFindings, newRating, setNewRating, newCdd, s
             {CDD.map(r => <option key={r}>{r}</option>)}
           </select>
         </div>
-        <div>
+        <div className="flex flex-col">
           <label className="text-xs font-semibold text-slate-700">Recommendation <span className="text-red-500">*</span></label>
+          <div className="text-[11px] text-slate-500 min-h-[18px]">Current: —</div>
           <select value={recommendation} onChange={e => setRecommendation(e.target.value)}
             disabled={isLocked}
             className="mt-1 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white">
