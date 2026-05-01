@@ -17,7 +17,11 @@
       "Bash(curl -s \"http://localhost:4000/api/customers\")",
       "Bash(node -e \"let b='';process.stdin.on\\('data',d=>b+=d\\);process.stdin.on\\('end',\\(\\)=>{const r=JSON.parse\\(b\\);console.log\\('customers count:', r.length\\)}\\)\")",
       "Read(//c/Users/saprar/AppData/**)",
-      "Read(//c/Users/saprar/AppData/Roaming/Code/User/workspaceStorage//**)"
+      "Read(//c/Users/saprar/AppData/Roaming/Code/User/workspaceStorage//**)",
+      "Bash(taskkill //F //PID 26156)",
+      "Bash(netstat -ano)",
+      "Bash(awk '{print $5}')",
+      "Bash(xargs -r -I{} taskkill //F //PID {})"
     ]
   }
 }
