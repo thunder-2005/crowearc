@@ -6,14 +6,19 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "migrate": "node database/migrate.js",
     "seed": "node database/seed.js"
   },
-  "engines": { "node": ">=22.5.0" },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "archiver": "^7.0.1",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.21.0",
     "morgan": "^1.10.0",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.20.0"
   }
 }

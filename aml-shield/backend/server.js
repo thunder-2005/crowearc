@@ -1,10 +1,10 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
-
-const { db, initSchema, seedAdminDataIfEmpty, migrateInrToUsd, backfillKycTriggerLinks } = require('./database/db');
 
 const alertsRouter = require('./routes/alerts');
 const casesRouter = require('./routes/cases');
@@ -36,12 +36,17 @@ const PORT = process.env.PORT || 4000;
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-initSchema();
-migrateInrToUsd();
-backfillKycTriggerLinks();
-seedAdminDataIfEmpty();
-
-app.use(cors());
+// Vercel preview/prod deploys end with .vercel.app. The cors package
+// supports RegExp entries in `origin`, so we use one for the wildcard.
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://nicecrowearc-q6845hv6v-thunder-2005s-projects.vercel.app',
+    /\.vercel\.app$/
+  ],
+  credentials: true
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(morgan('dev'));
 

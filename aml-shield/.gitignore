@@ -2,6 +2,11 @@ node_modules
 dist
 .vite
 .env
+.env.development
+.env.production
+.env.local
+.env.*.local
+!.env.example
 backend/database/aml.db
 backend/uploads/*
 !backend/uploads/.gitkeep

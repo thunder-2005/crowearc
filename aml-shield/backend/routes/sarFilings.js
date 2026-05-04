@@ -1,5 +1,5 @@
 const express = require('express');
-const { db } = require('../database/db');
+const pool = require('../database/db');
 
 const router = express.Router();
 
@@ -28,12 +28,12 @@ function serializeBody(body) {
   return out;
 }
 
-function nextSarId() {
-  const last = db.prepare(`
+async function nextSarId() {
+  const last = (await pool.query(`
     SELECT sar_id FROM sar_filings
      WHERE sar_id LIKE 'SAR-%'
      ORDER BY id DESC LIMIT 1
-  `).get();
+  `)).rows[0];
   let n = 1;
   if (last) {
     const m = String(last.sar_id).match(/(\d+)$/);
@@ -59,75 +59,80 @@ const FILING_FIELDS = [
   'documents_count', 'linked_alert_count', 'latest_activity_date'
 ];
 
-function applyUpdate(sarRow, body) {
+async function applyUpdate(sarRow, body) {
   const serialized = serializeBody(body);
   const sets = [];
   const params = [];
+  let n = 0;
   for (const f of FILING_FIELDS) {
     if (serialized[f] !== undefined) {
-      sets.push(`${f} = ?`);
       params.push(serialized[f]);
+      sets.push(`${f} = $${++n}`);
     }
   }
   if (sets.length === 0) return sarRow;
   const stamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
-  if (!body.updated_at) { sets.push('updated_at = ?'); params.push(stamp); }
-  if (!body.latest_activity_date) { sets.push('latest_activity_date = ?'); params.push(stamp.slice(0, 10)); }
+  if (!body.updated_at) { params.push(stamp); sets.push(`updated_at = $${++n}`); }
+  if (!body.latest_activity_date) { params.push(stamp.slice(0, 10)); sets.push(`latest_activity_date = $${++n}`); }
   params.push(sarRow.sar_id);
-  db.prepare(`UPDATE sar_filings SET ${sets.join(', ')} WHERE sar_id = ?`).run(...params);
-  return db.prepare('SELECT * FROM sar_filings WHERE sar_id = ?').get(sarRow.sar_id);
+  await pool.query(`UPDATE sar_filings SET ${sets.join(', ')} WHERE sar_id = $${++n}`, params);
+  const sel = await pool.query('SELECT * FROM sar_filings WHERE sar_id = $1', [sarRow.sar_id]);
+  return sel.rows[0];
 }
 
-router.post('/', (req, res) => {
-  const { case_id, customer_id, customer_name, source_alert_id, prepared_by, alert_scenario } = req.body;
-  if (!case_id) return res.status(400).json({ error: 'case_id required' });
-  if (!customer_name) return res.status(400).json({ error: 'customer_name required' });
+router.post('/', async (req, res, next) => {
+  try {
+    const { case_id, customer_id, customer_name, source_alert_id, prepared_by, alert_scenario } = req.body;
+    if (!case_id) return res.status(400).json({ error: 'case_id required' });
+    if (!customer_name) return res.status(400).json({ error: 'customer_name required' });
 
-  const existing = db.prepare('SELECT * FROM sar_filings WHERE case_id = ?').get(case_id);
-  if (existing) {
-    const updated = applyUpdate(existing, req.body);
-    return res.json(deserialize(updated));
-  }
+    const existingResult = await pool.query('SELECT * FROM sar_filings WHERE case_id = $1', [case_id]);
+    const existing = existingResult.rows[0];
+    if (existing) {
+      const updated = await applyUpdate(existing, req.body);
+      return res.json(deserialize(updated));
+    }
 
-  const sarId = nextSarId();
-  const today = new Date().toISOString().slice(0, 10);
-  const stamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const sarId = await nextSarId();
+    const today = new Date().toISOString().slice(0, 10);
+    const stamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-  db.prepare(`
-    INSERT INTO sar_filings (
-      sar_id, case_id, source_alert_id, customer_id, customer_name,
-      alert_scenario, sar_status, prepared_by, draft_created_date,
-      reporting_jurisdiction, access_classification, current_owner,
-      created_at, updated_at, latest_activity_date
-    ) VALUES (?, ?, ?, ?, ?, ?, 'Draft', ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    sarId, case_id, source_alert_id || null, customer_id || null, customer_name,
-    alert_scenario || null, prepared_by || null, today,
-    'FIU-IND', 'Internal', prepared_by || null,
-    stamp, stamp, today
-  );
+    await pool.query(`
+      INSERT INTO sar_filings (
+        sar_id, case_id, source_alert_id, customer_id, customer_name,
+        alert_scenario, sar_status, prepared_by, draft_created_date,
+        reporting_jurisdiction, access_classification, current_owner,
+        created_at, updated_at, latest_activity_date
+      ) VALUES ($1, $2, $3, $4, $5, $6, 'Draft', $7, $8, $9, $10, $11, $12, $13, $14)
+    `, [
+      sarId, case_id, source_alert_id || null, customer_id || null, customer_name,
+      alert_scenario || null, prepared_by || null, today,
+      'FIU-IND', 'Internal', prepared_by || null,
+      stamp, stamp, today
+    ]);
 
-  db.prepare(`
-    INSERT INTO audit_trail (sar_id, action, performed_by, details)
-    VALUES (?, 'SAR Draft Created', ?, ?)
-  `).run(sarId, prepared_by || 'system', `Linked to case ${case_id}`);
+    await pool.query(`
+      INSERT INTO audit_trail (sar_id, action, performed_by, details)
+      VALUES ($1, 'SAR Draft Created', $2, $3)
+    `, [sarId, prepared_by || 'system', `Linked to case ${case_id}`]);
 
-  let row = db.prepare('SELECT * FROM sar_filings WHERE sar_id = ?').get(sarId);
-  if (Object.keys(req.body).some(k => FILING_FIELDS.includes(k))) {
-    row = applyUpdate(row, req.body);
-  }
-  res.status(201).json(deserialize(row));
+    let row = (await pool.query('SELECT * FROM sar_filings WHERE sar_id = $1', [sarId])).rows[0];
+    if (Object.keys(req.body).some(k => FILING_FIELDS.includes(k))) {
+      row = await applyUpdate(row, req.body);
+    }
+    res.status(201).json(deserialize(row));
+  } catch (err) { next(err); }
 });
 
-function enrich(row) {
+async function enrich(row) {
   if (!row) return row;
   const out = deserialize(row);
   if (out.customer_id) {
-    const cust = db.prepare(`
+    const cust = (await pool.query(`
       SELECT customer_name, customer_risk_rating, cdd_level,
-             last_kyc_review_date, next_kyc_due_date, kyc_review_status, exit_status, updated_at
-        FROM customers WHERE customer_id = ?
-    `).get(out.customer_id);
+             last_kyc_review_date, next_kyc_due_date, kyc_review_status, exit_status
+        FROM customers WHERE customer_id = $1
+    `, [out.customer_id])).rows[0];
     if (cust) {
       out.customer_risk_rating = cust.customer_risk_rating;
       out.customer_cdd_level   = cust.cdd_level;
@@ -138,139 +143,184 @@ function enrich(row) {
       out.kyc_data_changed = !!(draftAt && lastKyc && lastKyc > draftAt.slice(0, 10));
     }
   }
-  const kyc = db.prepare(`
+  const kyc = (await pool.query(`
     SELECT id FROM kyc_reviews
-     WHERE triggered_by_sar_id = ?
+     WHERE triggered_by_sar_id = $1
      ORDER BY id DESC LIMIT 1
-  `).get(out.sar_id);
+  `, [out.sar_id])).rows[0];
   out.kyc_review_id = kyc ? kyc.id : null;
   return out;
 }
 
-router.get('/by-case/:case_id', (req, res) => {
-  const row = db.prepare('SELECT * FROM sar_filings WHERE case_id = ?').get(req.params.case_id);
-  if (!row) return res.status(404).json({ error: 'No SAR filing for case' });
-  res.json(enrich(row));
+router.get('/by-case/:case_id', async (req, res, next) => {
+  try {
+    const result = await pool.query('SELECT * FROM sar_filings WHERE case_id = $1', [req.params.case_id]);
+    const row = result.rows[0];
+    if (!row) return res.status(404).json({ error: 'No SAR filing for case' });
+    res.json(await enrich(row));
+  } catch (err) { next(err); }
 });
 
-router.get('/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM sar_filings WHERE sar_id = ? OR id = ?')
-    .get(req.params.id, req.params.id);
-  if (!row) return res.status(404).json({ error: 'SAR not found' });
-  res.json(enrich(row));
-});
-
-router.patch('/:id', (req, res) => {
-  const existing = db.prepare('SELECT * FROM sar_filings WHERE sar_id = ? OR id = ?')
-    .get(req.params.id, req.params.id);
-  if (!existing) return res.status(404).json({ error: 'SAR not found' });
-  const updated = applyUpdate(existing, req.body);
-  res.json(deserialize(updated));
-});
-
-router.post('/:id/submit', (req, res) => {
-  const existing = db.prepare('SELECT * FROM sar_filings WHERE sar_id = ? OR id = ?')
-    .get(req.params.id, req.params.id);
-  if (!existing) return res.status(404).json({ error: 'SAR not found' });
-
-  const dualRow = db.prepare("SELECT setting_value FROM manager_settings WHERE setting_key = 'sar.dual_approval_required'").get();
-  let dual = false;
-  try { dual = dualRow ? JSON.parse(dualRow.setting_value) === true : false; } catch (_e) { dual = false; }
-
-  const today = new Date().toISOString().slice(0, 10);
-  const stamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
-  const status = dual ? 'Pending Approval' : 'Filed';
-  const submittedBy = req.body.submitted_by || existing.prepared_by || 'system';
-  const isResubmission = existing.sar_status === 'Returned for Revision' || existing.returned_to_analyst === 1;
-
-  db.prepare(`
-    UPDATE sar_filings
-       SET sar_status = ?, submitted_by = ?, submitted_at = ?,
-           filed_date = CASE WHEN ? = 'Filed' THEN ? ELSE filed_date END,
-           retention_status = CASE WHEN ? = 'Filed' THEN 'Active' ELSE COALESCE(retention_status, 'Pending Filing') END,
-           retention_expiry_date = CASE
-             WHEN ? = 'Filed' THEN date(?, '+5 years')
-             ELSE retention_expiry_date
-           END,
-           certification_signed = 1,
-           returned_to_analyst = 0,
-           updated_at = ?, latest_activity_date = ?
-     WHERE sar_id = ?
-  `).run(status, submittedBy, stamp,
-         status, today,
-         status,
-         status, today,
-         stamp, today,
-         existing.sar_id);
-
-  const action = dual ? (isResubmission ? 'SAR Resubmitted for Approval' : 'SAR Submitted for Approval') : 'SAR Filed';
-  db.prepare(`
-    INSERT INTO audit_trail (sar_id, action, performed_by, details)
-    VALUES (?, ?, ?, ?)
-  `).run(existing.sar_id, action, submittedBy,
-         dual ? 'Awaiting supervisor approval' : 'Filed with regulator');
-
-  if (existing.case_id) {
-    db.prepare('UPDATE cases SET case_status = ?, linked_sar_id = ?, updated_date = ? WHERE case_id = ?')
-      .run(dual ? 'Pending Review' : 'Filed', existing.sar_id, today, existing.case_id);
-  }
-  if (existing.source_alert_id) {
-    db.prepare('UPDATE alerts SET linked_sar_id = ?, last_activity_date = ? WHERE alert_id = ?')
-      .run(existing.sar_id, today, existing.source_alert_id);
-  }
-
-  if (dual) {
-    db.prepare(`
-      INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_id, related_type, tone)
-      VALUES (NULL, 'manager', 'sar_pending', ?, ?, ?, 'sar', 'warning')
-    `).run(
-      `${isResubmission ? 'Resubmitted SAR' : 'SAR'} pending approval — ${existing.customer_name}`,
-      `${existing.sar_id} filed by ${submittedBy}. Awaiting your review.`,
-      existing.sar_id
+router.get('/:id', async (req, res, next) => {
+  try {
+    const idParam = req.params.id;
+    const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
+    const result = await pool.query(
+      'SELECT * FROM sar_filings WHERE sar_id = $1 OR id = $2', [idParam, idAsInt]
     );
-  }
-
-  const row = db.prepare('SELECT * FROM sar_filings WHERE sar_id = ?').get(existing.sar_id);
-  res.json({ ...deserialize(row), dual_approval_required: dual });
+    const row = result.rows[0];
+    if (!row) return res.status(404).json({ error: 'SAR not found' });
+    res.json(await enrich(row));
+  } catch (err) { next(err); }
 });
 
-router.post('/:id/approve', (req, res) => {
-  const existing = db.prepare('SELECT * FROM sar_filings WHERE sar_id = ? OR id = ?')
-    .get(req.params.id, req.params.id);
-  if (!existing) return res.status(404).json({ error: 'SAR not found' });
-
-  const today = new Date().toISOString().slice(0, 10);
-  const stamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
-  const approvedBy = req.body.approved_by || 'Compliance Manager';
-
-  db.prepare(`
-    UPDATE sar_filings
-       SET sar_status = 'Filed', approved_by = ?, approved_at = ?,
-           filed_date = ?, retention_status = 'Active',
-           retention_expiry_date = date(?, '+5 years'),
-           updated_at = ?, latest_activity_date = ?
-     WHERE sar_id = ?
-  `).run(approvedBy, stamp, today, today, stamp, today, existing.sar_id);
-
-  db.prepare(`
-    INSERT INTO audit_trail (sar_id, action, performed_by, details)
-    VALUES (?, 'SAR Approved & Filed', ?, ?)
-  `).run(existing.sar_id, approvedBy, req.body.notes || 'Approved by supervisor');
-
-  if (existing.case_id) {
-    db.prepare('UPDATE cases SET case_status = ?, updated_date = ? WHERE case_id = ?')
-      .run('Filed', today, existing.case_id);
-  }
-
-  res.json(deserialize(db.prepare('SELECT * FROM sar_filings WHERE sar_id = ?').get(existing.sar_id)));
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const idParam = req.params.id;
+    const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
+    const result = await pool.query(
+      'SELECT * FROM sar_filings WHERE sar_id = $1 OR id = $2', [idParam, idAsInt]
+    );
+    const existing = result.rows[0];
+    if (!existing) return res.status(404).json({ error: 'SAR not found' });
+    const updated = await applyUpdate(existing, req.body);
+    res.json(deserialize(updated));
+  } catch (err) { next(err); }
 });
 
-router.get('/:id/preview', (req, res) => {
-  const row = db.prepare('SELECT * FROM sar_filings WHERE sar_id = ? OR id = ?')
-    .get(req.params.id, req.params.id);
-  if (!row) return res.status(404).json({ error: 'SAR not found' });
-  const audit = db.prepare('SELECT * FROM audit_trail WHERE sar_id = ? ORDER BY timestamp DESC').all(row.sar_id);
-  res.json({ ...deserialize(row), audit_trail: audit });
+router.post('/:id/submit', async (req, res, next) => {
+  try {
+    const idParam = req.params.id;
+    const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
+    const existingResult = await pool.query(
+      'SELECT * FROM sar_filings WHERE sar_id = $1 OR id = $2', [idParam, idAsInt]
+    );
+    const existing = existingResult.rows[0];
+    if (!existing) return res.status(404).json({ error: 'SAR not found' });
+
+    const dualResult = await pool.query(
+      "SELECT setting_value FROM manager_settings WHERE setting_key = 'sar.dual_approval_required'"
+    );
+    const dualRow = dualResult.rows[0];
+    let dual = false;
+    try { dual = dualRow ? JSON.parse(dualRow.setting_value) === true : false; } catch (_e) { dual = false; }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const stamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const status = dual ? 'Pending Approval' : 'Filed';
+    const submittedBy = req.body.submitted_by || existing.prepared_by || 'system';
+    const isResubmission = existing.sar_status === 'Returned for Revision' || existing.returned_to_analyst === 1;
+
+    await pool.query(`
+      UPDATE sar_filings
+         SET sar_status = $1, submitted_by = $2, submitted_at = $3,
+             filed_date = CASE WHEN $4 = 'Filed' THEN $5 ELSE filed_date END,
+             retention_status = CASE WHEN $6 = 'Filed' THEN 'Active' ELSE COALESCE(retention_status, 'Pending Filing') END,
+             retention_expiry_date = CASE
+               WHEN $7 = 'Filed' THEN ($8::date + INTERVAL '5 years')::date::text
+               ELSE retention_expiry_date
+             END,
+             certification_signed = 1,
+             returned_to_analyst = 0,
+             updated_at = $9, latest_activity_date = $10
+       WHERE sar_id = $11
+    `, [status, submittedBy, stamp,
+        status, today,
+        status,
+        status, today,
+        stamp, today,
+        existing.sar_id]);
+
+    const action = dual ? (isResubmission ? 'SAR Resubmitted for Approval' : 'SAR Submitted for Approval') : 'SAR Filed';
+    await pool.query(`
+      INSERT INTO audit_trail (sar_id, action, performed_by, details)
+      VALUES ($1, $2, $3, $4)
+    `, [existing.sar_id, action, submittedBy,
+        dual ? 'Awaiting supervisor approval' : 'Filed with regulator']);
+
+    if (existing.case_id) {
+      await pool.query(
+        'UPDATE cases SET case_status = $1, linked_sar_id = $2, updated_date = $3 WHERE case_id = $4',
+        [dual ? 'Pending Review' : 'Filed', existing.sar_id, today, existing.case_id]
+      );
+    }
+    if (existing.source_alert_id) {
+      await pool.query(
+        'UPDATE alerts SET linked_sar_id = $1, last_activity_date = $2 WHERE alert_id = $3',
+        [existing.sar_id, today, existing.source_alert_id]
+      );
+    }
+
+    if (dual) {
+      await pool.query(`
+        INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_id, related_type, tone)
+        VALUES (NULL, 'manager', 'sar_pending', $1, $2, $3, 'sar', 'warning')
+      `, [
+        `${isResubmission ? 'Resubmitted SAR' : 'SAR'} pending approval — ${existing.customer_name}`,
+        `${existing.sar_id} filed by ${submittedBy}. Awaiting your review.`,
+        existing.sar_id
+      ]);
+    }
+
+    const row = (await pool.query('SELECT * FROM sar_filings WHERE sar_id = $1', [existing.sar_id])).rows[0];
+    res.json({ ...deserialize(row), dual_approval_required: dual });
+  } catch (err) { next(err); }
+});
+
+router.post('/:id/approve', async (req, res, next) => {
+  try {
+    const idParam = req.params.id;
+    const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
+    const existingResult = await pool.query(
+      'SELECT * FROM sar_filings WHERE sar_id = $1 OR id = $2', [idParam, idAsInt]
+    );
+    const existing = existingResult.rows[0];
+    if (!existing) return res.status(404).json({ error: 'SAR not found' });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const stamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const approvedBy = req.body.approved_by || 'Compliance Manager';
+
+    await pool.query(`
+      UPDATE sar_filings
+         SET sar_status = 'Filed', approved_by = $1, approved_at = $2,
+             filed_date = $3, retention_status = 'Active',
+             retention_expiry_date = ($4::date + INTERVAL '5 years')::date::text,
+             updated_at = $5, latest_activity_date = $6
+       WHERE sar_id = $7
+    `, [approvedBy, stamp, today, today, stamp, today, existing.sar_id]);
+
+    await pool.query(`
+      INSERT INTO audit_trail (sar_id, action, performed_by, details)
+      VALUES ($1, 'SAR Approved & Filed', $2, $3)
+    `, [existing.sar_id, approvedBy, req.body.notes || 'Approved by supervisor']);
+
+    if (existing.case_id) {
+      await pool.query(
+        'UPDATE cases SET case_status = $1, updated_date = $2 WHERE case_id = $3',
+        ['Filed', today, existing.case_id]
+      );
+    }
+
+    const row = (await pool.query('SELECT * FROM sar_filings WHERE sar_id = $1', [existing.sar_id])).rows[0];
+    res.json(deserialize(row));
+  } catch (err) { next(err); }
+});
+
+router.get('/:id/preview', async (req, res, next) => {
+  try {
+    const idParam = req.params.id;
+    const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
+    const result = await pool.query(
+      'SELECT * FROM sar_filings WHERE sar_id = $1 OR id = $2', [idParam, idAsInt]
+    );
+    const row = result.rows[0];
+    if (!row) return res.status(404).json({ error: 'SAR not found' });
+    const audit = (await pool.query(
+      'SELECT * FROM audit_trail WHERE sar_id = $1 ORDER BY timestamp DESC', [row.sar_id]
+    )).rows;
+    res.json({ ...deserialize(row), audit_trail: audit });
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

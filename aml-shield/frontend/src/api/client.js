@@ -2,8 +2,15 @@ import axios from 'axios';
 
 const ANALYST_KEY = 'aml_active_analyst';
 
+// In production, point straight at the Railway backend (VITE_API_URL).
+// In development, leave baseURL empty so Vite's dev-server proxy handles
+// /api/* → http://localhost:4000.
+const baseURL = import.meta.env.PROD
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL,
   headers: { 'Content-Type': 'application/json' }
 });
 

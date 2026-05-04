@@ -1,4 +1,4 @@
-const { db } = require('../database/db');
+const pool = require('../database/db');
 
 const TICK_MS = 5 * 60 * 1000;
 const TERMINAL_STATUSES = new Set(['Completed', 'Closed', 'Filed', 'Escalated - L2', 'Escalated - SAR']);
@@ -25,29 +25,29 @@ function deadlineFor(alert) {
   return null;
 }
 
-function alreadyNotifiedRecently(col, alertId) {
-  const row = db.prepare(`SELECT ${col} FROM alerts WHERE alert_id = ?`).get(alertId);
+async function alreadyNotifiedRecently(col, alertId) {
+  const row = (await pool.query(`SELECT ${col} FROM alerts WHERE alert_id = $1`, [alertId])).rows[0];
   if (!row || !row[col]) return false;
   const last = new Date(row[col].includes('T') ? row[col] : row[col].replace(' ', 'T') + 'Z');
   if (isNaN(last.getTime())) return false;
   return (Date.now() - last.getTime()) < 24 * 3600000;
 }
 
-function tick() {
+async function tick() {
   try {
-    const alerts = db.prepare(`
+    const alerts = (await pool.query(`
       SELECT alert_id, customer_id, customer_name, scenario, priority,
              assigned_to, alert_status, created_date, sla_days, sla_deadline,
              sla_breached, due_status, sla_warning_notified_at, sla_breach_notified_at
         FROM alerts
        WHERE alert_status NOT IN ('Completed', 'Closed', 'Filed', 'Escalated - L2', 'Escalated - SAR')
-    `).all();
+    `)).rows;
 
     const now = new Date();
-    const insertNotif = db.prepare(`
+    const insertNotif = async (params) => pool.query(`
       INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_id, related_type, tone)
-      VALUES (?, ?, ?, ?, ?, ?, 'alert', ?)
-    `);
+      VALUES ($1, $2, $3, $4, $5, $6, 'alert', $7)
+    `, params);
 
     let warnings = 0, breaches = 0;
     for (const a of alerts) {
@@ -57,34 +57,38 @@ function tick() {
       const remainingHours = hoursBetween(deadline, now);
 
       if (remainingHours <= 0) {
-        if (alreadyNotifiedRecently('sla_breach_notified_at', a.alert_id)) continue;
+        if (await alreadyNotifiedRecently('sla_breach_notified_at', a.alert_id)) continue;
         if (a.assigned_to) {
-          insertNotif.run(a.assigned_to, 'employee', 'sla_breached',
+          await insertNotif([a.assigned_to, 'employee', 'sla_breached',
             `SLA breached — ${a.alert_id}`,
             `${a.scenario} for ${a.customer_name} breached its SLA. Action required.`,
-            a.alert_id, 'error');
+            a.alert_id, 'error']);
         }
-        insertNotif.run(null, 'manager', 'sla_breached_manager',
+        await insertNotif([null, 'manager', 'sla_breached_manager',
           `Team SLA breached — ${a.alert_id}`,
           `${a.scenario} for ${a.customer_name}${a.assigned_to ? ` (assigned to ${a.assigned_to})` : ''} has breached its SLA.`,
-          a.alert_id, 'error');
-        db.prepare("UPDATE alerts SET sla_breached = 1, sla_breach_notified_at = ?, due_status = 'Breached' WHERE alert_id = ?")
-          .run(nowIso(), a.alert_id);
+          a.alert_id, 'error']);
+        await pool.query(
+          "UPDATE alerts SET sla_breached = 1, sla_breach_notified_at = $1, due_status = 'Breached' WHERE alert_id = $2",
+          [nowIso(), a.alert_id]
+        );
         breaches++;
       } else if (remainingHours <= 24) {
-        if (alreadyNotifiedRecently('sla_warning_notified_at', a.alert_id)) continue;
+        if (await alreadyNotifiedRecently('sla_warning_notified_at', a.alert_id)) continue;
         if (a.assigned_to) {
-          insertNotif.run(a.assigned_to, 'employee', 'sla_warning',
+          await insertNotif([a.assigned_to, 'employee', 'sla_warning',
             `SLA warning — ${a.alert_id}`,
             `${a.scenario} for ${a.customer_name} has under 24h remaining.`,
-            a.alert_id, 'warning');
+            a.alert_id, 'warning']);
         }
-        insertNotif.run(null, 'manager', 'sla_warning_manager',
+        await insertNotif([null, 'manager', 'sla_warning_manager',
           `Team SLA warning — ${a.alert_id}`,
           `${a.scenario} for ${a.customer_name}${a.assigned_to ? ` (assigned to ${a.assigned_to})` : ''} is within 24h of breach.`,
-          a.alert_id, 'warning');
-        db.prepare('UPDATE alerts SET sla_warning_notified_at = ? WHERE alert_id = ?')
-          .run(nowIso(), a.alert_id);
+          a.alert_id, 'warning']);
+        await pool.query(
+          'UPDATE alerts SET sla_warning_notified_at = $1 WHERE alert_id = $2',
+          [nowIso(), a.alert_id]
+        );
         warnings++;
       }
     }

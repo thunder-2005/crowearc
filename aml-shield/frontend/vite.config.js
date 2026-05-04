@@ -29,8 +29,15 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: true,
+    allowedHosts: 'all',
     proxy: {
-      '/api': 'http://localhost:4000'
+      '/api': {
+        target: 'http://localhost:4000',
+        changeOrigin: true
+      }
     }
+  },
+  build: {
+    outDir: 'dist'
   }
 });
