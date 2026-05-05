@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../database/db');
+const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 
 const router = express.Router();
 
@@ -41,6 +42,13 @@ router.post('/', async (req, res, next) => {
         'UPDATE alerts SET case_id = $1, case_converted = 1, last_activity_date = $2 WHERE alert_id = $3',
         [cid, today, source_alert_id]
       );
+      // Audit on the source alert so it shows up in the alert's Activity Log
+      await logAudit({
+        entity_type: ENTITY_TYPES.ALERT, entity_id: source_alert_id,
+        action: 'SAR case created',
+        performed_by: assigned_to || 'system',
+        details: cid
+      });
     }
 
     const sel = await pool.query('SELECT * FROM cases WHERE case_id = $1', [cid]);

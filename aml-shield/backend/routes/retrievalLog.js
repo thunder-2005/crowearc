@@ -41,8 +41,8 @@ router.post('/', async (req, res, next) => {
       VALUES ($1, $2, $3) RETURNING *
     `, [sar_id, requested_by, request_purpose || null]);
     await pool.query(`
-      INSERT INTO audit_trail (sar_id, action, performed_by, details)
-      VALUES ($1, 'Retrieval Requested', $2, $3)
+      INSERT INTO audit_trail (entity_type, sar_id, action, performed_by, details)
+      VALUES ('sar', $1, 'Retrieval Requested', $2, $3)
     `, [sar_id, requested_by, request_purpose || null]);
     res.status(201).json(ins.rows[0]);
   } catch (err) { next(err); }

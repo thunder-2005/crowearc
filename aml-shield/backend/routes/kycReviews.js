@@ -4,6 +4,7 @@ const fs = require('fs');
 const pool = require('../database/db');
 const { upload } = require('../middleware/upload');
 const { intervalDaysForRating } = require('../jobs/kycReviewMonitor');
+const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 
 const router = express.Router();
 
@@ -194,7 +195,19 @@ router.post('/', async (req, res, next) => {
       customer.customer_risk_rating, customer.cdd_level
     ]);
     const row = ins.rows[0];
+
+    await logAudit({
+      entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: row.id,
+      action: `KYC review created — Type: ${review_type || 'manual'}`,
+      performed_by: assigned_by || 'system',
+      details: `Customer: ${customer.customer_name}`
+    });
     if (assigned_to) {
+      await logAudit({
+        entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: row.id,
+        action: `Assigned to ${assigned_to} by ${assigned_by || 'system'}`,
+        performed_by: assigned_by || 'system'
+      });
       await notify({
         recipient_id: assigned_to, recipient_role: 'employee', type: 'kyc_review_assigned',
         title: `KYC review assigned — ${customer.customer_name}`,
@@ -204,6 +217,82 @@ router.post('/', async (req, res, next) => {
     }
     res.status(201).json(row);
   } catch (err) { next(err); }
+});
+
+// Bulk-assign N reviews to one analyst, in a single transaction. Audit-logs
+// each row separately so the activity log on each review shows who assigned it.
+router.patch('/bulk-assign', async (req, res, next) => {
+  const { review_ids, assigned_to, assigned_by } = req.body || {};
+  if (!Array.isArray(review_ids) || review_ids.length === 0) {
+    return res.status(400).json({ error: 'review_ids array required' });
+  }
+  if (!assigned_to) return res.status(400).json({ error: 'assigned_to required' });
+
+  const stamp = nowStamp();
+  const performedBy = assigned_by || 'Compliance Manager';
+  let assigned = 0;
+  let failed = 0;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Look up the customer name once per review for the audit detail line
+    const sel = await client.query(`
+      SELECT r.id, r.customer_id, c.customer_name
+        FROM kyc_reviews r
+        LEFT JOIN customers c ON c.customer_id = r.customer_id
+       WHERE r.id = ANY($1::int[])
+    `, [review_ids.map(Number).filter(Number.isFinite)]);
+    const rows = sel.rows;
+
+    for (const r of rows) {
+      try {
+        await client.query(`
+          UPDATE kyc_reviews
+             SET assigned_to = $1, assigned_by = $2, assigned_at = $3,
+                 status = CASE WHEN status IN ('pending', 'overdue') THEN 'assigned' ELSE status END,
+                 updated_at = $4
+           WHERE id = $5
+        `, [assigned_to, performedBy, stamp, stamp, r.id]);
+
+        await logAudit({
+          entity_type: ENTITY_TYPES.KYC_REVIEW,
+          entity_id: r.id,
+          action: `Assigned to ${assigned_to} by ${performedBy}`,
+          performed_by: performedBy,
+          details: r.customer_name ? `Customer: ${r.customer_name}` : null,
+          client
+        });
+
+        // Notify the assignee — same shape as the single-assign route
+        await client.query(`
+          INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_id, related_type, tone)
+          VALUES ($1, 'employee', 'kyc_review_assigned', $2, $3, $4, 'kyc_review', 'info')
+        `, [
+          assigned_to,
+          `KYC review assigned — ${r.customer_name || ''}`.trim(),
+          `Bulk-assigned by ${performedBy}.`,
+          String(r.id)
+        ]);
+
+        assigned++;
+      } catch (e) {
+        failed++;
+      }
+    }
+
+    // Count the review_ids we couldn't even find as failures
+    failed += review_ids.length - rows.length;
+
+    await client.query('COMMIT');
+    res.json({ assigned, failed });
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_e) { /* ignore */ }
+    next(err);
+  } finally {
+    client.release();
+  }
 });
 
 router.patch('/:id/assign', async (req, res, next) => {
@@ -231,6 +320,12 @@ router.patch('/:id/assign', async (req, res, next) => {
       message: `Due ${due_date || existing.due_date}. ${assigned_note || ''}`.trim(),
       related_id: String(req.params.id), tone: 'info'
     });
+    await logAudit({
+      entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: req.params.id,
+      action: `Assigned to ${assigned_to} by ${assigned_by || 'Compliance Manager'}`,
+      performed_by: assigned_by || 'Compliance Manager',
+      details: assigned_note || null
+    });
     const sel = await pool.query('SELECT * FROM kyc_reviews WHERE id = $1', [req.params.id]);
     res.json(sel.rows[0]);
   } catch (err) { next(err); }
@@ -244,6 +339,11 @@ router.patch('/:id/start', async (req, res, next) => {
     await pool.query(`
       UPDATE kyc_reviews SET status = 'in_progress', started_at = COALESCE(started_at, $1), updated_at = $2 WHERE id = $3
     `, [nowStamp(), nowStamp(), req.params.id]);
+    await logAudit({
+      entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: req.params.id,
+      action: `Review started by ${existing.assigned_to || 'system'}`,
+      performed_by: existing.assigned_to || 'system'
+    });
     const sel = await pool.query('SELECT * FROM kyc_reviews WHERE id = $1', [req.params.id]);
     res.json(sel.rows[0]);
   } catch (err) { next(err); }
@@ -303,10 +403,54 @@ router.patch('/:id/complete', async (req, res, next) => {
         nowStamp(), nowStamp(), req.params.id]);
 
     const ratingChanged = (new_risk_rating && new_risk_rating !== existing.previous_risk_rating);
+    const performer = completed_by || existing.assigned_to || 'system';
+
+    // Audit each completed checklist item explicitly. Spec lists 5 grouping
+    // labels (Identity / Source of funds / Sanctions / Transactions / Account)
+    // — map our 14-key checklist to those buckets.
+    const CHECKLIST_GROUPS = [
+      { label: 'Identity verification',  keys: ['id.govId', 'id.address', 'id.dob', 'id.tin'] },
+      { label: 'Source of funds',         keys: ['sof.consistent', 'sof.income', 'sof.unexplained'] },
+      { label: 'Sanctions screening',     keys: ['screen.sanctions', 'screen.pep', 'screen.media'] },
+      { label: 'Transaction behaviour',   keys: ['tx.patterns', 'tx.spikes', 'tx.geography'] },
+      { label: 'Account review',          keys: ['acc.active', 'acc.dormant'] }
+    ];
+    for (const g of CHECKLIST_GROUPS) {
+      const allTrue = g.keys.every((k) => !!checklist[k]);
+      if (allTrue) {
+        await logAudit({
+          entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: req.params.id,
+          action: `Checklist: ${g.label} — ✅`, performed_by: performer
+        });
+      }
+    }
+    await logAudit({
+      entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: req.params.id,
+      action: `Findings submitted by ${performer}`,
+      performed_by: performer
+    });
+    await logAudit({
+      entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: req.params.id,
+      action: `Recommendation: ${recommendation}`,
+      performed_by: performer
+    });
+    if (ratingChanged) {
+      await logAudit({
+        entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: req.params.id,
+        action: `Risk rating change: ${existing.previous_risk_rating || '—'} → ${new_risk_rating}`,
+        performed_by: performer
+      });
+    }
+    await logAudit({
+      entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: req.params.id,
+      action: 'Submitted for manager approval',
+      performed_by: performer
+    });
+
     await notify({
       recipient_id: null, recipient_role: 'manager', type: 'kyc_review_submitted',
       title: `KYC review submitted — ${existing.customer_name}${ratingChanged ? ' (rating change)' : ''}`,
-      message: `${completed_by || existing.assigned_to} submitted a ${recommendation} recommendation. Awaiting your approval.`,
+      message: `${performer} submitted a ${recommendation} recommendation. Awaiting your approval.`,
       related_id: String(req.params.id), tone: ratingChanged ? 'warning' : 'info'
     });
 
@@ -350,6 +494,17 @@ router.patch('/:id/approve', async (req, res, next) => {
          SET status = 'completed', approved_by = $1, approved_at = $2, updated_at = $3
        WHERE id = $4
     `, [approvedBy, nowStamp(), nowStamp(), existing.id]);
+
+    await logAudit({
+      entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: existing.id,
+      action: `Approved by ${approvedBy}`,
+      performed_by: approvedBy
+    });
+    await logAudit({
+      entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: existing.id,
+      action: `Next review date set: ${nextDue}`,
+      performed_by: approvedBy
+    });
 
     if (existing.recommendation === 'escalate_sar') {
       // Use MAX of trailing number across all CASE-XXXXX rows, then verify
@@ -404,12 +559,19 @@ router.patch('/:id/reject', async (req, res, next) => {
     if (!reason) return res.status(400).json({ error: 'reason required' });
     if (!comments || comments.length < 30) return res.status(400).json({ error: 'comments >= 30 chars required' });
 
+    const rejectorName = rejected_by || 'Compliance Manager';
     await pool.query(`
       UPDATE kyc_reviews
          SET status = 'returned', rejection_reason = $1, rejection_comments = $2,
              rejected_by = $3, rejected_at = $4, returned_to_analyst = 1, updated_at = $5
        WHERE id = $6
-    `, [reason, comments, rejected_by || 'Compliance Manager', nowStamp(), nowStamp(), existing.id]);
+    `, [reason, comments, rejectorName, nowStamp(), nowStamp(), existing.id]);
+    await logAudit({
+      entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: existing.id,
+      action: `Rejected — Reason: ${reason}`,
+      performed_by: rejectorName,
+      details: comments.slice(0, 100) + (comments.length > 100 ? '…' : '')
+    });
 
     if (existing.assigned_to) {
       await notify({
@@ -442,6 +604,12 @@ router.post('/:id/documents', upload.single('file'), async (req, res, next) => {
         req.body.document_type || 'Supporting',
         req.body.uploaded_by || review.assigned_to || 'system',
         req.file.size]);
+    await logAudit({
+      entity_type: ENTITY_TYPES.KYC_REVIEW, entity_id: req.params.id,
+      action: `Document uploaded — ${req.file.originalname}`,
+      performed_by: req.body.uploaded_by || review.assigned_to || 'system',
+      details: req.body.document_type || null
+    });
     res.status(201).json(ins.rows[0]);
   } catch (err) { next(err); }
 });

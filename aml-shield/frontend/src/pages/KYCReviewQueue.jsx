@@ -56,6 +56,13 @@ export default function KYCReviewQueue({ scope = 'manager' }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [assigning, setAssigning] = useState(null);
 
+  // Bulk-assign — both L1 and L2 analysts are valid targets for KYC reviews
+  // (spec). Manager view only.
+  const [selected, setSelected] = useState(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkConfirm, setBulkConfirm] = useState(null); // { analyst, count }
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
   const reload = async () => {
     const params = { status: tab === 'all' ? '' : tab };
     if (q) params.q = q;
@@ -81,6 +88,67 @@ export default function KYCReviewQueue({ scope = 'manager' }) {
     return (r.customer_id || '').toLowerCase().includes(needle)
         || (r.customer_name || '').toLowerCase().includes(needle);
   }), [rows, q]);
+
+  // Drop selections that no longer exist on the visible page (after filters/tabs)
+  useEffect(() => {
+    const visibleIds = new Set(visible.map(r => r.id));
+    setSelected(prev => {
+      const next = new Set([...prev].filter(id => visibleIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [visible]);
+
+  const toggleSelect = (id) => setSelected(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const toggleSelectAllVisible = () => setSelected(prev => {
+    const visibleIds = visible.map(r => r.id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every(id => prev.has(id));
+    const next = new Set(prev);
+    if (allSelected) visibleIds.forEach(id => next.delete(id));
+    else visibleIds.forEach(id => next.add(id));
+    return next;
+  });
+  const clearSelection = () => setSelected(new Set());
+
+  // Show analysts as "Robert Wright (L1)" / "Olivia Brown (L2)" — both
+  // levels are valid KYC reviewers. Filter to AML Analyst* roles only.
+  const assignableAnalysts = useMemo(() => {
+    return (analysts || [])
+      .filter(u => /AML\s+Analyst/i.test(u.role || '') || /^analyst_(l1|l2)$/i.test(u.role || ''))
+      .map(u => ({
+        ...u,
+        level: /L2|_l2/i.test(u.role || '') ? 'L2' : 'L1'
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [analysts]);
+
+  const performBulkAssign = async (analystName) => {
+    const ids = [...selected];
+    if (ids.length === 0 || !analystName) return;
+    setBulkSubmitting(true);
+    try {
+      const { data } = await api.patch('/kyc-reviews/bulk-assign', {
+        review_ids: ids,
+        assigned_to: analystName,
+        assigned_by: 'Compliance Manager'
+      });
+      const assigned = data?.assigned ?? 0;
+      const failed = data?.failed ?? 0;
+      const parts = [`${assigned} KYC review${assigned === 1 ? '' : 's'} assigned to ${analystName}`];
+      if (failed > 0) parts.push(`${failed} failed`);
+      push(parts.join(' · '), failed > 0 ? 'warning' : 'success');
+      setBulkConfirm(null);
+      clearSelection();
+      await reload();
+    } catch (e) {
+      push('Bulk assign failed: ' + (e.response?.data?.error || e.message), 'error');
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
 
   if (!isMine && !isManager) {
     return (
@@ -150,6 +218,42 @@ export default function KYCReviewQueue({ scope = 'manager' }) {
         </div>
       </Card>
 
+      {/* Bulk action bar (manager view, ≥1 selected) */}
+      {!isMine && selected.size > 0 && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-md px-3 py-2 flex items-center gap-3 text-sm">
+          <div className="font-semibold text-indigo-700">
+            {selected.size} review{selected.size === 1 ? '' : 's'} selected
+          </div>
+          <div className="relative">
+            <button onClick={() => setBulkOpen(o => !o)}
+              className="text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 py-1.5 inline-flex items-center gap-1">
+              <UserPlus size={13} /> Assign To <Filter size={11} className="opacity-70" />
+            </button>
+            {bulkOpen && (
+              <div className="absolute left-0 top-full mt-1 w-72 bg-white border border-slate-200 rounded-md shadow-xl z-30 max-h-72 overflow-y-auto">
+                {assignableAnalysts.length === 0 && (
+                  <div className="p-3 text-xs text-slate-400">Loading analysts…</div>
+                )}
+                {assignableAnalysts.map(u => (
+                  <button key={u.user_id || u.name}
+                    onClick={() => { setBulkOpen(false); setBulkConfirm({ analyst: u.name, count: selected.size }); }}
+                    className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2 text-xs border-b border-slate-100">
+                    <span>{u.name}</span>
+                    <span className={`text-[10px] font-bold px-1 rounded ${
+                      u.level === 'L2' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                    }`}>{u.level}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button onClick={clearSelection}
+            className="text-sm border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-md px-3 py-1.5">
+            Clear Selection
+          </button>
+        </div>
+      )}
+
       <Card bodyClassName="p-0">
         <div className="flex border-b border-slate-200 bg-slate-50/60 overflow-x-auto">
           {TABS.map(t => {
@@ -170,6 +274,26 @@ export default function KYCReviewQueue({ scope = 'manager' }) {
           rows={visible}
           emptyMessage="No reviews match this filter"
           columns={[
+            ...(isMine ? [] : [{
+              key: '__select',
+              label: (
+                <input
+                  type="checkbox"
+                  checked={visible.length > 0 && visible.every(r => selected.has(r.id))}
+                  onChange={toggleSelectAllVisible}
+                  title="Select all visible"
+                  onClick={e => e.stopPropagation()}
+                />
+              ),
+              render: r => (
+                <input
+                  type="checkbox"
+                  checked={selected.has(r.id)}
+                  onChange={(e) => { e.stopPropagation(); toggleSelect(r.id); }}
+                  onClick={e => e.stopPropagation()}
+                />
+              )
+            }]),
             { key: 'customer_id', label: 'Customer ID',
               render: r => <span className="font-mono text-xs text-navy-900 font-medium">{r.customer_id}</span> },
             { key: 'customer_name', label: 'Name', cellClass: 'font-medium' },
@@ -232,7 +356,38 @@ export default function KYCReviewQueue({ scope = 'manager' }) {
           onCreated={async () => { setCreateOpen(false); push('Review created', 'success'); reload(); }}
         />
       )}
+
+      {bulkConfirm && (
+        <BulkAssignConfirm
+          analyst={bulkConfirm.analyst}
+          count={bulkConfirm.count}
+          submitting={bulkSubmitting}
+          onCancel={() => setBulkConfirm(null)}
+          onConfirm={() => performBulkAssign(bulkConfirm.analyst)}
+        />
+      )}
     </div>
+  );
+}
+
+function BulkAssignConfirm({ analyst, count, submitting, onCancel, onConfirm }) {
+  return (
+    <Modal title={`Assign ${count} KYC review${count === 1 ? '' : 's'} to ${analyst}?`} onCancel={onCancel}>
+      <div className="p-5 text-sm text-slate-700">
+        Each review will be assigned to <span className="font-semibold text-navy-900">{analyst}</span> and
+        an audit-trail entry will be added. The assignee will receive an in-app notification.
+      </div>
+      <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+        <button onClick={onCancel} disabled={submitting}
+          className="text-sm px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50">
+          Cancel
+        </button>
+        <button onClick={onConfirm} disabled={submitting}
+          className="text-sm px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white">
+          {submitting ? 'Assigning…' : `Assign ${count}`}
+        </button>
+      </div>
+    </Modal>
   );
 }
 

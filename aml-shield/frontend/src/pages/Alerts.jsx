@@ -50,6 +50,8 @@ export default function Alerts() {
   const grouped = useMemo(() => {
     const g = Object.fromEntries(COLUMNS.map(c => [c, []]));
     for (const a of alerts) {
+      // Spec: SAR Filed → card DISAPPEARS from Kanban (lives in SAR Repo).
+      if (a.linked_sar_status === 'Filed') continue;
       const target = ESCALATED_STATUSES.has(a.alert_status) ? 'Escalated' : a.alert_status;
       const col = g[target];
       if (col) col.push(a);

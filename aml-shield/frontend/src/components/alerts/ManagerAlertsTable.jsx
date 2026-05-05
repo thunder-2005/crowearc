@@ -52,12 +52,19 @@ export default function ManagerAlertsTable({ onSelect }) {
   const { analystProfiles } = useRole();
   const { push } = useToast();
   const [alerts, setAlerts] = useState([]);
+  // L1-only analyst pool — manager only assigns to T1 Monitoring
+  // (L2 cases are self-assigned from the L2 queue).
+  const [l1Analysts, setL1Analysts] = useState([]); // [{ name, role, team, ... }]
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     scenarios: [], priority: '', statuses: [], assigned_to: '',
     team: '', sla_status: '', from: '', to: '', q: ''
   });
-  const [sortKey, setSortKey] = useState('sla_deadline');
+  // sortKey === null means "use the order the backend returned" — i.e. the
+  // bucketed Unassigned → Not Started → In Progress → Escalated → Closed
+  // priority sort produced by ?priority_bucket_sort=1. Clicking any column
+  // header switches to that column's sort.
+  const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(new Set()); // Set of alert_id
@@ -68,11 +75,23 @@ export default function ManagerAlertsTable({ onSelect }) {
   const [submitting, setSubmitting] = useState(false);
   const [viewing, setViewing] = useState(null);
 
+  // Backend already groups by lifecycle bucket when this flag is on:
+  // Unassigned → Not Started → In Progress → Escalated → Closed.
+  // Within each band rows are ordered newest-first.
   const load = () => {
     setLoading(true);
-    return api.get('/alerts').then(r => setAlerts(r.data)).finally(() => setLoading(false));
+    return api.get('/alerts', { params: { priority_bucket_sort: 1 } })
+      .then(r => setAlerts(r.data))
+      .finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
+
+  // Manager assigns to L1 only — pull the curated list from the backend.
+  useEffect(() => {
+    api.get('/users', { params: { role: 'analyst_l1', status: 'Active' } })
+      .then(r => setL1Analysts(r.data || []))
+      .catch(() => setL1Analysts([]));
+  }, []);
 
   // Open-alert counts per analyst for the bulk assign dropdown
   const analystOpenCounts = useMemo(() => {
@@ -90,16 +109,20 @@ export default function ManagerAlertsTable({ onSelect }) {
     [alerts]);
 
   const enriched = useMemo(() => {
-    return alerts.map(a => {
-      const sla = tableSlaSnapshot(a);
-      return {
-        ...a,
-        team: analystProfiles[a.assigned_to]?.team || '—',
-        sla_status: sla.label,
-        sla_bucket: sla.bucket,
-        sla_tone: sla.tone
-      };
-    });
+    // Hide alerts whose linked SAR has already been filed — those live in
+    // the SAR Repository and shouldn't reappear in the alerts queue.
+    return alerts
+      .filter(a => a.linked_sar_status !== 'Filed')
+      .map(a => {
+        const sla = tableSlaSnapshot(a);
+        return {
+          ...a,
+          team: analystProfiles[a.assigned_to]?.team || '—',
+          sla_status: sla.label,
+          sla_bucket: sla.bucket,
+          sla_tone: sla.tone
+        };
+      });
   }, [alerts, analystProfiles]);
 
   const filtered = useMemo(() => {
@@ -130,6 +153,7 @@ export default function ManagerAlertsTable({ onSelect }) {
   }, [enriched, filters, analystProfiles]);
 
   const sorted = useMemo(() => {
+    if (!sortKey) return filtered; // honour server-side priority bucket sort
     const arr = [...filtered];
     arr.sort((a, b) => {
       const av = a[sortKey] ?? '';
@@ -180,7 +204,14 @@ export default function ManagerAlertsTable({ onSelect }) {
     team: '', sla_status: '', from: '', to: '', q: ''
   });
 
+  // Full directory (L1 + L2) — used by the Assigned-To filter and the table's
+  // Team column lookup, since alerts in the table can have L2 historical owners.
   const allAnalysts = Object.keys(analystProfiles).sort();
+  // L1-only — used by the bulk and single Assign controls per spec.
+  const assignableAnalysts = useMemo(
+    () => l1Analysts.map(u => u.name).sort(),
+    [l1Analysts]
+  );
 
   const performBulkAssign = async (analyst) => {
     const ids = [...selected];
@@ -312,23 +343,17 @@ export default function ManagerAlertsTable({ onSelect }) {
               </button>
               {bulkOpen && (
                 <div className="absolute left-0 top-full mt-1 w-72 bg-white border border-slate-200 rounded-md shadow-xl z-30 max-h-72 overflow-y-auto">
-                  {allAnalysts.length === 0 && <div className="p-3 text-xs text-slate-400">Loading analysts…</div>}
-                  {allAnalysts.map(a => {
-                    const lvl = analystProfiles[a]?.level;
-                    return (
-                      <button key={a} onClick={() => { setBulkOpen(false); setBulkConfirm({ analyst: a, count: selected.size }); }}
-                        className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between gap-2 text-xs border-b border-slate-100">
-                        <span>
-                          {a} {lvl && (
-                            <span className={`ml-1 text-[10px] font-bold px-1 rounded ${
-                              lvl === 'L2' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                            }`}>{lvl}</span>
-                          )}
-                        </span>
-                        <span className="text-slate-500">{analystOpenCounts[a] || 0} open</span>
-                      </button>
-                    );
-                  })}
+                  {assignableAnalysts.length === 0 && <div className="p-3 text-xs text-slate-400">Loading analysts…</div>}
+                  {assignableAnalysts.map(a => (
+                    <button key={a} onClick={() => { setBulkOpen(false); setBulkConfirm({ analyst: a, count: selected.size }); }}
+                      className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center justify-between gap-2 text-xs border-b border-slate-100">
+                      <span>
+                        {a}
+                        <span className="ml-1 text-[10px] font-bold px-1 rounded bg-blue-100 text-blue-700">L1</span>
+                      </span>
+                      <span className="text-slate-500">{analystOpenCounts[a] || 0} open</span>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -467,7 +492,7 @@ export default function ManagerAlertsTable({ onSelect }) {
       {singleAssign && (
         <SingleAssignModal
           alert={singleAssign}
-          analysts={allAnalysts}
+          analysts={assignableAnalysts}
           analystProfiles={analystProfiles}
           analystOpenCounts={analystOpenCounts}
           submitting={submitting}

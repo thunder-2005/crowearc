@@ -1,7 +1,18 @@
 const express = require('express');
 const pool = require('../database/db');
+const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 
 const router = express.Router();
+
+// Spec wording for the wizard step-completion audit lines.
+const STEP_LABELS = [
+  'SAR Details',          // Step 1
+  'Subject Information',  // Step 2
+  'Suspicious Activity',  // Step 3
+  'Narrative',            // Step 4
+  'Attachments',          // Step 5
+  'Review'                // Step 6
+];
 
 const JSON_FIELDS = [
   'suspicious_activity_types', 'transaction_types', 'subject_data',
@@ -111,10 +122,12 @@ router.post('/', async (req, res, next) => {
       stamp, stamp, today
     ]);
 
-    await pool.query(`
-      INSERT INTO audit_trail (sar_id, action, performed_by, details)
-      VALUES ($1, 'SAR Draft Created', $2, $3)
-    `, [sarId, prepared_by || 'system', `Linked to case ${case_id}`]);
+    await logAudit({
+      entity_type: ENTITY_TYPES.SAR, entity_id: sarId,
+      action: `SAR draft created by ${prepared_by || 'system'}`,
+      performed_by: prepared_by || 'system',
+      details: `Linked to case ${case_id}`
+    });
 
     let row = (await pool.query('SELECT * FROM sar_filings WHERE sar_id = $1', [sarId])).rows[0];
     if (Object.keys(req.body).some(k => FILING_FIELDS.includes(k))) {
@@ -184,6 +197,21 @@ router.patch('/:id', async (req, res, next) => {
     const existing = result.rows[0];
     if (!existing) return res.status(404).json({ error: 'SAR not found' });
     const updated = await applyUpdate(existing, req.body);
+
+    // Wizard fires { step_completed: 1..6 } when the user clicks "Next" on a
+    // step. We log per-step so the SAR Audit Trail tab shows the full path.
+    const sc = req.body?.step_completed;
+    if (sc != null) {
+      const idx = Number(sc);
+      if (idx >= 1 && idx <= STEP_LABELS.length) {
+        await logAudit({
+          entity_type: ENTITY_TYPES.SAR, entity_id: existing.sar_id,
+          action: `Step ${idx} completed — ${STEP_LABELS[idx - 1]}`,
+          performed_by: req.body.performed_by || existing.prepared_by || 'system'
+        });
+      }
+    }
+
     res.json(deserialize(updated));
   } catch (err) { next(err); }
 });
@@ -231,12 +259,14 @@ router.post('/:id/submit', async (req, res, next) => {
         stamp, today,
         existing.sar_id]);
 
-    const action = dual ? (isResubmission ? 'SAR Resubmitted for Approval' : 'SAR Submitted for Approval') : 'SAR Filed';
-    await pool.query(`
-      INSERT INTO audit_trail (sar_id, action, performed_by, details)
-      VALUES ($1, $2, $3, $4)
-    `, [existing.sar_id, action, submittedBy,
-        dual ? 'Awaiting supervisor approval' : 'Filed with regulator']);
+    const action = dual
+      ? (isResubmission ? 'Resubmitted for manager approval' : 'Submitted for manager approval')
+      : 'SAR Filed';
+    await logAudit({
+      entity_type: ENTITY_TYPES.SAR, entity_id: existing.sar_id,
+      action, performed_by: submittedBy,
+      details: dual ? 'Awaiting supervisor approval' : 'Filed with regulator'
+    });
 
     if (existing.case_id) {
       await pool.query(
@@ -290,10 +320,12 @@ router.post('/:id/approve', async (req, res, next) => {
        WHERE sar_id = $7
     `, [approvedBy, stamp, today, today, stamp, today, existing.sar_id]);
 
-    await pool.query(`
-      INSERT INTO audit_trail (sar_id, action, performed_by, details)
-      VALUES ($1, 'SAR Approved & Filed', $2, $3)
-    `, [existing.sar_id, approvedBy, req.body.notes || 'Approved by supervisor']);
+    await logAudit({
+      entity_type: ENTITY_TYPES.SAR, entity_id: existing.sar_id,
+      action: `Approved by ${approvedBy}`,
+      performed_by: approvedBy,
+      details: req.body.notes || 'Approved by supervisor'
+    });
 
     if (existing.case_id) {
       await pool.query(

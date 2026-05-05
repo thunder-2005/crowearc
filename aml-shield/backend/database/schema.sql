@@ -156,8 +156,13 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 
 -- ── audit_trail ───────────────────────────────────────────
+-- The sar_id column is reused as a polymorphic key (the entity's natural id —
+-- alert_id for alert events, sar_id for SAR events, kyc_review.id for KYC
+-- events). entity_type ('alert' | 'sar' | 'kyc_review' | 'case') tells you
+-- which one this row is about. Both columns together let queries scope cleanly.
 CREATE TABLE IF NOT EXISTS audit_trail (
   id           SERIAL PRIMARY KEY,
+  entity_type  TEXT,
   sar_id       TEXT NOT NULL,
   action       TEXT NOT NULL,
   performed_by TEXT,
@@ -474,6 +479,7 @@ CREATE INDEX IF NOT EXISTS idx_cases_status         ON cases(case_status);
 CREATE INDEX IF NOT EXISTS idx_cases_assigned       ON cases(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_documents_sar        ON documents(sar_id);
 CREATE INDEX IF NOT EXISTS idx_audit_sar            ON audit_trail(sar_id);
+CREATE INDEX IF NOT EXISTS idx_audit_entity          ON audit_trail(entity_type, sar_id);
 CREATE INDEX IF NOT EXISTS idx_txn_customer         ON transactions(customer_id);
 CREATE INDEX IF NOT EXISTS idx_txn_alert            ON transactions(alert_id);
 CREATE INDEX IF NOT EXISTS idx_txn_date             ON transactions(txn_date);

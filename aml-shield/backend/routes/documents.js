@@ -26,9 +26,10 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
         req.file.size, uploaded_by || 'system']);
 
     await pool.query(`
-      INSERT INTO audit_trail (sar_id, action, performed_by, details)
-      VALUES ($1, 'Document Uploaded', $2, $3)
-    `, [sar_id, uploaded_by || 'system', req.file.originalname]);
+      INSERT INTO audit_trail (entity_type, sar_id, action, performed_by, details)
+      VALUES ('sar', $1, $2, $3, $4)
+    `, [sar_id, `Document attached — ${req.file.originalname} (${document_type || 'Other'})`,
+        uploaded_by || 'system', req.file.originalname]);
 
     await pool.query(`
       UPDATE sar_filings
@@ -53,8 +54,8 @@ router.get('/:id', async (req, res, next) => {
     if (!fs.existsSync(abs)) return res.status(404).json({ error: 'File missing on disk' });
 
     await pool.query(`
-      INSERT INTO audit_trail (sar_id, action, performed_by, details)
-      VALUES ($1, 'Document Downloaded', $2, $3)
+      INSERT INTO audit_trail (entity_type, sar_id, action, performed_by, details)
+      VALUES ('sar', $1, 'Document Downloaded', $2, $3)
     `, [doc.sar_id, req.query.user || 'system', doc.document_name]);
 
     res.download(abs, doc.document_name);
@@ -74,8 +75,8 @@ router.delete('/:id', async (req, res, next) => {
 
     await pool.query('DELETE FROM documents WHERE id = $1', [req.params.id]);
     await pool.query(`
-      INSERT INTO audit_trail (sar_id, action, performed_by, details)
-      VALUES ($1, 'Document Deleted', $2, $3)
+      INSERT INTO audit_trail (entity_type, sar_id, action, performed_by, details)
+      VALUES ('sar', $1, 'Document Deleted', $2, $3)
     `, [doc.sar_id, req.query.user || 'system', doc.document_name]);
 
     await pool.query(`

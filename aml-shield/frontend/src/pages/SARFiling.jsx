@@ -146,13 +146,18 @@ export default function SARFiling() {
     return () => { cancelled = true; };
   }, [caseId]);
 
-  const saveDraft = async (silent = false) => {
+  // saveDraft accepts an optional { stepCompleted: 1..6 } so the backend can
+  // emit a "Step N completed — [Title]" audit row. Auto-saves and manual
+  // saves omit it; only the wizard's Next button passes it.
+  const saveDraft = async (silent = false, opts = {}) => {
     if (!filing || isViewOnly) return;
     const f = formRef.current;
     if (!f) return;
     setSavingState(s => ({ ...s, saving: true }));
     try {
       const payload = serializeForm(f, includeDocIdsRef.current);
+      if (opts.stepCompleted) payload.step_completed = opts.stepCompleted;
+      if (currentAnalyst) payload.performed_by = currentAnalyst;
       const { data } = await api.patch(`/sar-filings/${filing.sar_id}`, payload);
       setFiling(data);
       setSavingState({ saving: false, lastSaved: new Date() });
@@ -181,7 +186,8 @@ export default function SARFiling() {
       return;
     }
     setErrors({});
-    saveDraft(true);
+    // stepIdx is 0-based; spec wants 1-based step numbers in the audit log.
+    saveDraft(true, { stepCompleted: stepIdx + 1 });
     goStep(stepIdx + 1);
   };
   const prev = () => { setErrors({}); goStep(stepIdx - 1); };

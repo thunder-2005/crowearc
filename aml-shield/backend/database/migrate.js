@@ -23,6 +23,24 @@ const CREDENTIALS = [
 async function migrate() {
   const sql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   try {
+    // Pre-flight ALTERs: schema.sql uses CREATE TABLE IF NOT EXISTS, which
+    // skips entirely on legacy databases. New columns referenced later in
+    // schema.sql (eg. idx_audit_entity uses entity_type) won't exist on those
+    // DBs unless we add them BEFORE running the rest of schema.sql. These
+    // ALTERs are idempotent on fresh databases too.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS audit_trail (
+        id SERIAL PRIMARY KEY,
+        sar_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        performed_by TEXT,
+        timestamp TEXT NOT NULL DEFAULT TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+        details TEXT
+      )
+    `);
+    await pool.query(`ALTER TABLE audit_trail ADD COLUMN IF NOT EXISTS entity_type TEXT`);
+    await pool.query(`UPDATE audit_trail SET entity_type = 'sar' WHERE entity_type IS NULL`);
+
     await pool.query(sql);
     console.log('Schema applied');
 
@@ -33,6 +51,10 @@ async function migrate() {
         ADD COLUMN IF NOT EXISTS username TEXT,
         ADD COLUMN IF NOT EXISTS password TEXT
     `);
+
+    // Index also created by schema.sql — re-create here in case the legacy
+    // path skipped it.
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_trail(entity_type, sar_id)`);
 
     let updated = 0;
     for (const c of CREDENTIALS) {

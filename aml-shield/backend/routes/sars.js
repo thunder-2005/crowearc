@@ -117,8 +117,8 @@ router.patch('/:id', async (req, res, next) => {
     await pool.query(`UPDATE sar_filings SET ${sets.join(', ')} WHERE sar_id = $${++n}`, params);
 
     await pool.query(`
-      INSERT INTO audit_trail (sar_id, action, performed_by, details)
-      VALUES ($1, 'SAR Updated', $2, $3)
+      INSERT INTO audit_trail (entity_type, sar_id, action, performed_by, details)
+      VALUES ('sar', $1, 'SAR Updated', $2, $3)
     `, [existing.sar_id, req.body.performed_by || 'system', JSON.stringify(req.body)]);
 
     const sel = await pool.query('SELECT * FROM sar_filings WHERE sar_id = $1', [existing.sar_id]);
@@ -148,9 +148,9 @@ router.get('/:id/export', async (req, res, next) => {
       VALUES ($1, $2, $3, $4, $5)
     `, [sar.sar_id, requester, purpose, now, now]);
     await pool.query(`
-      INSERT INTO audit_trail (sar_id, action, performed_by, details)
-      VALUES ($1, 'Export Package Generated', $2, $3)
-    `, [sar.sar_id, requester, purpose]);
+      INSERT INTO audit_trail (entity_type, sar_id, action, performed_by, details)
+      VALUES ('sar', $1, $2, $3, $4)
+    `, [sar.sar_id, `Exported by ${requester} — Purpose: ${purpose}`, requester, purpose]);
     await pool.query(`
       UPDATE sar_filings
          SET export_count = COALESCE(export_count, 0) + 1,

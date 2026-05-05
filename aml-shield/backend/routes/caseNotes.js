@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../database/db');
+const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 
 const router = express.Router();
 
@@ -13,6 +14,15 @@ router.post('/', async (req, res, next) => {
       INSERT INTO case_notes (alert_id, note_text, analyst, timestamp)
       VALUES ($1, $2, $3, NOW()) RETURNING *
     `, [alert_id, note_text, analyst || 'system']);
+
+    // Audit: include the first 50 chars of the note in the action line
+    const preview = String(note_text).trim().slice(0, 50);
+    await logAudit({
+      entity_type: ENTITY_TYPES.ALERT, entity_id: alert_id,
+      action: `Note added — ${preview}${note_text.length > 50 ? '…' : ''}`,
+      performed_by: analyst || 'system'
+    });
+
     res.status(201).json(result.rows[0]);
   } catch (err) { next(err); }
 });

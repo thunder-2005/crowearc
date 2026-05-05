@@ -30,9 +30,11 @@ async function pushNotification({ recipient_id, recipient_role, type, title, mes
 }
 
 async function logAudit(sarLikeId, action, performed_by, details) {
+  // L2 audit events all attach to an alert (the alert flowed L1 → L2).
+  // entity_type='alert' makes them visible in the alert's Activity Log.
   await pool.query(`
-    INSERT INTO audit_trail (sar_id, action, performed_by, timestamp, details)
-    VALUES ($1, $2, $3, NOW(), $4)
+    INSERT INTO audit_trail (entity_type, sar_id, action, performed_by, timestamp, details)
+    VALUES ('alert', $1, $2, $3, NOW(), $4)
   `, [sarLikeId, action, performed_by || 'system', details || null]);
 }
 
@@ -148,8 +150,12 @@ router.post('/', async (req, res, next) => {
       related_id: alert.alert_id, related_type: 'alert', tone: 'info'
     });
 
-    await logAudit(alert.alert_id, 'Escalated to L2', escalated_by,
-      `L2 case ${l2CaseId} created. Reason: ${escalation_reason || '(no reason given)'}`);
+    await logAudit(
+      alert.alert_id,
+      `Escalated to L2 — Reason: ${escalation_reason || '(no reason given)'}`,
+      escalated_by,
+      `L2 case ${l2CaseId} created`
+    );
 
     const sel = await pool.query('SELECT * FROM l2_cases WHERE l2_case_id = $1', [l2CaseId]);
     res.status(201).json(sel.rows[0]);
@@ -181,7 +187,7 @@ router.patch('/:id/accept', async (req, res, next) => {
       related_id: lc.alert_id, related_type: 'alert', tone: 'info'
     });
 
-    await logAudit(lc.alert_id, 'L2 Investigation Started', analyst_id, `${lc.l2_case_id} accepted`);
+    await logAudit(lc.alert_id, `L2 accepted by ${analyst_id}`, analyst_id, lc.l2_case_id);
     const sel = await pool.query('SELECT * FROM l2_cases WHERE l2_case_id = $1', [req.params.id]);
     res.json(sel.rows[0]);
   } catch (err) { next(err); }
@@ -263,6 +269,8 @@ router.post('/:id/notes', async (req, res, next) => {
       INSERT INTO l2_notes (l2_case_id, note_text, analyst_id, created_at)
       VALUES ($1, $2, $3, NOW()) RETURNING *
     `, [req.params.id, note_text.trim(), analyst_id || null]);
+    const preview = note_text.trim().slice(0, 50);
+    await logAudit(lc.alert_id, `L2 note added — ${preview}${note_text.length > 50 ? '…' : ''}`, analyst_id);
     res.status(201).json(ins.rows[0]);
   } catch (err) { next(err); }
 });
@@ -294,6 +302,7 @@ router.post('/:id/documents', upload.single('file'), async (req, res, next) => {
       INSERT INTO l2_documents (l2_case_id, document_name, file_path, document_type, uploaded_by, uploaded_at, file_size)
       VALUES ($1, $2, $3, $4, $5, NOW(), $6) RETURNING *
     `, [req.params.id, filename, relPath, document_type || 'Other', uploaded_by || null, req.file.size || 0]);
+    await logAudit(lc.alert_id, `L2 document uploaded — ${filename}`, uploaded_by, document_type || null);
     res.status(201).json(ins.rows[0]);
   } catch (err) { next(err); }
 });
@@ -345,7 +354,7 @@ router.patch('/:id/return', async (req, res, next) => {
       message: `${lc.alert_id} (${lc.customer_name}) returned to L1`,
       related_id: lc.alert_id, related_type: 'alert', tone: 'info'
     });
-    await logAudit(lc.alert_id, 'Returned by L2 to L1', performed_by || lc.assigned_to,
+    await logAudit(lc.alert_id, 'L2 decision: returned to L1', performed_by || lc.assigned_to,
       `Reason: ${reason}. Instructions: ${instructions}`);
 
     const sel = await pool.query('SELECT * FROM l2_cases WHERE l2_case_id = $1', [req.params.id]);
@@ -399,8 +408,8 @@ router.patch('/:id/close', async (req, res, next) => {
       message: `${lc.alert_id} (${lc.customer_name}) closed without SAR`,
       related_id: lc.alert_id, related_type: 'alert', tone: 'info'
     });
-    await logAudit(lc.alert_id, 'Closed by L2', performed_by || lc.assigned_to,
-      `No suspicious activity. Narrative: ${narrative.slice(0, 200)}${narrative.length > 200 ? '…' : ''}`);
+    await logAudit(lc.alert_id, 'L2 decision: closed — no suspicious activity', performed_by || lc.assigned_to,
+      `Narrative: ${narrative.slice(0, 200)}${narrative.length > 200 ? '…' : ''}`);
 
     const sel = await pool.query('SELECT * FROM l2_cases WHERE l2_case_id = $1', [req.params.id]);
     res.json(sel.rows[0]);
@@ -491,8 +500,9 @@ router.patch('/:id/escalate-sar', async (req, res, next) => {
       message: `${lc.assigned_to || performed_by} escalated ${lc.customer_name} (${lc.alert_id}) to SAR — ${sar_priority || 'Standard'} priority`,
       related_id: caseId, related_type: 'case', tone: 'warning'
     });
-    await logAudit(lc.alert_id, 'Escalated to SAR by L2', performed_by || lc.assigned_to,
+    await logAudit(lc.alert_id, 'L2 decision: escalated to SAR', performed_by || lc.assigned_to,
       `Case ${caseId}. Priority ${sar_priority || 'Standard'}. ${summary.slice(0, 200)}${summary.length > 200 ? '…' : ''}`);
+    await logAudit(lc.alert_id, 'SAR case created', performed_by || lc.assigned_to, `Case ${caseId}`);
 
     const sel = await pool.query('SELECT * FROM l2_cases WHERE l2_case_id = $1', [req.params.id]);
     res.json({ l2_case: sel.rows[0], case_id: caseId });

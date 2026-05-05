@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../database/db');
+const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 
 const router = express.Router();
 
@@ -177,6 +178,11 @@ router.post('/:id/start-review', async (req, res, next) => {
       'UPDATE sar_filings SET sar_status = $1, updated_at = $2 WHERE sar_id = $3',
       ['Under Manager Review', stamp, existing.sar_id]
     );
+    const reviewer = req.body?.manager_id || 'Compliance Manager';
+    await logAudit({
+      entity_type: ENTITY_TYPES.SAR, entity_id: existing.sar_id,
+      action: `Opened for review by ${reviewer}`, performed_by: reviewer
+    });
     const sel = await pool.query('SELECT * FROM sar_filings WHERE sar_id = $1', [existing.sar_id]);
     res.json(sel.rows[0]);
   } catch (err) { next(err); }
@@ -222,10 +228,18 @@ router.post('/:id/approve', async (req, res, next) => {
       VALUES ($1, 'approved', $2, $3, $4)
     `, [existing.sar_id, approvedBy, note, JSON.stringify(checklist)]);
 
-    await pool.query(`
-      INSERT INTO audit_trail (sar_id, action, performed_by, details)
-      VALUES ($1, 'SAR Approved & Filed', $2, $3)
-    `, [existing.sar_id, approvedBy, note || 'Approved by supervisor']);
+    await logAudit({
+      entity_type: ENTITY_TYPES.SAR, entity_id: existing.sar_id,
+      action: `Approved by ${approvedBy}`, performed_by: approvedBy,
+      details: note || 'Approved by supervisor'
+    });
+    if (existing.regulator_reference || existing.sar_id) {
+      await logAudit({
+        entity_type: ENTITY_TYPES.SAR, entity_id: existing.sar_id,
+        action: `Filed — BSA Reference: ${existing.regulator_reference || existing.sar_id}`,
+        performed_by: approvedBy
+      });
+    }
 
     if (existing.case_id) {
       await pool.query(
@@ -334,10 +348,11 @@ router.post('/:id/reject', async (req, res, next) => {
       VALUES ($1, 'rejected', $2, $3, $4, $5)
     `, [existing.sar_id, rejectedBy, reasonCategory, comments, JSON.stringify(checklist)]);
 
-    await pool.query(`
-      INSERT INTO audit_trail (sar_id, action, performed_by, details)
-      VALUES ($1, 'SAR Rejected & Returned', $2, $3)
-    `, [existing.sar_id, rejectedBy, `${reasonCategory}: ${comments}`]);
+    await logAudit({
+      entity_type: ENTITY_TYPES.SAR, entity_id: existing.sar_id,
+      action: `Rejected — Reason category: ${reasonCategory} — Comments: ${comments.slice(0, 100)}${comments.length > 100 ? '…' : ''}`,
+      performed_by: rejectedBy
+    });
 
     if (existing.case_id) {
       await pool.query(
@@ -376,12 +391,19 @@ router.post('/comments', async (req, res, next) => {
   try {
     const { sar_id, manager_id, comment_text, highlighted_text, position_start, position_end } = req.body;
     if (!sar_id || !comment_text) return res.status(400).json({ error: 'sar_id and comment_text required' });
+    const reviewer = manager_id || 'Compliance Manager';
     const result = await pool.query(`
       INSERT INTO sar_review_comments (sar_id, manager_id, comment_text, highlighted_text, position_start, position_end)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
-    `, [sar_id, manager_id || 'Compliance Manager', comment_text,
+    `, [sar_id, reviewer, comment_text,
         highlighted_text || null,
         position_start ?? null, position_end ?? null]);
+    await logAudit({
+      entity_type: ENTITY_TYPES.SAR, entity_id: sar_id,
+      action: `Review comment added by ${reviewer}`,
+      performed_by: reviewer,
+      details: comment_text.slice(0, 100) + (comment_text.length > 100 ? '…' : '')
+    });
     res.status(201).json(result.rows[0]);
   } catch (err) { next(err); }
 });

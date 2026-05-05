@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const pool = require('../database/db');
 const { upload } = require('../middleware/upload');
+const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 
 const router = express.Router();
 
@@ -32,6 +33,13 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       VALUES ($1, $2, $3, NOW())
     `, [alert_id, `Uploaded evidence: ${req.file.originalname} (${document_type || 'Other'})`,
         uploaded_by || 'system']);
+
+    await logAudit({
+      entity_type: ENTITY_TYPES.ALERT, entity_id: alert_id,
+      action: `Document uploaded — ${req.file.originalname}`,
+      performed_by: uploaded_by || 'system',
+      details: document_type || null
+    });
 
     res.status(201).json(ins.rows[0]);
   } catch (err) { next(err); }

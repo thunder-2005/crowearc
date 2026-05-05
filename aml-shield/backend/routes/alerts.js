@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../database/db');
+const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 
 const router = express.Router();
 
@@ -36,7 +37,7 @@ const ALERT_SELECT = `
 
 router.get('/', async (req, res, next) => {
   try {
-    const { alert_status, priority, scenario, assigned_to, q, include_unassigned_for } = req.query;
+    const { alert_status, priority, scenario, assigned_to, q, include_unassigned_for, priority_bucket_sort } = req.query;
     let sql = ALERT_SELECT + ' WHERE 1=1';
     const params = [];
     let n = 0;
@@ -56,7 +57,28 @@ router.get('/', async (req, res, next) => {
       params.push(`%${q}%`, `%${q}%`);
       sql += ` AND (a.alert_id LIKE $${++n} OR a.customer_name LIKE $${++n})`;
     }
-    sql += ' ORDER BY a.created_date DESC';
+    // priority_bucket_sort: manager-table sort that bands alerts by lifecycle
+    // status (Unassigned → Not Started → In Progress → Escalated → Closed),
+    // newest first within each band. Kanban-driven /alerts calls don't pass
+    // this flag, so the original `created_date DESC` is preserved for them.
+    if (priority_bucket_sort === '1' || priority_bucket_sort === 'true') {
+      sql += ` ORDER BY
+        CASE a.alert_status
+          WHEN 'Unassigned'         THEN 1
+          WHEN 'Not Started'        THEN 2
+          WHEN 'Work in Progress'   THEN 3
+          WHEN 'In Progress'        THEN 3
+          WHEN 'Escalated - L2'     THEN 4
+          WHEN 'Escalated - SAR'    THEN 4
+          WHEN 'Completed'          THEN 5
+          WHEN 'Closed'             THEN 5
+          WHEN 'False Positive'     THEN 5
+          ELSE 6
+        END ASC,
+        a.created_date DESC`;
+    } else {
+      sql += ' ORDER BY a.created_date DESC';
+    }
     const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch (err) { next(err); }
@@ -119,7 +141,7 @@ router.get('/:id/transactions', async (req, res, next) => {
 
 router.patch('/:id/disposition', async (req, res, next) => {
   try {
-    const { disposition, performed_by } = req.body;
+    const { disposition, performed_by, reason } = req.body;
     if (!disposition) return res.status(400).json({ error: 'disposition required' });
     const idParam = req.params.id;
     const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
@@ -136,6 +158,24 @@ router.patch('/:id/disposition', async (req, res, next) => {
       INSERT INTO case_notes (alert_id, note_text, analyst, timestamp)
       VALUES ($1, $2, $3, NOW())
     `, [alert.alert_id, `Disposition set to "${disposition}"`, performed_by || 'system']);
+
+    // Audit: classify by disposition text so analyst-driven False Positive
+    // closures and L2-driven Closed-No-Suspicion cases are distinguishable
+    // in the alert's Activity Log.
+    const dispLower = String(disposition).toLowerCase();
+    let action = `Disposition set: ${disposition}`;
+    if (dispLower.includes('false positive')) {
+      action = reason
+        ? `Alert closed as False Positive — Reason: ${reason}`
+        : 'Alert closed as False Positive';
+    } else if (dispLower.includes('no suspicion') || dispLower.includes('no suspicious')) {
+      action = 'Alert closed — No Suspicious Activity';
+    }
+    await logAudit({
+      entity_type: ENTITY_TYPES.ALERT, entity_id: alert.alert_id,
+      action, performed_by: performed_by || 'system'
+    });
+
     const sel = await pool.query('SELECT * FROM alerts WHERE alert_id = $1', [alert.alert_id]);
     res.json(sel.rows[0]);
   } catch (err) { next(err); }
@@ -143,23 +183,45 @@ router.patch('/:id/disposition', async (req, res, next) => {
 
 router.patch('/:id/status', async (req, res, next) => {
   try {
-    const { alert_status, assigned_to } = req.body;
+    const { alert_status, assigned_to, performed_by } = req.body;
     if (!alert_status) return res.status(400).json({ error: 'alert_status required' });
     const idParam = req.params.id;
     const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
-    const upd = await pool.query(
-      'UPDATE alerts SET alert_status = $1, assigned_to = COALESCE($2, assigned_to), last_activity_date = $3 WHERE alert_id = $4 OR id = $5',
-      [alert_status, assigned_to || null, new Date().toISOString().slice(0, 10), idParam, idAsInt]
+
+    // Capture the previous status so the audit entry can show "from X to Y".
+    const before = (await pool.query(
+      'SELECT alert_id, alert_status FROM alerts WHERE alert_id = $1 OR id = $2',
+      [idParam, idAsInt]
+    )).rows[0];
+    if (!before) return res.status(404).json({ error: 'Alert not found' });
+
+    await pool.query(
+      'UPDATE alerts SET alert_status = $1, assigned_to = COALESCE($2, assigned_to), last_activity_date = $3 WHERE alert_id = $4',
+      [alert_status, assigned_to || null, new Date().toISOString().slice(0, 10), before.alert_id]
     );
-    if (upd.rowCount === 0) return res.status(404).json({ error: 'Alert not found' });
-    const sel = await pool.query('SELECT * FROM alerts WHERE alert_id = $1 OR id = $2', [idParam, idAsInt]);
+
+    // Audit: differentiate "Investigation started" (Not Started → Work in
+    // Progress when the L1 opens the workspace) from a generic status change.
+    if (before.alert_status !== alert_status) {
+      const wasNotStarted = (before.alert_status || '').toLowerCase() === 'not started';
+      const nowInProgress = (alert_status || '').toLowerCase() === 'work in progress';
+      const action = (wasNotStarted && nowInProgress)
+        ? 'Investigation started'
+        : `Status changed from ${before.alert_status} to ${alert_status}`;
+      await logAudit({
+        entity_type: ENTITY_TYPES.ALERT, entity_id: before.alert_id,
+        action, performed_by: performed_by || 'system'
+      });
+    }
+
+    const sel = await pool.query('SELECT * FROM alerts WHERE alert_id = $1', [before.alert_id]);
     res.json(sel.rows[0]);
   } catch (err) { next(err); }
 });
 
 router.patch('/:id/assign', async (req, res, next) => {
   try {
-    const { assigned_to } = req.body;
+    const { assigned_to, performed_by } = req.body;
     if (!assigned_to) return res.status(400).json({ error: 'assigned_to required' });
     const idParam = req.params.id;
     const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
@@ -172,6 +234,12 @@ router.patch('/:id/assign', async (req, res, next) => {
       'UPDATE alerts SET assigned_to = $1, alert_status = $2, last_activity_date = $3 WHERE alert_id = $4',
       [assigned_to, nextStatus, new Date().toISOString().slice(0, 10), existing.alert_id]
     );
+    await logAudit({
+      entity_type: ENTITY_TYPES.ALERT, entity_id: existing.alert_id,
+      action: `Alert assigned to ${assigned_to}`,
+      performed_by: performed_by || (assigned_to === existing.assigned_to ? assigned_to : 'system'),
+      details: existing.assigned_to ? `Reassigned from ${existing.assigned_to}` : null
+    });
     const sel = await pool.query('SELECT * FROM alerts WHERE alert_id = $1', [existing.alert_id]);
     res.json(sel.rows[0]);
   } catch (err) { next(err); }
@@ -223,10 +291,13 @@ router.patch('/bulk-close', async (req, res, next) => {
                last_activity_date = $4
          WHERE alert_id = $5
       `, ['Completed', 'False Positive — Closed', today, today, row.alert_id]);
-      await client.query(`
-        INSERT INTO audit_trail (sar_id, action, performed_by, timestamp, details)
-        VALUES ($1, $2, $3, NOW(), $4)
-      `, [row.alert_id, 'Bulk closed as False Positive', performedBy, detailsLine]);
+      await logAudit({
+        entity_type: ENTITY_TYPES.ALERT, entity_id: row.alert_id,
+        action: `Alert closed as False Positive — Reason: ${reasonText}`,
+        performed_by: performedBy,
+        details: noteText || null,
+        client
+      });
       await client.query(`
         INSERT INTO case_notes (alert_id, note_text, analyst, timestamp)
         VALUES ($1, $2, $3, NOW())
