@@ -22,7 +22,9 @@ const ACCENT = {
 function usd(n) { return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 
 export default function Cases() {
-  const { isManager, isEmployee, currentAnalyst } = useRole();
+  const { isManager, isEmployee, isL1, isL2, currentAnalyst } = useRole();
+  // SAR filing is L2 / Manager only — L1 cards never show "File SAR".
+  const canFileSar = !isL1;
   const { openTab } = useInvestigationTabs();
   const { goTo } = useRoleNavigate();
   const [cases, setCases] = useState([]);
@@ -129,28 +131,28 @@ export default function Cases() {
                         </button>
                       )}
                       {isEmployee && col !== 'Unassigned' && (
-                        <div className="mt-2 grid grid-cols-2 gap-1">
+                        <div className={`mt-2 grid gap-1 ${canFileSar ? 'grid-cols-2' : 'grid-cols-1'}`}>
                           <button
                             onClick={(e) => { e.stopPropagation(); openCaseInvestigation(c); }}
                             className="text-[11px] border border-slate-200 hover:border-blue-400 hover:text-blue-600 rounded-md py-1.5 inline-flex items-center justify-center gap-1"
                           >
                             <FolderOpen size={11} /> Open
                           </button>
-                          {!c.linked_sar_id ? (
+                          {!c.linked_sar_id && canFileSar ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); goFileSar(c); }}
                               className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white rounded-md py-1.5 inline-flex items-center justify-center gap-1"
                             >
                               <FileText size={11} /> File SAR
                             </button>
-                          ) : (
+                          ) : c.linked_sar_id ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); goTo(`sars?sar_id=${c.linked_sar_id}`); }}
                               className="text-[11px] border border-green-300 text-green-700 hover:bg-green-50 rounded-md py-1.5 inline-flex items-center justify-center gap-1"
                             >
                               <FileText size={11} /> View SAR
                             </button>
-                          )}
+                          ) : null}
                         </div>
                       )}
                     </div>
@@ -181,7 +183,8 @@ export default function Cases() {
 }
 
 function CaseDetail({ c, onClose, onRefresh, onAssign, onOpenInvestigation, onFileSar, onViewSar }) {
-  const { isEmployee, currentAnalyst } = useRole();
+  const { isEmployee, isL1, currentAnalyst } = useRole();
+  const canFileSar = !isL1; // L1 cannot file SARs
   const alert = c.source_alert;
   const sar = c.linked_sar;
 
@@ -299,7 +302,7 @@ function CaseDetail({ c, onClose, onRefresh, onAssign, onOpenInvestigation, onFi
             <FolderOpen size={14} /> Open Case
           </button>
         )}
-        {isEmployee && c.assigned_to === currentAnalyst && !sar && (
+        {isEmployee && c.assigned_to === currentAnalyst && !sar && canFileSar && (
           <button
             onClick={onFileSar}
             className="flex-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md px-3 py-2 inline-flex items-center justify-center gap-1"

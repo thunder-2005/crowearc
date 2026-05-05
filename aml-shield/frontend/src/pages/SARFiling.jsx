@@ -59,9 +59,20 @@ export default function SARFiling() {
   const { caseId } = useParams();
   const [search] = useSearchParams();
   const isViewOnly = search.get('view') === '1';
-  const { isManager, currentAnalyst } = useRole();
+  const { isManager, isL1, currentAnalyst } = useRole();
   const { push: pushToast } = useToast();
   const { goTo } = useRoleNavigate();
+
+  // L1 analysts cannot file SARs — bounce them back to the dashboard with a
+  // toast so a stale bookmark / browser back-button doesn't drop them on a
+  // wizard they aren't permitted to use.
+  useEffect(() => {
+    if (isL1) {
+      pushToast('SAR filing is restricted to L2 analysts and above.', 'warning');
+      goTo('dashboard');
+    }
+  }, [isL1, goTo, pushToast]);
+  if (isL1) return null;
 
   const [stepIdx, setStepIdx] = useState(0);
   const [caseInfo, setCaseInfo] = useState(null);

@@ -57,7 +57,8 @@ const MANAGER_SECTIONS = [
   }
 ];
 
-const EMPLOYEE_SECTIONS = [
+// L2 — full employee sidebar including SAR filing + My Cases.
+const EMPLOYEE_L2_SECTIONS = [
   {
     title: 'MY WORK',
     items: [
@@ -96,6 +97,47 @@ const EMPLOYEE_SECTIONS = [
   }
 ];
 
+// L1 — slimmed sidebar. SAR filing is L2/Manager only, so:
+//   - "My Cases" removed (L1 doesn't own SAR cases)
+//   - "File SAR" removed
+//   - SAR Repository stays as a read-only reference
+const EMPLOYEE_L1_SECTIONS = [
+  {
+    title: 'MY WORK',
+    items: [
+      { to: 'dashboard',            icon: LayoutDashboard, label: 'My Dashboard',  exact: true },
+      { to: 'alerts',               icon: AlertTriangle,   label: 'My Alerts' },
+      { to: 'kyc-reviews/mine',     icon: ClipboardCheck,  label: 'My KYC Reviews', badge: 'myAssignedReviews',
+        match: ['kyc-reviews', 'kyc-review'] }
+    ]
+  },
+  {
+    title: 'CUSTOMERS',
+    items: [
+      { to: 'customers',            icon: IdCard, label: 'Customer KYC' }
+    ]
+  },
+  {
+    title: 'SAR MANAGEMENT',
+    items: [
+      { to: 'sars',                 icon: FileText, label: 'SAR Repository · read-only',
+        match: ['sars'] }
+    ]
+  },
+  {
+    title: 'REPORTS',
+    items: [
+      { to: 'reports',              icon: Activity, label: 'My Reports' }
+    ]
+  },
+  {
+    title: 'ADMIN',
+    items: [
+      { to: 'settings',             icon: Settings, label: 'Settings' }
+    ]
+  }
+];
+
 // Compute whether the supplied nav item should be highlighted given the
 // current pathname and role prefix.  `exact` means require an exact match
 // (used for the dashboard so it doesn't claim every URL under the prefix).
@@ -115,7 +157,7 @@ function isItemActive(item, pathname, prefix) {
 }
 
 export default function Sidebar() {
-  const { role, isManager, currentAnalyst } = useRole();
+  const { role, isManager, currentAnalyst, isL1 } = useRole();
   const { makePath, prefix } = useRoleNavigate();
   const location = useLocation();
   const [pendingApprovals, setPendingApprovals] = useState(0);
@@ -151,7 +193,9 @@ export default function Sidebar() {
   }, [isManager, currentAnalyst]);
 
   const badges = { pendingApprovals, overdueReviews, myAssignedReviews };
-  const sections = isManager ? MANAGER_SECTIONS : EMPLOYEE_SECTIONS;
+  const sections = isManager
+    ? MANAGER_SECTIONS
+    : (isL1 ? EMPLOYEE_L1_SECTIONS : EMPLOYEE_L2_SECTIONS);
 
   return (
     <aside className="w-64 shrink-0 bg-navy-900 text-slate-200 flex flex-col h-screen sticky top-0">

@@ -14,6 +14,21 @@ const STEP_LABELS = [
   'Review'                // Step 6
 ];
 
+// SAR filing is restricted to L2 analysts and above. The role is read from
+// the x-user-role header (set by the frontend Axios interceptor); fallback
+// to req.body.user_role for any caller that prefers a body-only payload.
+// GET routes are intentionally left open so L1 analysts can still read SARs
+// for case reference — only mutating routes are gated.
+function requireL2OrManager(req, res, next) {
+  const userRole = req.headers['x-user-role'] || req.body?.user_role || '';
+  if (userRole === 'analyst_l1') {
+    return res.status(403).json({
+      error: 'SAR filing requires L2 analyst or above'
+    });
+  }
+  next();
+}
+
 const JSON_FIELDS = [
   'suspicious_activity_types', 'transaction_types', 'subject_data',
   'draft_data', 'included_documents'
@@ -91,7 +106,7 @@ async function applyUpdate(sarRow, body) {
   return sel.rows[0];
 }
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireL2OrManager, async (req, res, next) => {
   try {
     const { case_id, customer_id, customer_name, source_alert_id, prepared_by, alert_scenario } = req.body;
     if (!case_id) return res.status(400).json({ error: 'case_id required' });
@@ -187,7 +202,7 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id', async (req, res, next) => {
+router.patch('/:id', requireL2OrManager, async (req, res, next) => {
   try {
     const idParam = req.params.id;
     const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
@@ -216,7 +231,7 @@ router.patch('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/submit', async (req, res, next) => {
+router.post('/:id/submit', requireL2OrManager, async (req, res, next) => {
   try {
     const idParam = req.params.id;
     const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
@@ -297,7 +312,7 @@ router.post('/:id/submit', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/approve', async (req, res, next) => {
+router.post('/:id/approve', requireL2OrManager, async (req, res, next) => {
   try {
     const idParam = req.params.id;
     const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;

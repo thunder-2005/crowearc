@@ -25,13 +25,19 @@ function retentionUrgency(expiry) {
 }
 
 export default function SARRepository() {
-  const { isManager, isEmployee } = useRole();
-  if (isEmployee) return <EmployeeSarCases />;
+  const { isEmployee, isL1, isL2 } = useRole();
+  // L2 employees get the My-Cases / File-SAR view. L1 employees and Managers
+  // both land on the read-only repository table.
+  if (isEmployee && isL2) return <EmployeeSarCases />;
   return <ManagerSarRepository />;
 }
 
 function ManagerSarRepository() {
-  const { isManager, currentAnalyst } = useRole();
+  const { isManager, isL1, currentAnalyst } = useRole();
+  // The repository table is read-only for both managers and L1 analysts.
+  // Only L2 analysts have a separate filing view (above), so any user that
+  // ends up here cannot upload new evidence or file new SARs from this page.
+  const readOnly = isManager || isL1;
   const [params] = useSearchParams();
   const deepLinkSarId = params.get('sar_id');
   const [items, setItems] = useState([]);
@@ -83,9 +89,19 @@ function ManagerSarRepository() {
             <div className="text-sm text-slate-500">
               Control #3 · {total} SARs · FIU-IND jurisdiction · 5-year retention
               {isManager && <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">Manager — read-only</span>}
+              {isL1     && <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">L1 — read-only</span>}
             </div>
           </div>
         </div>
+
+        {isL1 && (
+          <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <span>
+              Viewing SAR records for case reference. SAR filing is available to L2 analysts and above.
+            </span>
+          </div>
+        )}
 
         <Card bodyClassName="p-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -164,7 +180,7 @@ function ManagerSarRepository() {
           sar={selected}
           onClose={() => setSelected(null)}
           onRefresh={refreshSelected}
-          isManager={isManager}
+          readOnly={readOnly}
           requester={requester}
         />
       )}
@@ -172,7 +188,7 @@ function ManagerSarRepository() {
   );
 }
 
-function SarDetail({ sar, onClose, onRefresh, isManager, requester }) {
+function SarDetail({ sar, onClose, onRefresh, readOnly, requester }) {
   const fileInput = useRef();
   const [uploading, setUploading] = useState(false);
   const retention = retentionUrgency(sar.retention_expiry_date);
@@ -257,7 +273,7 @@ function SarDetail({ sar, onClose, onRefresh, isManager, requester }) {
             <div className="text-sm font-semibold text-navy-900">
               Supporting Documents <span className="text-xs text-slate-500">({sar.documents.length})</span>
             </div>
-            {!isManager && (
+            {!readOnly && (
               <button
                 onClick={() => fileInput.current?.click()}
                 className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-200 hover:bg-slate-50"
@@ -283,7 +299,7 @@ function SarDetail({ sar, onClose, onRefresh, isManager, requester }) {
                      className="p-1.5 rounded hover:bg-slate-200 text-slate-600" title="Download">
                     <Download size={13} />
                   </a>
-                  {!isManager && (
+                  {!readOnly && (
                     <button onClick={() => deleteDoc(d.id)}
                       className="p-1.5 rounded hover:bg-red-50 text-red-500" title="Delete">
                       <Trash2 size={13} />
