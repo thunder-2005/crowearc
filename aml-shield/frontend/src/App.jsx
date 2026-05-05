@@ -19,6 +19,8 @@ import Analytics from './pages/Analytics.jsx';
 import Reports from './pages/Reports.jsx';
 import SLAPopup from './components/SLAPopup.jsx';
 import Placeholder from './pages/Placeholder.jsx';
+import Login from './pages/Login.jsx';
+import ProtectedRoute, { RootRedirect } from './components/ProtectedRoute.jsx';
 
 function Shell({ children }) {
   return (
@@ -36,59 +38,72 @@ function Shell({ children }) {
 export default function App() {
   return (
     <Routes>
-      {/* Root → manager dashboard */}
-      <Route path="/" element={<Navigate to="/manager/dashboard" replace />} />
+      {/* Login (public) */}
+      <Route path="/login" element={<Login />} />
+
+      {/* Root → send the user to wherever they belong */}
+      <Route path="/" element={<RootRedirect />} />
 
       {/* MANAGER */}
       <Route path="/manager" element={<Navigate to="/manager/dashboard" replace />} />
-      <Route path="/manager/*" element={
-        <Shell>
-          <Routes>
-            <Route path="dashboard"             element={<Dashboard />} />
-            <Route path="alerts"                element={<Alerts />} />
-            <Route path="cases"                 element={<Cases />} />
-            <Route path="investigations"        element={<Placeholder title="Investigations" />} />
-            <Route path="customers"             element={<CustomerKYC />} />
-            <Route path="customers/:id"         element={<CustomerKYC />} />
-            <Route path="sars"                  element={<SARRepository />} />
-            <Route path="sar-approvals"         element={<SARApprovalQueue />} />
-            <Route path="sar-approval/:sarId"   element={<SARApprovalReview />} />
-            <Route path="kyc-reviews"           element={<KYCReviewQueue scope="manager" />} />
-            <Route path="kyc-review/:reviewId"  element={<KYCReviewWorkspace />} />
-            <Route path="retention"             element={<RetentionMonitor />} />
-            <Route path="audit"                 element={<AuditLog />} />
-            <Route path="reports"               element={<Reports />} />
-            <Route path="analytics"             element={<Analytics />} />
-            <Route path="users"                 element={<Users />} />
-            <Route path="settings"              element={<Settings />} />
-            <Route path="*"                     element={<Navigate to="/manager/dashboard" replace />} />
-          </Routes>
-        </Shell>
-      } />
+      <Route
+        path="/manager/*"
+        element={
+          <ProtectedRoute allowedRoles={['compliance_manager']}>
+            <Shell>
+              <Routes>
+                <Route path="dashboard"             element={<Dashboard />} />
+                <Route path="alerts"                element={<Alerts />} />
+                <Route path="cases"                 element={<Cases />} />
+                <Route path="investigations"        element={<Placeholder title="Investigations" />} />
+                <Route path="customers"             element={<CustomerKYC />} />
+                <Route path="customers/:id"         element={<CustomerKYC />} />
+                <Route path="sars"                  element={<SARRepository />} />
+                <Route path="sar-approvals"         element={<SARApprovalQueue />} />
+                <Route path="sar-approval/:sarId"   element={<SARApprovalReview />} />
+                <Route path="kyc-reviews"           element={<KYCReviewQueue scope="manager" />} />
+                <Route path="kyc-review/:reviewId"  element={<KYCReviewWorkspace />} />
+                <Route path="retention"             element={<RetentionMonitor />} />
+                <Route path="audit"                 element={<AuditLog />} />
+                <Route path="reports"               element={<Reports />} />
+                <Route path="analytics"             element={<Analytics />} />
+                <Route path="users"                 element={<Users />} />
+                <Route path="settings"              element={<Settings />} />
+                <Route path="*"                     element={<Navigate to="/manager/dashboard" replace />} />
+              </Routes>
+            </Shell>
+          </ProtectedRoute>
+        }
+      />
 
       {/* EMPLOYEE */}
       <Route path="/employee" element={<Navigate to="/employee/dashboard" replace />} />
-      <Route path="/employee/*" element={
-        <Shell>
-          <Routes>
-            <Route path="dashboard"             element={<Dashboard />} />
-            <Route path="alerts"                element={<Alerts />} />
-            <Route path="cases"                 element={<Cases />} />
-            <Route path="customers"             element={<CustomerKYC />} />
-            <Route path="customers/:id"         element={<CustomerKYC />} />
-            <Route path="sars"                  element={<SARRepository />} />
-            <Route path="sar-filing/:caseId"    element={<SARFiling />} />
-            <Route path="kyc-reviews/mine"      element={<KYCReviewQueue scope="mine" />} />
-            <Route path="kyc-review/:reviewId"  element={<KYCReviewWorkspace />} />
-            <Route path="reports"               element={<Reports />} />
-            <Route path="settings"              element={<Settings />} />
-            <Route path="*"                     element={<Navigate to="/employee/dashboard" replace />} />
-          </Routes>
-        </Shell>
-      } />
+      <Route
+        path="/employee/*"
+        element={
+          <ProtectedRoute allowedRoles={['analyst_l1', 'analyst_l2']}>
+            <Shell>
+              <Routes>
+                <Route path="dashboard"             element={<Dashboard />} />
+                <Route path="alerts"                element={<Alerts />} />
+                <Route path="cases"                 element={<Cases />} />
+                <Route path="customers"             element={<CustomerKYC />} />
+                <Route path="customers/:id"         element={<CustomerKYC />} />
+                <Route path="sars"                  element={<SARRepository />} />
+                <Route path="sar-filing/:caseId"    element={<SARFiling />} />
+                <Route path="kyc-reviews/mine"      element={<KYCReviewQueue scope="mine" />} />
+                <Route path="kyc-review/:reviewId"  element={<KYCReviewWorkspace />} />
+                <Route path="reports"               element={<Reports />} />
+                <Route path="settings"              element={<Settings />} />
+                <Route path="*"                     element={<Navigate to="/employee/dashboard" replace />} />
+              </Routes>
+            </Shell>
+          </ProtectedRoute>
+        }
+      />
 
-      {/* anything else → manager dashboard */}
-      <Route path="*" element={<Navigate to="/manager/dashboard" replace />} />
+      {/* anything else → root redirect */}
+      <Route path="*" element={<RootRedirect />} />
     </Routes>
   );
 }

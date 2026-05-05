@@ -23,6 +23,21 @@ const USER_ROLE_MAP = {
   'Henry Morgan':  { role: 'compliance_manager', team: 'Management' }
 };
 
+// Demo credentials. Keep in sync with migrate.js CREDENTIALS.
+const CREDENTIALS_BY_NAME = {
+  'Henry Morgan':  { username: 'henry.morgan',  password: 'Henry@123'   },
+  'Olivia Brown':  { username: 'olivia.brown',  password: 'Olivia@123'  },
+  'Cassian Jude':  { username: 'cassian.jude',  password: 'Cassian@123' },
+  'Marie Davis':   { username: 'marie.davis',   password: 'Marie@123'   },
+  'Hannah Louise': { username: 'hannah.louise', password: 'Hannah@123'  },
+  'Robert Wright': { username: 'robert.wright', password: 'Robert@123'  },
+  'Arjun Sharma':  { username: 'arjun.sharma',  password: 'Arjun@123'   },
+  'Priya Nair':    { username: 'priya.nair',    password: 'Priya@123'   },
+  'Rohit Mehta':   { username: 'rohit.mehta',   password: 'Rohit@123'   },
+  'Neha Iyer':     { username: 'neha.iyer',     password: 'Neha@123'    },
+  'Vikram Sinha':  { username: 'vikram.sinha',  password: 'Vikram@123'  }
+};
+
 function parseCsv(text) {
   const rows = [];
   let i = 0, field = '', row = [], inQuotes = false;
@@ -576,12 +591,13 @@ ${s.narrative_summary}
     let i = 1;
     for (const name of names) {
       const mapping = USER_ROLE_MAP[name] || { role: 'AML Analyst L1', team: 'T1 Monitoring' };
+      const cred = CREDENTIALS_BY_NAME[name] || { username: null, password: null };
       const uid = `USR-${String(i++).padStart(4, '0')}`;
       const email = `${name.toLowerCase().replace(/\s+/g, '.')}@bank.in`;
       await client.query(`
-        INSERT INTO user_profiles (user_id, name, role, team, status, avatar_color, email)
-        VALUES ($1, $2, $3, $4, 'Active', $5, $6)
-      `, [uid, name, mapping.role, mapping.team, colorForName(name), email]);
+        INSERT INTO user_profiles (user_id, name, role, team, status, avatar_color, email, username, password)
+        VALUES ($1, $2, $3, $4, 'Active', $5, $6, $7, $8)
+      `, [uid, name, mapping.role, mapping.team, colorForName(name), email, cred.username, cred.password]);
     }
 
     for (const [k, v] of Object.entries(MANAGER_DEFAULTS)) {

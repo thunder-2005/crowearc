@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Search, Bell, User, ChevronDown, Briefcase, Check, FileText, AlertTriangle,
-  ShieldAlert, X, Loader2, FolderOpen
+  ShieldAlert, X, Loader2, FolderOpen, LogOut
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useRole } from '../state/RoleContext.jsx';
 import { useRoleNavigate } from '../state/useRoleNavigate.js';
+import { useToast } from '../state/ToastContext.jsx';
 import api from '../api/client.js';
 import { isAlertClosed } from '../utils/alertStatus.js';
 
@@ -59,11 +60,18 @@ function relativeTime(iso) {
 export default function Topbar() {
   const loc = useLocation();
   const { goTo } = useRoleNavigate();
-  const { currentAnalyst, setCurrentAnalyst, analysts, analystProfiles, currentAnalystLevel, isManager } = useRole();
+  const { currentAnalyst, currentUser, analystProfiles, currentAnalystLevel, isManager, signOut } = useRole();
+  const toast = useToast();
   const [bellOpen, setBellOpen] = useState(false);
-  const [analystOpen, setAnalystOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const bellRef = useRef();
-  const analystRef = useRef();
+  const userMenuRef = useRef();
+
+  const handleSignOut = () => {
+    setUserMenuOpen(false);
+    signOut();
+    try { toast.push('You have been signed out successfully', 'success', 3000); } catch (_e) { /* ignore */ }
+  };
 
   // Global search
   const searchRef = useRef();
@@ -110,7 +118,7 @@ export default function Topbar() {
   useEffect(() => {
     const onClick = (e) => {
       if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false);
-      if (analystRef.current && !analystRef.current.contains(e.target)) setAnalystOpen(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) setUserMenuOpen(false);
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setSearchOpen(false);
         setSearchFocused(false);
@@ -375,86 +383,67 @@ export default function Topbar() {
           )}
         </div>
 
-        {/* Identity / analyst selector */}
-        {isManager ? (
-          <div className="flex items-center gap-2 pl-3 border-l border-slate-200 py-1 pr-2">
-            <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white">
-              <Briefcase size={16} />
-            </div>
-            <div className="leading-tight">
-              <div className="text-sm font-medium text-navy-900">Compliance Manager</div>
-              <div className="text-xs text-slate-500">Manager View · full oversight</div>
-            </div>
-          </div>
-        ) : (
-          <div ref={analystRef} className="relative">
-            <button
-              onClick={() => setAnalystOpen(o => !o)}
-              className="flex items-center gap-2 pl-3 border-l border-slate-200 py-1 pr-2 rounded-md hover:bg-slate-50"
-              title="Switch active analyst"
+        {/* Identity / sign-out menu */}
+        <div ref={userMenuRef} className="relative">
+          <button
+            onClick={() => setUserMenuOpen(o => !o)}
+            className="flex items-center gap-2 pl-3 border-l border-slate-200 py-1 pr-2 rounded-md hover:bg-slate-50"
+            title={currentUser?.name ? `Signed in as ${currentUser.name}` : 'Account'}
+          >
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-semibold"
+              style={{ backgroundColor: currentUser?.avatar_color || (isManager ? '#4F46E5' : '#2563EB') }}
             >
-              <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white">
-                <User size={16} />
+              {currentUser?.name
+                ? currentUser.name.split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase()
+                : (isManager ? <Briefcase size={16} /> : <User size={16} />)}
+            </div>
+            <div className="leading-tight text-left">
+              <div className="text-sm font-medium text-navy-900 flex items-center gap-1.5">
+                {currentUser?.name || (isManager ? 'Compliance Manager' : 'Account')}
+                {currentAnalystLevel && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    currentAnalystLevel === 'L2'
+                      ? 'bg-purple-100 text-purple-700'
+                      : 'bg-blue-100 text-blue-700'
+                  }`}>{currentAnalystLevel}</span>
+                )}
               </div>
-              <div className="leading-tight text-left">
-                <div className="text-sm font-medium text-navy-900 flex items-center gap-1">
-                  Logged in as: {currentAnalyst || 'Select…'}
-                  {currentAnalystLevel && (
-                    <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                      currentAnalystLevel === 'L2'
-                        ? 'bg-purple-100 text-purple-700'
-                        : 'bg-blue-100 text-blue-700'
-                    }`}>{currentAnalystLevel}</span>
-                  )}
-                  <ChevronDown size={14} className="text-slate-400" />
+              <div className="text-xs text-slate-500">
+                {isManager
+                  ? 'Manager View · full oversight'
+                  : `Employee View · ${analystProfiles[currentAnalyst]?.team || 'Analyst'}`}
+              </div>
+            </div>
+            <ChevronDown size={14} className="text-slate-400 ml-1" />
+          </button>
+          {userMenuOpen && (
+            <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-xl z-30 overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+                <div className="text-sm font-semibold text-navy-900 truncate">
+                  {currentUser?.name || 'Signed in'}
                 </div>
-                <div className="text-xs text-slate-500">Employee View · {analystProfiles[currentAnalyst]?.team || 'Analyst'}</div>
-              </div>
-            </button>
-            {analystOpen && (
-              <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-xl z-30 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Active Analyst
+                {currentUser?.username && (
+                  <div className="text-[11px] font-mono text-slate-500 mt-0.5 truncate">
+                    {currentUser.username}
                   </div>
+                )}
+                {currentUser?.role && (
                   <div className="text-[11px] text-slate-500 mt-0.5">
-                    Stored locally — each browser tab keeps its own selection.
+                    {currentUser.role.replace(/_/g, ' ')}
                   </div>
-                </div>
-                <div className="max-h-[280px] overflow-y-auto">
-                  {analysts.length === 0 && (
-                    <div className="px-4 py-3 text-sm text-slate-400">Loading analysts…</div>
-                  )}
-                  {analysts.map(a => {
-                    const lvl = analystProfiles[a]?.level;
-                    return (
-                      <button
-                        key={a}
-                        onClick={() => { setCurrentAnalyst(a); setAnalystOpen(false); }}
-                        className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-50 ${
-                          a === currentAnalyst ? 'bg-blue-50' : ''
-                        }`}
-                      >
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${
-                          lvl === 'L2' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          {a.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
-                        </div>
-                        <span className="text-sm text-navy-900 flex-1">{a}</span>
-                        {lvl && (
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mr-1 ${
-                            lvl === 'L2' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                          }`}>{lvl}</span>
-                        )}
-                        {a === currentAnalyst && <Check size={14} className="text-blue-600" />}
-                      </button>
-                    );
-                  })}
-                </div>
+                )}
               </div>
-            )}
-          </div>
-        )}
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 text-left"
+              >
+                <LogOut size={14} />
+                Sign Out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
