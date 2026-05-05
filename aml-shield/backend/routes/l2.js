@@ -410,11 +410,28 @@ router.patch('/:id/close', async (req, res, next) => {
 // ─────────────────────────────────────────────── Decision: Escalate to SAR
 
 async function nextSarCaseId() {
-  const row = (await pool.query('SELECT case_id FROM cases ORDER BY id DESC LIMIT 1')).rows[0];
-  if (!row) return `CAS-${new Date().getFullYear()}-0001`;
-  const m = (row.case_id || '').match(/CAS-(\d{4})-(\d{4})/);
-  if (!m) return `CAS-${new Date().getFullYear()}-0001`;
-  return `CAS-${m[1]}-${String(parseInt(m[2], 10) + 1).padStart(4, '0')}`;
+  // Take the MAX trailing number from existing CAS-YYYY-XXXX cases for the
+  // current year, increment, then verify uniqueness in a small loop. The
+  // previous implementation read the latest case overall and reset to
+  // CAS-YYYY-0001 whenever the latest case happened to be a CASE-XXXXX
+  // (which is the more common prefix), causing duplicate-key errors on
+  // subsequent L2 escalations.
+  const year = new Date().getFullYear();
+  const prefix = `CAS-${year}-`;
+  const r = await pool.query(
+    `SELECT MAX(CAST(SUBSTRING(case_id FROM '^CAS-[0-9]{4}-([0-9]+)$') AS INTEGER)) AS max_num
+       FROM cases
+      WHERE case_id LIKE $1`,
+    [`${prefix}%`]
+  );
+  let n = (Number(r.rows[0]?.max_num) || 0) + 1;
+  for (let attempts = 0; attempts < 10000; attempts++) {
+    const candidate = `${prefix}${String(n).padStart(4, '0')}`;
+    const dup = await pool.query('SELECT 1 FROM cases WHERE case_id = $1 LIMIT 1', [candidate]);
+    if (dup.rows.length === 0) return candidate;
+    n++;
+  }
+  throw new Error('Could not generate unique L2 SAR case_id after 10000 attempts');
 }
 
 router.patch('/:id/escalate-sar', async (req, res, next) => {

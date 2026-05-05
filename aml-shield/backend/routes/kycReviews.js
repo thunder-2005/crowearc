@@ -352,15 +352,22 @@ router.patch('/:id/approve', async (req, res, next) => {
     `, [approvedBy, nowStamp(), nowStamp(), existing.id]);
 
     if (existing.recommendation === 'escalate_sar') {
-      const last = (await pool.query(
-        "SELECT case_id FROM cases WHERE case_id LIKE 'CASE-%' ORDER BY id DESC LIMIT 1"
-      )).rows[0];
-      let n = 1;
-      if (last) {
-        const m = String(last.case_id).match(/(\d+)$/);
-        if (m) n = parseInt(m[1], 10) + 1;
+      // Use MAX of trailing number across all CASE-XXXXX rows, then verify
+      // uniqueness. ORDER BY id DESC could collide on deletions/races.
+      const r = await pool.query(
+        `SELECT MAX(CAST(SUBSTRING(case_id FROM '^CASE-([0-9]+)$') AS INTEGER)) AS max_num
+           FROM cases
+          WHERE case_id ~ '^CASE-[0-9]+$'`
+      );
+      let n = (Number(r.rows[0]?.max_num) || 0) + 1;
+      let caseId = null;
+      for (let attempts = 0; attempts < 10000; attempts++) {
+        const candidate = `CASE-${String(n).padStart(5, '0')}`;
+        const dup = await pool.query('SELECT 1 FROM cases WHERE case_id = $1 LIMIT 1', [candidate]);
+        if (dup.rows.length === 0) { caseId = candidate; break; }
+        n++;
       }
-      const caseId = `CASE-${String(n).padStart(5, '0')}`;
+      if (!caseId) throw new Error('Could not generate unique case_id after 10000 attempts');
       await pool.query(`
         INSERT INTO cases (case_id, customer_id, customer_name, scenario, case_status, assigned_to, created_date, updated_date)
         VALUES ($1, $2, $3, 'KYC Review Escalation', 'Work In Progress', $4, $5, $6)
