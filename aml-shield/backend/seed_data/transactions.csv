@@ -1,0 +1,1210 @@
+transaction_id,account_id,customer_id,txn_date,txn_time,txn_type,channel,description,counterparty_name,counterparty_bank,counterparty_country,amount,running_balance,is_alerted,alert_id
+TXN-000001,ACC-0001,CUST-0001,2025-01-01,08:24:58,Cash Deposit,Branch,Cash Deposit,,,USA,8552.53,270857.71,true,ALERT-2025-00070
+TXN-000002,ACC-0002,CUST-0001,2025-01-01,08:33:55,Cash Deposit,Branch,Cash Deposit,,,USA,8555.73,10555.73,true,ALERT-2025-00040
+TXN-000003,ACC-0001,CUST-0001,2025-01-01,10:37:20,Cash Deposit,Branch,Cash Deposit,,,USA,9298.70,280156.41,true,ALERT-2025-00058
+TXN-000004,ACC-0001,CUST-0001,2025-01-01,10:52:57,Cash Deposit,Branch,Cash Deposit,,,USA,9245.96,289402.37,true,ALERT-2025-00036
+TXN-000005,ACC-0002,CUST-0001,2025-01-01,12:37:06,Cash Deposit,Branch,Cash Deposit,,,USA,8580.28,19136.01,true,ALERT-2025-00007
+TXN-000006,ACC-0002,CUST-0001,2025-01-01,16:44:50,Cash Deposit,Branch,Cash Deposit,,,USA,8850.66,27986.67,true,ALERT-2025-00032
+TXN-000007,ACC-0001,CUST-0001,2025-01-01,17:01:46,Cash Deposit,Branch,Cash Deposit,,,USA,8731.19,298133.56,true,ALERT-2025-00027
+TXN-000008,ACC-0003,CUST-0001,2025-01-01,17:53:00,Wire Debit,Wire,International Wire Transfer,Parsian Industrial Group,Parsian Bank,Iran,58163.82,537063.54,true,ALERT-2025-00018
+TXN-000009,ACC-0002,CUST-0001,2025-01-02,08:12:45,Cash Deposit,Branch,Cash Deposit,,,USA,9558.60,37545.27,true,ALERT-2025-00042
+TXN-000010,ACC-0001,CUST-0001,2025-01-02,08:22:48,Cash Deposit,Branch,Cash Deposit,,,USA,9542.82,307676.38,true,ALERT-2025-00066
+TXN-000011,ACC-0027,CUST-0011,2025-01-02,09:11:11,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,121.68,2000.00,false,
+TXN-000012,ACC-0039,CUST-0015,2025-01-02,17:21:40,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,544.38,1502156.46,false,
+TXN-000013,ACC-0005,CUST-0002,2025-01-03,09:36:09,Cash Deposit,Branch,Cash Deposit,,,USA,8574.02,10574.02,true,ALERT-2025-00083
+TXN-000014,ACC-0001,CUST-0001,2025-01-03,16:29:45,Cash Deposit,Branch,Cash Deposit,,,USA,8572.02,316248.40,true,ALERT-2025-00077
+TXN-000015,ACC-0016,CUST-0006,2025-01-04,10:06:23,ATM Withdrawal,ATM,ATM Withdrawal,City ATM Network,First National Bank — US,USA,430.91,2000.00,false,
+TXN-000016,ACC-0002,CUST-0001,2025-01-04,13:23:28,Cash Deposit,Branch,Cash Deposit,,,USA,9712.06,47257.33,true,ALERT-2025-00059
+TXN-000017,ACC-0001,CUST-0001,2025-01-04,14:11:17,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Metro Regional Bank,USA,43670.54,272577.86,true,ALERT-2025-00073
+TXN-000018,ACC-0032,CUST-0013,2025-01-04,15:57:22,ACH Debit,Online,Tax or Insurance Payment,Treasury Services Clearing,First National Bank — US,USA,23976.20,139559.34,false,
+TXN-000019,ACC-0001,CUST-0001,2025-01-04,16:00:57,Cash Deposit,Branch,Cash Deposit,,,USA,36913.11,309490.97,true,ALERT-2025-00028
+TXN-000020,ACC-0004,CUST-0002,2025-01-05,13:28:27,Cash Deposit,Branch,Cash Deposit,,,USA,9747.84,302516.13,true,ALERT-2025-00089
+TXN-000021,ACC-0001,CUST-0001,2025-01-06,08:08:52,Cash Deposit,Branch,Cash Deposit,,,USA,8885.49,318376.46,true,ALERT-2025-00074
+TXN-000022,ACC-0014,CUST-0005,2025-01-06,13:16:16,Card Debit,Online,Online Purchase,NorthStar Online Retail,Metro Regional Bank,USA,382.46,2000.00,false,
+TXN-000023,ACC-0004,CUST-0002,2025-01-06,17:38:20,Cash Deposit,Branch,Cash Deposit,,,USA,23855.32,326371.45,true,ALERT-2025-00090
+TXN-000024,ACC-0002,CUST-0001,2025-01-07,12:39:47,Cash Deposit,Branch,Cash Deposit,,,USA,9610.80,56868.13,true,ALERT-2025-00065
+TXN-000025,ACC-0044,CUST-0017,2025-01-08,09:35:02,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,56842.18,3245388.04,false,
+TXN-000026,ACC-0001,CUST-0001,2025-01-08,17:10:57,Cash Deposit,Branch,Cash Deposit,,,USA,41901.85,360278.31,true,ALERT-2025-00056
+TXN-000027,ACC-0005,CUST-0002,2025-01-09,13:52:39,Cash Deposit,Branch,Cash Deposit,,,USA,9610.99,20185.01,true,ALERT-2025-00117
+TXN-000028,ACC-0004,CUST-0002,2025-01-09,16:47:31,Cash Deposit,Branch,Cash Deposit,,,USA,9073.54,335444.99,true,ALERT-2025-00157
+TXN-000029,ACC-0005,CUST-0002,2025-01-10,08:26:23,Cash Deposit,Branch,Cash Deposit,,,USA,9559.93,29744.94,true,ALERT-2025-00086
+TXN-000030,ACC-0005,CUST-0002,2025-01-10,13:21:31,Cash Deposit,Branch,Cash Deposit,,,USA,8702.12,38447.06,true,ALERT-2025-00128
+TXN-000031,ACC-0022,CUST-0009,2025-01-10,14:20:07,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,91.77,144246.54,false,
+TXN-000032,ACC-0006,CUST-0002,2025-01-10,15:22:20,Wire Credit,Wire,Incoming Wire Transfer,Metro FX Clearing,Atlantic Correspondent Bank,USA,211696.38,793362.19,true,ALERT-2025-00121
+TXN-000033,ACC-0002,CUST-0001,2025-01-10,17:57:10,Cash Deposit,Branch,Cash Deposit,,,USA,20411.24,77279.37,true,ALERT-2025-00067
+TXN-000034,ACC-0005,CUST-0002,2025-01-11,10:16:36,Cash Deposit,Branch,Cash Deposit,,,USA,36627.61,75074.67,true,ALERT-2025-00126
+TXN-000035,ACC-0004,CUST-0002,2025-01-12,11:27:42,Cash Deposit,Branch,Cash Deposit,,,USA,8778.03,344223.02,true,ALERT-2025-00100
+TXN-000036,ACC-0021,CUST-0008,2025-01-12,11:51:16,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,207.47,36566.48,false,
+TXN-000037,ACC-0009,CUST-0003,2025-01-12,14:37:59,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Atlantic Correspondent Bank,USA,44956.69,1171190.13,true,ALERT-2025-00179
+TXN-000038,ACC-0004,CUST-0002,2025-01-12,15:29:49,Cash Deposit,Branch,Cash Deposit,,,USA,8838.97,353061.99,true,ALERT-2025-00111
+TXN-000039,ACC-0004,CUST-0002,2025-01-12,16:14:51,Cash Deposit,Branch,Cash Deposit,,,USA,8919.87,361981.86,true,ALERT-2025-00147
+TXN-000040,ACC-0006,CUST-0002,2025-01-12,17:51:44,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Metro Regional Bank,USA,74641.24,718720.95,true,ALERT-2025-00158
+TXN-000041,ACC-0004,CUST-0002,2025-01-13,09:43:06,Cash Deposit,Branch,Cash Deposit,,,USA,9596.71,371578.57,true,ALERT-2025-00133
+TXN-000042,ACC-0005,CUST-0002,2025-01-13,12:40:40,Cash Deposit,Branch,Cash Deposit,,,USA,9011.84,84086.51,true,ALERT-2025-00092
+TXN-000043,ACC-0004,CUST-0002,2025-01-13,15:17:15,Cash Deposit,Branch,Cash Deposit,,,USA,42731.33,414309.90,true,ALERT-2025-00125
+TXN-000044,ACC-0004,CUST-0002,2025-01-13,15:37:46,Cash Deposit,Branch,Cash Deposit,,,USA,8637.57,422947.47,true,ALERT-2025-00144
+TXN-000045,ACC-0009,CUST-0003,2025-01-13,16:56:26,Wire Credit,Wire,International Wire Transfer,Orontes Market Co,Levant Correspondent Bank,Syria,82574.40,1253764.53,true,ALERT-2025-00212
+TXN-000046,ACC-0004,CUST-0002,2025-01-14,11:33:12,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Continental Trust Bank,USA,92474.60,330472.87,true,ALERT-2025-00138
+TXN-000047,ACC-0007,CUST-0003,2025-01-14,12:47:59,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,28425.02,794757.43,true,ALERT-2025-00230
+TXN-000048,ACC-0005,CUST-0002,2025-01-14,15:58:31,Cash Deposit,Branch,Cash Deposit,,,USA,9030.87,93117.38,true,ALERT-2025-00115
+TXN-000049,ACC-0009,CUST-0003,2025-01-14,17:39:03,Wire Debit,Wire,International Wire Transfer,Aden Freight Services,Aden Commercial Bank,Yemen,78873.66,1174890.87,true,ALERT-2025-00173
+TXN-000050,ACC-0009,CUST-0003,2025-01-15,09:30:34,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Gateway National Bank,USA,68913.42,1105977.45,true,ALERT-2025-00233
+TXN-000051,ACC-0035,CUST-0014,2025-01-15,10:12:14,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,1718.92,2607099.06,false,
+TXN-000052,ACC-0007,CUST-0003,2025-01-15,14:34:36,Wire Debit,Wire,International Wire Transfer,Yadanar Logistics,Yangon Commercial Bank,Myanmar,76566.17,718191.26,true,ALERT-2025-00186
+TXN-000053,ACC-0007,CUST-0003,2025-01-16,10:07:06,Wire Debit,Wire,International Wire Transfer,Aung Min Trading,Mandalay Trade Bank,Myanmar,49801.83,668389.43,true,ALERT-2025-00170
+TXN-000054,ACC-0010,CUST-0004,2025-01-16,12:52:55,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,3760.82,1277115.05,false,
+TXN-000055,ACC-0009,CUST-0003,2025-01-16,16:35:02,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Atlantic Correspondent Bank,USA,65041.03,1040936.42,true,ALERT-2025-00219
+TXN-000056,ACC-0012,CUST-0004,2025-01-17,08:12:54,Wire Debit,Wire,Trade Payment - Invoice INV92035,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,30000.00,2908354.97,true,ALERT-2025-00272
+TXN-000057,ACC-0007,CUST-0003,2025-01-17,11:17:03,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,25596.15,642793.28,true,ALERT-2025-00178
+TXN-000058,ACC-0009,CUST-0003,2025-01-17,13:56:05,Wire Credit,Wire,International Wire Transfer,Aung Min Trading,Yangon Commercial Bank,Myanmar,31412.06,1072348.48,true,ALERT-2025-00215
+TXN-000059,ACC-0007,CUST-0003,2025-01-18,08:43:12,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,29909.00,612884.28,true,ALERT-2025-00209
+TXN-000060,ACC-0009,CUST-0003,2025-01-18,09:26:52,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Continental Trust Bank,USA,87151.47,985197.01,true,ALERT-2025-00237
+TXN-000061,ACC-0007,CUST-0003,2025-01-18,14:23:30,Wire Debit,Wire,International Wire Transfer,Taiz General Trading,Sanaa Exchange Bank,Yemen,59882.31,553001.97,true,ALERT-2025-00180
+TXN-000062,ACC-0007,CUST-0003,2025-01-19,08:02:06,Wire Credit,Wire,International Wire Transfer,Damascus General Trading,Damascus Mercantile Bank,Syria,27159.64,580161.61,true,ALERT-2025-00206
+TXN-000063,ACC-0007,CUST-0003,2025-01-19,08:18:17,Wire Debit,Wire,International Wire Transfer,Damascus General Trading,Damascus Mercantile Bank,Syria,46169.78,533991.83,true,ALERT-2025-00166
+TXN-000064,ACC-0009,CUST-0003,2025-01-19,09:03:38,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,59706.38,925490.63,true,ALERT-2025-00235
+TXN-000065,ACC-0010,CUST-0004,2025-01-19,09:15:50,Wire Debit,Wire,International Wire Transfer,Parsian Industrial Group,Parsian Bank,Iran,29421.58,1247693.47,true,ALERT-2025-00265
+TXN-000066,ACC-0003,CUST-0001,2025-01-19,10:57:26,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,212.55,536850.99,false,
+TXN-000067,ACC-0050,CUST-0018,2025-01-19,11:53:59,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,748.03,161384.78,false,
+TXN-000068,ACC-0010,CUST-0004,2025-01-19,13:31:27,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Tehran Commerce Bank,Iran,81030.22,1166663.25,true,ALERT-2025-00292
+TXN-000069,ACC-0012,CUST-0004,2025-01-20,08:28:07,Wire Debit,Wire,International Wire Transfer,Volga Industrial Supply,Volga Correspondent Bank,Russia,38074.51,2870280.46,true,ALERT-2025-00270
+TXN-000070,ACC-0010,CUST-0004,2025-01-20,10:41:58,Wire Debit,Wire,International Wire Transfer,Sanaa Export House,Aden Commercial Bank,Yemen,70281.76,1096381.49,true,ALERT-2025-00282
+TXN-000071,ACC-0005,CUST-0002,2025-01-20,14:52:56,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,233.34,92884.04,false,
+TXN-000072,ACC-0014,CUST-0005,2025-01-21,01:05:12,Cash Deposit,Branch,Cash Deposit,,,USA,8726.97,10726.97,true,ALERT-2025-00324
+TXN-000073,ACC-0012,CUST-0004,2025-01-21,12:11:25,Wire Debit,Wire,Trade Payment - Invoice INV29409,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,40000.00,2830280.46,true,ALERT-2025-00256
+TXN-000074,ACC-0024,CUST-0010,2025-01-21,13:16:23,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,79.39,337111.71,false,
+TXN-000075,ACC-0012,CUST-0004,2025-01-21,13:44:19,Wire Debit,Wire,International Wire Transfer,Nevsky Trade Bureau,Moscow Industrial Bank,Russia,20150.25,2810130.21,true,ALERT-2025-00293
+TXN-000076,ACC-0007,CUST-0003,2025-01-21,14:18:44,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Gateway National Bank,USA,33358.39,500633.44,true,ALERT-2025-00205
+TXN-000077,ACC-0013,CUST-0005,2025-01-22,01:40:47,Cash Deposit,Branch,Cash Deposit,,,USA,24344.82,26344.82,true,ALERT-2025-00373
+TXN-000078,ACC-0012,CUST-0004,2025-01-22,08:19:39,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Metro Regional Bank,USA,41174.60,2768955.61,true,ALERT-2025-00273
+TXN-000079,ACC-0010,CUST-0004,2025-01-22,09:13:27,Wire Credit,Wire,Incoming Wire Transfer,NorthBridge Capital LLC,Atlantic Correspondent Bank,USA,284805.89,1381187.38,true,ALERT-2025-00250
+TXN-000080,ACC-0012,CUST-0004,2025-01-22,12:29:40,Wire Debit,Wire,Trade Payment - Invoice INV22806,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,100000.00,2668955.61,true,ALERT-2025-00247
+TXN-000081,ACC-0007,CUST-0003,2025-01-22,14:39:45,Wire Credit,Wire,International Wire Transfer,Volga Industrial Supply,Moscow Industrial Bank,Russia,67998.30,568631.74,true,ALERT-2025-00239
+TXN-000082,ACC-0007,CUST-0003,2025-01-22,17:51:08,Wire Debit,Wire,International Wire Transfer,Kaveh Mohammadi,Tehran Commerce Bank,Iran,72487.37,496144.37,true,ALERT-2025-00225
+TXN-000083,ACC-0028,CUST-0012,2025-01-22,17:57:32,Card Debit,Online,Online Purchase,NorthStar Online Retail,Metro Regional Bank,USA,161.56,1631576.93,false,
+TXN-000084,ACC-0007,CUST-0003,2025-01-23,09:29:01,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Metro Regional Bank,USA,19188.03,476956.34,true,ALERT-2025-00236
+TXN-000085,ACC-0018,CUST-0007,2025-01-23,17:39:19,ACH Credit,ACH,Monthly Salary Credit,Bennett Cardiology PLLC,Payroll Clearing Bank,USA,18432.17,277543.98,false,
+TXN-000086,ACC-0013,CUST-0005,2025-01-24,01:04:27,Cash Deposit,Branch,Cash Deposit,,,USA,8880.15,35224.97,true,ALERT-2025-00339
+TXN-000087,ACC-0013,CUST-0005,2025-01-24,01:47:42,Cash Deposit,Branch,Cash Deposit,,,USA,9049.92,44274.89,true,ALERT-2025-00374
+TXN-000088,ACC-0013,CUST-0005,2025-01-24,02:08:33,Cash Deposit,Branch,Cash Deposit,,,USA,33999.43,78274.32,true,ALERT-2025-00352
+TXN-000089,ACC-0013,CUST-0005,2025-01-24,02:44:24,Cash Deposit,Branch,Cash Deposit,,,USA,9623.86,87898.18,true,ALERT-2025-00357
+TXN-000090,ACC-0012,CUST-0004,2025-01-24,10:04:30,Wire Debit,Wire,International Wire Transfer,Yadanar Logistics,Mandalay Trade Bank,Myanmar,82512.89,2586442.72,true,ALERT-2025-00249
+TXN-000091,ACC-0012,CUST-0004,2025-01-24,17:09:03,Wire Debit,Wire,Trade Payment - Invoice INV35696,Shenzhen Allied Components,Pearl River Trade Bank,China,75000.00,2511442.72,true,ALERT-2025-00251
+TXN-000092,ACC-0014,CUST-0005,2025-01-25,02:45:42,Cash Deposit,Branch,Cash Deposit,,,USA,21129.67,31856.64,true,ALERT-2025-00361
+TXN-000093,ACC-0015,CUST-0005,2025-01-25,11:04:37,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Metro Regional Bank,USA,32176.35,259891.74,true,ALERT-2025-00327
+TXN-000094,ACC-0010,CUST-0004,2025-01-25,13:19:39,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,30610.15,1350577.23,true,ALERT-2025-00318
+TXN-000095,ACC-0015,CUST-0005,2025-01-25,17:16:46,Wire Credit,Wire,Incoming Wire Transfer,Continental Payment Hub,Atlantic Correspondent Bank,USA,286668.62,546560.36,true,ALERT-2025-00376
+TXN-000096,ACC-0013,CUST-0005,2025-01-26,02:12:36,Cash Deposit,Branch,Cash Deposit,,,USA,9250.45,97148.63,true,ALERT-2025-00387
+TXN-000097,ACC-0013,CUST-0005,2025-01-26,02:43:21,Cash Deposit,Branch,Cash Deposit,,,USA,32704.82,129853.45,true,ALERT-2025-00393
+TXN-000098,ACC-0018,CUST-0007,2025-01-26,09:42:38,Wire Debit,Wire,International Wire Transfer,Cap-Haitien Goods Depot,Port-au-Prince Bank,Haiti,43576.01,233967.97,true,ALERT-2025-00410
+TXN-000099,ACC-0014,CUST-0005,2025-01-28,01:26:58,Cash Deposit,Branch,Cash Deposit,,,USA,19314.87,51171.51,true,ALERT-2025-00388
+TXN-000100,ACC-0014,CUST-0005,2025-01-28,01:34:52,Cash Deposit,Branch,Cash Deposit,,,USA,9863.98,61035.49,true,ALERT-2025-00397
+TXN-000101,ACC-0013,CUST-0005,2025-01-28,02:37:29,Cash Deposit,Branch,Cash Deposit,,,USA,9794.60,139648.05,true,ALERT-2025-00363
+TXN-000102,ACC-0014,CUST-0005,2025-01-28,02:48:02,Cash Deposit,Branch,Cash Deposit,,,USA,33026.21,94061.70,true,ALERT-2025-00375
+TXN-000103,ACC-0020,CUST-0008,2025-01-28,11:52:12,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Gateway National Bank,USA,73821.89,1072301.95,true,ALERT-2025-00431
+TXN-000104,ACC-0054,CUST-0020,2025-01-28,14:57:59,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,18926.72,90364.27,false,
+TXN-000105,ACC-0023,CUST-0009,2025-01-29,08:55:47,Cash Deposit,Branch,Cash Deposit,,,USA,8679.28,18036.62,true,ALERT-2025-00449
+TXN-000106,ACC-0023,CUST-0009,2025-01-29,11:42:20,Cash Deposit,Branch,Cash Deposit,,,USA,20791.80,38828.42,true,ALERT-2025-00453
+TXN-000107,ACC-0020,CUST-0008,2025-01-29,13:11:30,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,79843.28,992458.67,true,ALERT-2025-00437
+TXN-000108,ACC-0015,CUST-0005,2025-01-30,09:42:19,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,12728.40,533831.96,true,ALERT-2025-00340
+TXN-000109,ACC-0020,CUST-0008,2025-01-31,08:42:21,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Gateway National Bank,USA,76761.55,915697.12,true,ALERT-2025-00434
+TXN-000110,ACC-0027,CUST-0011,2025-01-31,09:38:13,Cash Deposit,Branch,Cash Deposit,,,USA,9238.02,11238.02,true,ALERT-2025-00484
+TXN-000111,ACC-0020,CUST-0008,2025-01-31,12:53:17,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Atlantic Correspondent Bank,USA,85759.90,829937.22,true,ALERT-2025-00440
+TXN-000112,ACC-0016,CUST-0006,2025-02-01,09:48:26,Cash Deposit,Branch,Cash Deposit,,,USA,9427.50,11427.50,true,ALERT-2025-00405
+TXN-000113,ACC-0028,CUST-0012,2025-02-01,15:35:12,Wire Debit,Wire,International Wire Transfer,Volga Industrial Supply,Moscow Industrial Bank,Russia,35436.48,1596140.45,true,ALERT-2025-00521
+TXN-000114,ACC-0020,CUST-0008,2025-02-01,16:48:18,Cash Deposit,Branch,Cash Deposit,,,USA,9252.43,839189.65,true,ALERT-2025-00424
+TXN-000115,ACC-0027,CUST-0011,2025-02-01,16:57:37,Cash Deposit,Branch,Cash Deposit,,,USA,37077.55,48315.57,true,ALERT-2025-00494
+TXN-000116,ACC-0028,CUST-0012,2025-02-02,11:28:25,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Metro Regional Bank,USA,45745.64,1550394.81,true,ALERT-2025-00520
+TXN-000117,ACC-0022,CUST-0009,2025-02-03,08:40:36,Cash Deposit,Branch,Cash Deposit,,,USA,9500.70,153747.24,true,ALERT-2025-00455
+TXN-000118,ACC-0027,CUST-0011,2025-02-03,08:42:12,Cash Deposit,Branch,Cash Deposit,,,USA,8678.10,56993.67,true,ALERT-2025-00503
+TXN-000119,ACC-0022,CUST-0009,2025-02-03,09:02:52,Wire Debit,Wire,International Wire Transfer,Marib Commodities,Sanaa Exchange Bank,Yemen,20117.23,133630.01,true,ALERT-2025-00464
+TXN-000120,ACC-0030,CUST-0013,2025-02-03,09:30:50,Cash Deposit,Branch,Cash Deposit,,,USA,9645.61,385843.12,true,ALERT-2025-00571
+TXN-000121,ACC-0030,CUST-0013,2025-02-03,09:38:37,Cash Deposit,Branch,Cash Deposit,,,USA,27364.92,413208.04,true,ALERT-2025-00581
+TXN-000122,ACC-0019,CUST-0007,2025-02-03,13:08:19,ATM Withdrawal,ATM,ATM Withdrawal,City ATM Network,First National Bank — US,USA,234.10,42255.27,false,
+TXN-000123,ACC-0027,CUST-0011,2025-02-03,13:58:01,Cash Deposit,Branch,Cash Deposit,,,USA,9450.53,66444.20,true,ALERT-2025-00485
+TXN-000124,ACC-0032,CUST-0013,2025-02-03,15:19:25,Cash Deposit,Branch,Cash Deposit,,,USA,35173.21,174732.55,true,ALERT-2025-00574
+TXN-000125,ACC-0021,CUST-0008,2025-02-03,15:26:03,Cash Deposit,Branch,Cash Deposit,,,USA,9891.38,46457.86,true,ALERT-2025-00425
+TXN-000126,ACC-0024,CUST-0010,2025-02-04,12:19:24,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Metro Regional Bank,USA,60974.85,276136.86,true,ALERT-2025-00472
+TXN-000127,ACC-0027,CUST-0011,2025-02-04,15:03:09,Cash Deposit,Branch,Cash Deposit,,,USA,9778.07,76222.27,true,ALERT-2025-00476
+TXN-000128,ACC-0032,CUST-0013,2025-02-04,17:33:36,Cash Deposit,Branch,Cash Deposit,,,USA,9455.11,184187.66,true,ALERT-2025-00580
+TXN-000129,ACC-0028,CUST-0012,2025-02-05,09:57:35,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Gateway National Bank,USA,72599.95,1477794.86,true,ALERT-2025-00510
+TXN-000130,ACC-0023,CUST-0009,2025-02-05,10:18:53,Cash Deposit,Branch,Cash Deposit,,,USA,9084.72,47913.14,true,ALERT-2025-00454
+TXN-000131,ACC-0027,CUST-0011,2025-02-05,17:49:41,Cash Deposit,Branch,Cash Deposit,,,USA,41965.56,118187.83,true,ALERT-2025-00491
+TXN-000132,ACC-0032,CUST-0013,2025-02-06,14:50:16,Cash Deposit,Branch,Cash Deposit,,,USA,8960.72,193148.38,true,ALERT-2025-00610
+TXN-000133,ACC-0022,CUST-0009,2025-02-07,09:26:00,Cash Deposit,Branch,Cash Deposit,,,USA,8716.47,142346.48,true,ALERT-2025-00452
+TXN-000134,ACC-0028,CUST-0012,2025-02-07,10:10:58,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,80.60,1477714.26,false,
+TXN-000135,ACC-0031,CUST-0013,2025-02-07,13:27:24,Cash Deposit,Branch,Cash Deposit,,,USA,8882.54,291969.82,true,ALERT-2025-00585
+TXN-000136,ACC-0032,CUST-0013,2025-02-07,16:45:30,Cash Deposit,Branch,Cash Deposit,,,USA,43616.14,236764.52,true,ALERT-2025-00566
+TXN-000137,ACC-0032,CUST-0013,2025-02-07,17:45:07,Cash Deposit,Branch,Cash Deposit,,,USA,23882.11,260646.63,true,ALERT-2025-00609
+TXN-000138,ACC-0028,CUST-0012,2025-02-08,17:49:10,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Metro Regional Bank,USA,44211.60,1433502.66,true,ALERT-2025-00506
+TXN-000139,ACC-0036,CUST-0014,2025-02-09,08:21:22,Wire Debit,Wire,Trade Payment - Invoice INV99119,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,75000.00,1871774.48,true,ALERT-2025-00638
+TXN-000140,ACC-0036,CUST-0014,2025-02-09,09:13:55,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Metro Regional Bank,USA,82993.73,1788780.75,true,ALERT-2025-00650
+TXN-000141,ACC-0031,CUST-0013,2025-02-09,09:56:46,Cash Deposit,Branch,Cash Deposit,,,USA,22990.63,314960.45,true,ALERT-2025-00576
+TXN-000142,ACC-0030,CUST-0013,2025-02-09,16:35:10,Cash Deposit,Branch,Cash Deposit,,,USA,8934.77,422142.81,true,ALERT-2025-00602
+TXN-000143,ACC-0030,CUST-0013,2025-02-09,16:53:35,Cash Deposit,Branch,Cash Deposit,,,USA,18398.06,440540.87,true,ALERT-2025-00544
+TXN-000144,ACC-0013,CUST-0005,2025-02-10,08:43:28,ACH Credit,ACH,Monthly Salary Credit,Reed Nightlife Group,Payroll Clearing Bank,USA,17628.44,157276.49,false,
+TXN-000145,ACC-0032,CUST-0013,2025-02-10,10:10:53,Cash Deposit,Branch,Cash Deposit,,,USA,8930.37,269577.00,true,ALERT-2025-00595
+TXN-000146,ACC-0031,CUST-0013,2025-02-10,11:07:51,Cash Deposit,Branch,Cash Deposit,,,USA,9847.81,324808.26,true,ALERT-2025-00555
+TXN-000147,ACC-0025,CUST-0010,2025-02-10,12:00:46,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,101.90,37250.50,false,
+TXN-000148,ACC-0033,CUST-0014,2025-02-11,09:54:51,Wire Debit,Wire,International Wire Transfer,Levant Cedar Group,Damascus Mercantile Bank,Syria,84461.86,3214795.84,true,ALERT-2025-00687
+TXN-000149,ACC-0009,CUST-0003,2025-02-11,15:01:02,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,195.97,925294.66,false,
+TXN-000150,ACC-0033,CUST-0014,2025-02-11,16:45:42,Wire Debit,Wire,International Wire Transfer,Levant Cedar Group,Levant Correspondent Bank,Syria,50741.55,3164054.29,true,ALERT-2025-00660
+TXN-000151,ACC-0033,CUST-0014,2025-02-11,16:54:16,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,67789.81,3096264.48,true,ALERT-2025-00640
+TXN-000152,ACC-0023,CUST-0009,2025-02-12,10:43:30,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,217.45,47695.69,false,
+TXN-000153,ACC-0030,CUST-0013,2025-02-12,15:52:33,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,89834.57,350706.30,true,ALERT-2025-00591
+TXN-000154,ACC-0016,CUST-0006,2025-02-13,08:12:53,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,198.65,11228.85,false,
+TXN-000155,ACC-0035,CUST-0014,2025-02-13,09:36:43,Wire Debit,Wire,International Wire Transfer,Tehran Star Trading,Tehran Commerce Bank,Iran,28432.88,2578666.18,true,ALERT-2025-00688
+TXN-000156,ACC-0036,CUST-0014,2025-02-13,10:31:19,Wire Debit,Wire,International Wire Transfer,Orontes Market Co,Damascus Mercantile Bank,Syria,47507.10,1741273.65,true,ALERT-2025-00648
+TXN-000157,ACC-0033,CUST-0014,2025-02-13,13:44:31,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,74119.17,3022145.31,true,ALERT-2025-00622
+TXN-000158,ACC-0031,CUST-0013,2025-02-13,14:23:07,Cash Deposit,Branch,Cash Deposit,,,USA,38754.05,363562.31,true,ALERT-2025-00613
+TXN-000159,ACC-0036,CUST-0014,2025-02-13,17:29:39,Wire Debit,Wire,Trade Payment - Invoice INV85574,Monterrey Industrial Exporters,Banco Industrial Norte,Mexico,40000.00,1701273.65,true,ALERT-2025-00658
+TXN-000160,ACC-0036,CUST-0014,2025-02-14,08:56:22,Wire Debit,Wire,International Wire Transfer,Tehran Star Trading,Parsian Bank,Iran,83712.11,1617561.54,true,ALERT-2025-00684
+TXN-000161,ACC-0038,CUST-0015,2025-02-14,09:23:28,Cash Deposit,Branch,Cash Deposit,,,USA,8951.65,221063.42,true,ALERT-2025-00708
+TXN-000162,ACC-0039,CUST-0015,2025-02-14,09:45:59,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Mandalay Trade Bank,Myanmar,59129.07,1443027.39,true,ALERT-2025-00721
+TXN-000163,ACC-0035,CUST-0014,2025-02-14,15:50:45,Wire Debit,Wire,International Wire Transfer,Marib Commodities,Sanaa Exchange Bank,Yemen,57142.54,2521523.64,true,ALERT-2025-00670
+TXN-000164,ACC-0037,CUST-0015,2025-02-15,08:26:43,Cash Deposit,Branch,Cash Deposit,,,USA,41733.17,969714.99,true,ALERT-2025-00703
+TXN-000165,ACC-0035,CUST-0014,2025-02-15,09:24:35,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Yangon Commercial Bank,Myanmar,61253.21,2460270.43,true,ALERT-2025-00695
+TXN-000166,ACC-0037,CUST-0015,2025-02-15,09:32:07,Wire Debit,Wire,International Wire Transfer,Marib Commodities,Sanaa Exchange Bank,Yemen,61793.94,907921.05,true,ALERT-2025-00715
+TXN-000167,ACC-0037,CUST-0015,2025-02-15,13:48:30,Wire Debit,Wire,International Wire Transfer,Aung Min Trading,Yangon Commercial Bank,Myanmar,38070.16,869850.89,true,ALERT-2025-00735
+TXN-000168,ACC-0033,CUST-0014,2025-02-16,09:15:01,Wire Debit,Wire,International Wire Transfer,Parsian Industrial Group,Tehran Commerce Bank,Iran,50739.13,2971406.18,true,ALERT-2025-00694
+TXN-000169,ACC-0037,CUST-0015,2025-02-16,11:08:23,Wire Debit,Wire,Trade Payment - Invoice INV48827,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,25000.00,844850.89,true,ALERT-2025-00747
+TXN-000170,ACC-0041,CUST-0016,2025-02-17,08:39:26,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,53183.34,14904.88,false,
+TXN-000171,ACC-0037,CUST-0015,2025-02-17,15:48:13,Wire Debit,Wire,Trade Payment - Invoice INV98408,Ho Chi Minh Textile Supply,Saigon Commercial Bank,Vietnam,85000.00,759850.89,true,ALERT-2025-00696
+TXN-000172,ACC-0027,CUST-0011,2025-02-18,10:53:39,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,169.03,118018.80,false,
+TXN-000173,ACC-0036,CUST-0014,2025-02-18,14:17:28,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,87574.07,1529987.47,true,ALERT-2025-00673
+TXN-000174,ACC-0040,CUST-0016,2025-02-19,09:14:15,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Metro Regional Bank,USA,51843.36,175719.23,true,ALERT-2025-00790
+TXN-000175,ACC-0037,CUST-0015,2025-02-19,09:15:14,Wire Debit,Wire,Trade Payment - Invoice INV65586,Shenzhen Allied Components,Pearl River Trade Bank,China,85000.00,674850.89,true,ALERT-2025-00706
+TXN-000176,ACC-0034,CUST-0014,2025-02-19,09:27:26,ACH Debit,Online,Tax or Insurance Payment,Treasury Services Clearing,First National Bank — US,USA,15680.07,352774.05,false,
+TXN-000177,ACC-0038,CUST-0015,2025-02-19,10:22:26,Cash Deposit,Branch,Cash Deposit,,,USA,22555.07,243618.49,true,ALERT-2025-00748
+TXN-000178,ACC-0035,CUST-0014,2025-02-19,15:15:14,Wire Debit,Wire,Trade Payment - Invoice INV23283,Dubai Free Zone Commodities,Emirates Trade Bank,United Arab Emirates,30000.00,2430270.43,true,ALERT-2025-00667
+TXN-000179,ACC-0037,CUST-0015,2025-02-19,17:36:36,Wire Debit,Wire,International Wire Transfer,Aden Freight Services,Aden Commercial Bank,Yemen,77668.46,597182.43,true,ALERT-2025-00720
+TXN-000180,ACC-0039,CUST-0015,2025-02-20,13:19:30,Wire Debit,Wire,International Wire Transfer,Kazan Metals LLC,Moscow Industrial Bank,Russia,59072.57,1383954.82,true,ALERT-2025-00757
+TXN-000181,ACC-0049,CUST-0018,2025-02-20,14:30:02,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,36934.76,177310.45,false,
+TXN-000182,ACC-0032,CUST-0013,2025-02-20,14:48:02,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,2167.90,267409.10,false,
+TXN-000183,ACC-0036,CUST-0014,2025-02-20,16:49:10,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,12742.86,1517244.61,true,ALERT-2025-00691
+TXN-000184,ACC-0039,CUST-0015,2025-02-21,11:37:14,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Atlantic Correspondent Bank,USA,16056.53,1367898.29,true,ALERT-2025-00764
+TXN-000185,ACC-0011,CUST-0004,2025-02-21,14:50:53,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,344.24,281498.39,false,
+TXN-000186,ACC-0041,CUST-0016,2025-02-21,17:00:00,Cash Deposit,Branch,Cash Deposit,,,USA,40965.32,55870.20,true,ALERT-2025-00834
+TXN-000187,ACC-0041,CUST-0016,2025-02-22,11:33:46,Cash Deposit,Branch,Cash Deposit,,,USA,19395.15,75265.35,true,ALERT-2025-00777
+TXN-000188,ACC-0037,CUST-0015,2025-02-22,13:32:05,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Parsian Bank,Iran,46916.96,550265.47,true,ALERT-2025-00728
+TXN-000189,ACC-0037,CUST-0015,2025-02-23,12:54:29,Wire Credit,Wire,Incoming Wire Transfer,Gateway Settlement Partners,Gateway National Bank,USA,278245.39,828510.86,true,ALERT-2025-00733
+TXN-000190,ACC-0051,CUST-0019,2025-02-23,15:21:14,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,78651.05,80651.05,false,
+TXN-000191,ACC-0039,CUST-0015,2025-02-24,09:33:54,Wire Debit,Wire,International Wire Transfer,Aung Min Trading,Mandalay Trade Bank,Myanmar,64808.81,1303089.48,true,ALERT-2025-00746
+TXN-000192,ACC-0037,CUST-0015,2025-02-24,09:37:36,Cash Deposit,Branch,Cash Deposit,,,USA,9113.54,837624.40,true,ALERT-2025-00761
+TXN-000193,ACC-0041,CUST-0016,2025-02-24,10:11:00,Cash Deposit,Branch,Cash Deposit,,,USA,39141.97,114407.32,true,ALERT-2025-00807
+TXN-000194,ACC-0003,CUST-0001,2025-02-24,12:51:39,ATM Withdrawal,ATM,ATM Withdrawal,City ATM Network,First National Bank — US,USA,293.74,536557.25,false,
+TXN-000195,ACC-0040,CUST-0016,2025-02-25,08:15:28,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Continental Trust Bank,USA,81457.33,94261.90,true,ALERT-2025-00805
+TXN-000196,ACC-0042,CUST-0016,2025-02-25,08:54:36,Wire Credit,Wire,Incoming Wire Transfer,Metro FX Clearing,Atlantic Correspondent Bank,USA,250291.04,1086470.70,true,ALERT-2025-00778
+TXN-000197,ACC-0044,CUST-0017,2025-02-25,10:32:15,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Atlantic Correspondent Bank,USA,75038.99,3170349.05,true,ALERT-2025-00879
+TXN-000198,ACC-0040,CUST-0016,2025-02-25,14:31:55,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,92261.90,2000.00,true,ALERT-2025-00851
+TXN-000199,ACC-0044,CUST-0017,2025-02-26,09:27:32,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Gateway National Bank,USA,59350.02,3110999.03,true,ALERT-2025-00876
+TXN-000200,ACC-0047,CUST-0017,2025-02-26,13:58:14,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,28088.62,1928717.51,true,ALERT-2025-00878
+TXN-000201,ACC-0037,CUST-0015,2025-02-26,16:54:48,Wire Debit,Wire,International Wire Transfer,Kazan Metals LLC,Moscow Industrial Bank,Russia,35161.07,802463.33,true,ALERT-2025-00760
+TXN-000202,ACC-0046,CUST-0017,2025-02-26,17:32:01,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Metro Regional Bank,USA,45379.22,662754.08,true,ALERT-2025-00932
+TXN-000203,ACC-0044,CUST-0017,2025-02-27,08:08:38,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Yangon Commercial Bank,Myanmar,53991.88,3057007.15,true,ALERT-2025-00915
+TXN-000204,ACC-0042,CUST-0016,2025-02-27,10:11:50,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Atlantic Correspondent Bank,USA,40158.98,1046311.72,true,ALERT-2025-00820
+TXN-000205,ACC-0040,CUST-0016,2025-02-27,13:25:39,Cash Deposit,Branch,Cash Deposit,,,USA,44226.37,46226.37,true,ALERT-2025-00837
+TXN-000206,ACC-0040,CUST-0016,2025-02-27,15:54:13,Cash Deposit,Branch,Cash Deposit,,,USA,40690.55,86916.92,true,ALERT-2025-00853
+TXN-000207,ACC-0046,CUST-0017,2025-02-27,15:57:48,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Atlantic Correspondent Bank,USA,84771.36,577982.72,true,ALERT-2025-00873
+TXN-000208,ACC-0039,CUST-0015,2025-02-28,11:15:31,ACH Debit,Online,Tax or Insurance Payment,Treasury Services Clearing,First National Bank — US,USA,7161.72,1295927.76,false,
+TXN-000209,ACC-0042,CUST-0016,2025-02-28,16:39:52,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Atlantic Correspondent Bank,USA,36807.53,1009504.19,true,ALERT-2025-00794
+TXN-000210,ACC-0046,CUST-0017,2025-03-01,10:28:26,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Continental Trust Bank,USA,32748.13,545234.59,true,ALERT-2025-00911
+TXN-000211,ACC-0010,CUST-0004,2025-03-01,11:37:58,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,2578.84,1347998.39,false,
+TXN-000212,ACC-0048,CUST-0018,2025-03-02,08:08:18,Wire Debit,Wire,International Wire Transfer,Al-Nour Supplies,Levant Correspondent Bank,Syria,64937.24,1009701.01,true,ALERT-2025-00951
+TXN-000213,ACC-0046,CUST-0017,2025-03-02,09:30:05,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Continental Trust Bank,USA,30830.12,514404.47,true,ALERT-2025-00919
+TXN-000214,ACC-0054,CUST-0020,2025-03-02,09:39:28,Cash Deposit,Branch,Cash Deposit,,,USA,9897.22,100261.49,true,ALERT-2025-00988
+TXN-000215,ACC-0046,CUST-0017,2025-03-02,10:35:15,Wire Debit,Wire,Outgoing Wire Transfer,NorthBridge Capital LLC,Gateway National Bank,USA,33389.94,481014.53,true,ALERT-2025-00894
+TXN-000216,ACC-0033,CUST-0014,2025-03-02,13:05:15,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,2360.27,2969045.91,false,
+TXN-000217,ACC-0048,CUST-0018,2025-03-02,13:30:03,Wire Debit,Wire,International Wire Transfer,Al-Nour Supplies,Damascus Mercantile Bank,Syria,42979.00,966722.01,true,ALERT-2025-00961
+TXN-000218,ACC-0044,CUST-0017,2025-03-02,13:53:24,Wire Credit,Wire,Incoming Wire Transfer,NorthBridge Capital LLC,Metro Regional Bank,USA,487258.72,3544265.87,true,ALERT-2025-00929
+TXN-000219,ACC-0047,CUST-0017,2025-03-02,15:32:41,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Gateway National Bank,USA,62839.47,1865878.04,true,ALERT-2025-00928
+TXN-000220,ACC-0051,CUST-0019,2025-03-03,13:16:40,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,13634.57,67016.48,false,
+TXN-000221,ACC-0053,CUST-0020,2025-03-03,13:44:25,Wire Debit,Wire,International Wire Transfer,Parsian Industrial Group,Parsian Bank,Iran,84412.54,494460.20,true,ALERT-2025-00998
+TXN-000222,ACC-0047,CUST-0017,2025-03-03,14:22:11,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Atlantic Correspondent Bank,USA,42071.03,1823807.01,true,ALERT-2025-00881
+TXN-000223,ACC-0002,CUST-0001,2025-03-04,09:49:29,Cash Deposit,Branch,Cash Deposit,,,USA,8761.24,86040.61,true,ALERT-2025-00002
+TXN-000224,ACC-0048,CUST-0018,2025-03-04,10:22:57,Wire Debit,Wire,International Wire Transfer,Shwe Mandalay Imports,Yangon Commercial Bank,Myanmar,18255.50,948466.51,true,ALERT-2025-00947
+TXN-000225,ACC-0046,CUST-0017,2025-03-04,17:16:06,Wire Credit,Wire,Incoming Wire Transfer,Continental Payment Hub,Gateway National Bank,USA,409437.77,890452.30,true,ALERT-2025-00862
+TXN-000226,ACC-0053,CUST-0020,2025-03-05,08:28:06,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Continental Trust Bank,USA,68898.32,425561.88,true,ALERT-2025-00977
+TXN-000227,ACC-0044,CUST-0017,2025-03-05,11:07:53,Wire Debit,Wire,Outgoing Wire Transfer,NorthBridge Capital LLC,Metro Regional Bank,USA,39559.14,3504706.73,true,ALERT-2025-00883
+TXN-000228,ACC-0053,CUST-0020,2025-03-05,17:26:38,Wire Debit,Wire,International Wire Transfer,Volga Industrial Supply,Volga Correspondent Bank,Russia,68078.67,357483.21,true,ALERT-2025-00972
+TXN-000229,ACC-0049,CUST-0018,2025-03-05,17:33:05,Cash Deposit,Branch,Cash Deposit,,,USA,9447.70,186758.15,true,ALERT-2025-00948
+TXN-000230,ACC-0048,CUST-0018,2025-03-06,10:39:56,Wire Debit,Wire,International Wire Transfer,Horizon Haiti Trading,Haiti Commercial Bank,Haiti,61936.82,886529.69,true,ALERT-2025-00944
+TXN-000231,ACC-0001,CUST-0001,2025-03-06,13:07:24,Cash Deposit,Branch,Cash Deposit,,,USA,8953.27,369231.58,true,ALERT-2025-00006
+TXN-000232,ACC-0001,CUST-0001,2025-03-06,14:51:02,Cash Deposit,Branch,Cash Deposit,,,USA,9221.95,378453.53,true,ALERT-2025-00003
+TXN-000233,ACC-0048,CUST-0018,2025-03-07,10:20:26,Wire Debit,Wire,International Wire Transfer,Kazan Metals LLC,Moscow Industrial Bank,Russia,28273.86,858255.83,true,ALERT-2025-00941
+TXN-000234,ACC-0002,CUST-0001,2025-03-07,14:16:38,Cash Deposit,Branch,Cash Deposit,,,USA,9651.78,95692.39,true,ALERT-2025-00004
+TXN-000235,ACC-0047,CUST-0017,2025-03-07,14:21:23,Wire Debit,Wire,International Wire Transfer,Kazan Metals LLC,Moscow Industrial Bank,Russia,57939.60,1765867.41,true,ALERT-2025-00930
+TXN-000236,ACC-0001,CUST-0001,2025-03-07,14:47:31,Cash Deposit,Branch,Cash Deposit,,,USA,24983.54,403437.07,true,ALERT-2025-00012
+TXN-000237,ACC-0048,CUST-0018,2025-03-07,17:53:31,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,8176.76,850079.07,false,
+TXN-000238,ACC-0031,CUST-0013,2025-03-08,08:16:10,Wire Debit,Wire,Supplier Payment,Supplier Payment Clearing,Continental Trust Bank,USA,89989.09,273573.22,false,
+TXN-000239,ACC-0001,CUST-0001,2025-03-08,09:07:49,Cash Deposit,Branch,Cash Deposit,,,USA,9091.72,412528.79,true,ALERT-2025-00009
+TXN-000240,ACC-0055,CUST-0020,2025-03-08,12:33:02,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,82988.64,550216.26,true,ALERT-2025-00979
+TXN-000241,ACC-0002,CUST-0001,2025-03-08,12:50:02,Cash Deposit,Branch,Cash Deposit,,,USA,9015.92,104708.31,true,ALERT-2025-00015
+TXN-000242,ACC-0055,CUST-0020,2025-03-08,15:38:26,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,77427.43,472788.83,true,ALERT-2025-00976
+TXN-000243,ACC-0051,CUST-0019,2025-03-09,08:07:38,Cash Deposit,Branch,Cash Deposit,,,USA,26369.16,93385.64,true,ALERT-2025-00966
+TXN-000244,ACC-0053,CUST-0020,2025-03-09,08:27:28,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,51633.62,305849.59,true,ALERT-2025-00984
+TXN-000245,ACC-0001,CUST-0001,2025-03-09,11:16:00,Cash Deposit,Branch,Cash Deposit,,,USA,8822.06,421350.85,true,ALERT-2025-00001
+TXN-000246,ACC-0053,CUST-0020,2025-03-09,14:04:01,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Atlantic Correspondent Bank,USA,20339.64,285509.95,true,ALERT-2025-00975
+TXN-000247,ACC-0002,CUST-0001,2025-03-10,13:40:53,Cash Deposit,Branch,Cash Deposit,,,USA,9252.51,113960.82,true,ALERT-2025-00013
+TXN-000248,ACC-0003,CUST-0001,2025-03-11,16:33:17,Wire Credit,Wire,Incoming Wire Transfer,Metro FX Clearing,Continental Trust Bank,USA,319500.19,856057.44,true,ALERT-2025-00005
+TXN-000249,ACC-0013,CUST-0005,2025-03-12,11:07:15,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,4105.59,153170.90,false,
+TXN-000250,ACC-0002,CUST-0001,2025-03-12,12:43:54,Cash Deposit,Branch,Cash Deposit,,,USA,9544.48,123505.30,true,ALERT-2025-00025
+TXN-000251,ACC-0002,CUST-0001,2025-03-12,13:02:08,Cash Deposit,Branch,Cash Deposit,,,USA,9440.69,132945.99,true,ALERT-2025-00010
+TXN-000252,ACC-0003,CUST-0001,2025-03-13,08:32:18,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Metro Regional Bank,USA,55875.98,800181.46,true,ALERT-2025-00008
+TXN-000253,ACC-0001,CUST-0001,2025-03-13,11:53:30,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Gateway National Bank,USA,31425.76,389925.09,true,ALERT-2025-00016
+TXN-000254,ACC-0024,CUST-0010,2025-03-14,08:18:56,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,119.37,276017.49,false,
+TXN-000255,ACC-0001,CUST-0001,2025-03-14,10:09:22,Cash Deposit,Branch,Cash Deposit,,,USA,9080.75,399005.84,true,ALERT-2025-00017
+TXN-000256,ACC-0002,CUST-0001,2025-03-14,12:41:46,Cash Deposit,Branch,Cash Deposit,,,USA,8964.91,141910.90,true,ALERT-2025-00023
+TXN-000257,ACC-0001,CUST-0001,2025-03-15,10:50:29,Cash Deposit,Branch,Cash Deposit,,,USA,8725.44,407731.28,true,ALERT-2025-00011
+TXN-000258,ACC-0055,CUST-0020,2025-03-15,13:25:05,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,401.28,472387.55,false,
+TXN-000259,ACC-0001,CUST-0001,2025-03-15,13:46:36,Cash Deposit,Branch,Cash Deposit,,,USA,8846.81,416578.09,true,ALERT-2025-00020
+TXN-000260,ACC-0002,CUST-0001,2025-03-15,16:58:36,Cash Deposit,Branch,Cash Deposit,,,USA,8537.52,150448.42,true,ALERT-2025-00019
+TXN-000261,ACC-0001,CUST-0001,2025-03-16,13:25:12,Cash Deposit,Branch,Cash Deposit,,,USA,9215.96,425794.05,true,ALERT-2025-00014
+TXN-000262,ACC-0009,CUST-0003,2025-03-16,17:03:11,ATM Withdrawal,ATM,ATM Withdrawal,City ATM Network,First National Bank — US,USA,142.28,925152.38,false,
+TXN-000263,ACC-0003,CUST-0001,2025-03-17,13:02:26,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Continental Trust Bank,USA,87970.10,712211.36,true,ALERT-2025-00038
+TXN-000264,ACC-0002,CUST-0001,2025-03-17,14:41:20,Cash Deposit,Branch,Cash Deposit,,,USA,9496.10,159944.52,true,ALERT-2025-00021
+TXN-000265,ACC-0001,CUST-0001,2025-03-17,15:42:42,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,56003.49,369790.56,true,ALERT-2025-00033
+TXN-000266,ACC-0001,CUST-0001,2025-03-18,15:13:41,Cash Deposit,Branch,Cash Deposit,,,USA,8624.62,378415.18,true,ALERT-2025-00034
+TXN-000267,ACC-0002,CUST-0001,2025-03-19,08:46:50,Cash Deposit,Branch,Cash Deposit,,,USA,8636.10,168580.62,true,ALERT-2025-00037
+TXN-000268,ACC-0002,CUST-0001,2025-03-19,11:43:21,Cash Deposit,Branch,Cash Deposit,,,USA,9325.75,177906.37,true,ALERT-2025-00035
+TXN-000269,ACC-0002,CUST-0001,2025-03-19,13:13:40,Cash Deposit,Branch,Cash Deposit,,,USA,33067.65,210974.02,true,ALERT-2025-00026
+TXN-000270,ACC-0002,CUST-0001,2025-03-19,14:23:09,Cash Deposit,Branch,Cash Deposit,,,USA,8975.25,219949.27,true,ALERT-2025-00046
+TXN-000271,ACC-0022,CUST-0009,2025-03-19,14:26:31,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,266.48,142080.00,false,
+TXN-000272,ACC-0002,CUST-0001,2025-03-19,14:56:23,Cash Deposit,Branch,Cash Deposit,,,USA,9823.12,229772.39,true,ALERT-2025-00053
+TXN-000273,ACC-0003,CUST-0001,2025-03-19,16:38:44,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Gateway National Bank,USA,20184.08,692027.28,true,ALERT-2025-00043
+TXN-000274,ACC-0002,CUST-0001,2025-03-19,17:05:19,Cash Deposit,Branch,Cash Deposit,,,USA,8640.55,238412.94,true,ALERT-2025-00030
+TXN-000275,ACC-0001,CUST-0001,2025-03-20,08:22:30,Cash Deposit,Branch,Cash Deposit,,,USA,8731.38,387146.56,true,ALERT-2025-00031
+TXN-000276,ACC-0001,CUST-0001,2025-03-20,11:09:23,Cash Deposit,Branch,Cash Deposit,,,USA,33231.98,420378.54,true,ALERT-2025-00047
+TXN-000277,ACC-0001,CUST-0001,2025-03-20,15:07:07,Cash Deposit,Branch,Cash Deposit,,,USA,8746.13,429124.67,true,ALERT-2025-00022
+TXN-000278,ACC-0001,CUST-0001,2025-03-20,17:40:09,Cash Deposit,Branch,Cash Deposit,,,USA,9161.03,438285.70,true,ALERT-2025-00039
+TXN-000279,ACC-0001,CUST-0001,2025-03-21,11:18:30,Cash Deposit,Branch,Cash Deposit,,,USA,9111.60,447397.30,true,ALERT-2025-00041
+TXN-000280,ACC-0002,CUST-0001,2025-03-21,12:47:16,Cash Deposit,Branch,Cash Deposit,,,USA,28496.05,266908.99,true,ALERT-2025-00029
+TXN-000281,ACC-0002,CUST-0001,2025-03-21,14:04:14,Cash Deposit,Branch,Cash Deposit,,,USA,22336.82,289245.81,true,ALERT-2025-00054
+TXN-000282,ACC-0001,CUST-0001,2025-03-21,16:15:17,Cash Deposit,Branch,Cash Deposit,,,USA,9049.42,456446.72,true,ALERT-2025-00024
+TXN-000283,ACC-0001,CUST-0001,2025-03-22,10:01:30,Cash Deposit,Branch,Cash Deposit,,,USA,8565.00,465011.72,true,ALERT-2025-00061
+TXN-000284,ACC-0001,CUST-0001,2025-03-22,11:27:33,Cash Deposit,Branch,Cash Deposit,,,USA,9065.48,474077.20,true,ALERT-2025-00045
+TXN-000285,ACC-0001,CUST-0001,2025-03-22,15:54:54,Wire Debit,Wire,International Wire Transfer,Levant Cedar Group,Damascus Mercantile Bank,Syria,77720.91,396356.29,true,ALERT-2025-00044
+TXN-000286,ACC-0001,CUST-0001,2025-03-23,11:34:42,Cash Deposit,Branch,Cash Deposit,,,USA,8722.88,405079.17,true,ALERT-2025-00052
+TXN-000287,ACC-0001,CUST-0001,2025-03-24,09:10:53,Cash Deposit,Branch,Cash Deposit,,,USA,8885.48,413964.65,true,ALERT-2025-00048
+TXN-000288,ACC-0001,CUST-0001,2025-03-24,09:18:06,Cash Deposit,Branch,Cash Deposit,,,USA,43360.19,457324.84,true,ALERT-2025-00076
+TXN-000289,ACC-0002,CUST-0001,2025-03-24,09:26:12,Cash Deposit,Branch,Cash Deposit,,,USA,8990.94,298236.75,true,ALERT-2025-00068
+TXN-000290,ACC-0003,CUST-0001,2025-03-24,09:32:59,Wire Debit,Wire,International Wire Transfer,Kazan Metals LLC,Volga Correspondent Bank,Russia,56298.97,635728.31,true,ALERT-2025-00060
+TXN-000291,ACC-0002,CUST-0001,2025-03-25,12:41:57,Cash Deposit,Branch,Cash Deposit,,,USA,9329.60,307566.35,true,ALERT-2025-00071
+TXN-000292,ACC-0001,CUST-0001,2025-03-25,15:46:05,Cash Deposit,Branch,Cash Deposit,,,USA,9350.48,466675.32,true,ALERT-2025-00064
+TXN-000293,ACC-0038,CUST-0015,2025-03-25,16:05:50,Wire Debit,Wire,Supplier Payment,Supplier Payment Clearing,Continental Trust Bank,USA,84489.43,159129.06,false,
+TXN-000294,ACC-0040,CUST-0016,2025-03-25,16:27:37,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,68703.98,155620.90,false,
+TXN-000295,ACC-0001,CUST-0001,2025-03-25,17:50:08,Cash Deposit,Branch,Cash Deposit,,,USA,9164.84,475840.16,true,ALERT-2025-00055
+TXN-000296,ACC-0001,CUST-0001,2025-03-26,13:44:07,Cash Deposit,Branch,Cash Deposit,,,USA,9550.85,485391.01,true,ALERT-2025-00050
+TXN-000297,ACC-0001,CUST-0001,2025-03-26,14:53:02,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Continental Trust Bank,USA,88850.12,396540.89,true,ALERT-2025-00072
+TXN-000298,ACC-0002,CUST-0001,2025-03-27,09:54:21,Cash Deposit,Branch,Cash Deposit,,,USA,9876.01,317442.36,true,ALERT-2025-00051
+TXN-000299,ACC-0004,CUST-0002,2025-03-27,12:00:06,Cash Deposit,Branch,Cash Deposit,,,USA,8855.89,339328.76,true,ALERT-2025-00087
+TXN-000300,ACC-0001,CUST-0001,2025-03-27,12:34:00,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,2519.64,394021.25,false,
+TXN-000301,ACC-0002,CUST-0001,2025-03-27,12:38:33,Cash Deposit,Branch,Cash Deposit,,,USA,9118.12,326560.48,true,ALERT-2025-00057
+TXN-000302,ACC-0003,CUST-0001,2025-03-27,17:23:46,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Continental Trust Bank,USA,87605.69,548122.62,true,ALERT-2025-00080
+TXN-000303,ACC-0019,CUST-0007,2025-03-28,09:16:26,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,3745.54,38509.73,false,
+TXN-000304,ACC-0004,CUST-0002,2025-03-28,11:49:03,Cash Deposit,Branch,Cash Deposit,,,USA,8910.00,348238.76,true,ALERT-2025-00082
+TXN-000305,ACC-0002,CUST-0001,2025-03-28,13:21:04,Cash Deposit,Branch,Cash Deposit,,,USA,8973.68,335534.16,true,ALERT-2025-00049
+TXN-000306,ACC-0002,CUST-0001,2025-03-28,13:35:32,Cash Deposit,Branch,Cash Deposit,,,USA,31405.27,366939.43,true,ALERT-2025-00079
+TXN-000307,ACC-0004,CUST-0002,2025-03-28,14:01:31,Cash Deposit,Branch,Cash Deposit,,,USA,8976.32,357215.08,true,ALERT-2025-00085
+TXN-000308,ACC-0002,CUST-0001,2025-03-29,08:11:45,Cash Deposit,Branch,Cash Deposit,,,USA,8510.86,375450.29,true,ALERT-2025-00062
+TXN-000309,ACC-0005,CUST-0002,2025-03-29,11:18:06,Cash Deposit,Branch,Cash Deposit,,,USA,29905.52,122789.56,true,ALERT-2025-00095
+TXN-000310,ACC-0001,CUST-0001,2025-03-30,10:22:45,Wire Debit,Wire,International Wire Transfer,Levant Cedar Group,Levant Correspondent Bank,Syria,29359.31,364661.94,true,ALERT-2025-00063
+TXN-000311,ACC-0003,CUST-0001,2025-03-30,11:23:07,Wire Debit,Wire,International Wire Transfer,Siberia Freight Group,Volga Correspondent Bank,Russia,68974.44,479148.18,true,ALERT-2025-00069
+TXN-000312,ACC-0005,CUST-0002,2025-03-30,15:10:05,Cash Deposit,Branch,Cash Deposit,,,USA,9568.04,132357.60,true,ALERT-2025-00088
+TXN-000313,ACC-0006,CUST-0002,2025-03-31,08:17:28,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Atlantic Correspondent Bank,USA,53316.72,665404.23,true,ALERT-2025-00091
+TXN-000314,ACC-0002,CUST-0001,2025-03-31,15:19:00,Cash Deposit,Branch,Cash Deposit,,,USA,9220.38,384670.67,true,ALERT-2025-00075
+TXN-000315,ACC-0004,CUST-0002,2025-03-31,16:22:40,Cash Deposit,Branch,Cash Deposit,,,USA,9869.39,367084.47,true,ALERT-2025-00093
+TXN-000316,ACC-0003,CUST-0001,2025-04-01,08:26:11,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Metro Regional Bank,USA,84938.58,394209.60,true,ALERT-2025-00078
+TXN-000317,ACC-0022,CUST-0009,2025-04-02,08:28:29,ACH Credit,ACH,Monthly Salary Credit,Ramirez Contracting LLC,Payroll Clearing Bank,USA,9104.62,151184.62,false,
+TXN-000318,ACC-0004,CUST-0002,2025-04-02,08:37:09,Cash Deposit,Branch,Cash Deposit,,,USA,20952.98,388037.45,true,ALERT-2025-00096
+TXN-000319,ACC-0036,CUST-0014,2025-04-02,09:42:19,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,10808.92,1506435.69,false,
+TXN-000320,ACC-0004,CUST-0002,2025-04-02,10:37:34,Cash Deposit,Branch,Cash Deposit,,,USA,8861.48,396898.93,true,ALERT-2025-00097
+TXN-000321,ACC-0006,CUST-0002,2025-04-02,14:21:28,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,85105.11,580299.12,true,ALERT-2025-00081
+TXN-000322,ACC-0005,CUST-0002,2025-04-02,17:09:19,Cash Deposit,Branch,Cash Deposit,,,USA,8955.74,141313.34,true,ALERT-2025-00094
+TXN-000323,ACC-0018,CUST-0007,2025-04-03,10:21:33,Card Debit,Online,Online Purchase,NorthStar Online Retail,Metro Regional Bank,USA,494.74,233473.23,false,
+TXN-000324,ACC-0004,CUST-0002,2025-04-03,12:03:29,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,21087.18,375811.75,true,ALERT-2025-00084
+TXN-000325,ACC-0009,CUST-0003,2025-04-03,17:07:35,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,1748.87,923403.51,false,
+TXN-000326,ACC-0004,CUST-0002,2025-04-04,09:37:02,Cash Deposit,Branch,Cash Deposit,,,USA,9341.09,385152.84,true,ALERT-2025-00109
+TXN-000327,ACC-0005,CUST-0002,2025-04-05,08:29:57,Cash Deposit,Branch,Cash Deposit,,,USA,9815.05,151128.39,true,ALERT-2025-00108
+TXN-000328,ACC-0005,CUST-0002,2025-04-05,13:54:51,Cash Deposit,Branch,Cash Deposit,,,USA,8850.18,159978.57,true,ALERT-2025-00106
+TXN-000329,ACC-0005,CUST-0002,2025-04-06,08:30:10,Cash Deposit,Branch,Cash Deposit,,,USA,8673.27,168651.84,true,ALERT-2025-00101
+TXN-000330,ACC-0005,CUST-0002,2025-04-06,16:59:34,Cash Deposit,Branch,Cash Deposit,,,USA,8657.42,177309.26,true,ALERT-2025-00103
+TXN-000331,ACC-0006,CUST-0002,2025-04-08,10:57:42,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Metro Regional Bank,USA,31707.90,548591.22,true,ALERT-2025-00098
+TXN-000332,ACC-0005,CUST-0002,2025-04-08,17:09:16,Cash Deposit,Branch,Cash Deposit,,,USA,8702.56,186011.82,true,ALERT-2025-00110
+TXN-000333,ACC-0004,CUST-0002,2025-04-09,09:28:55,Cash Deposit,Branch,Cash Deposit,,,USA,35027.82,420180.66,true,ALERT-2025-00112
+TXN-000334,ACC-0004,CUST-0002,2025-04-09,15:16:08,Cash Deposit,Branch,Cash Deposit,,,USA,9214.90,429395.56,true,ALERT-2025-00123
+TXN-000335,ACC-0005,CUST-0002,2025-04-09,17:43:07,Cash Deposit,Branch,Cash Deposit,,,USA,38615.25,224627.07,true,ALERT-2025-00120
+TXN-000336,ACC-0004,CUST-0002,2025-04-10,10:41:43,Cash Deposit,Branch,Cash Deposit,,,USA,8654.39,438049.95,true,ALERT-2025-00119
+TXN-000337,ACC-0004,CUST-0002,2025-04-10,10:59:12,Cash Deposit,Branch,Cash Deposit,,,USA,8503.57,446553.52,true,ALERT-2025-00102
+TXN-000338,ACC-0005,CUST-0002,2025-04-10,12:20:49,Cash Deposit,Branch,Cash Deposit,,,USA,26525.75,251152.82,true,ALERT-2025-00105
+TXN-000339,ACC-0004,CUST-0002,2025-04-10,17:31:47,Cash Deposit,Branch,Cash Deposit,,,USA,8840.40,455393.92,true,ALERT-2025-00127
+TXN-000340,ACC-0005,CUST-0002,2025-04-11,11:18:40,Cash Deposit,Branch,Cash Deposit,,,USA,9384.61,260537.43,true,ALERT-2025-00099
+TXN-000341,ACC-0005,CUST-0002,2025-04-11,14:37:33,Cash Deposit,Branch,Cash Deposit,,,USA,9185.65,269723.08,true,ALERT-2025-00131
+TXN-000342,ACC-0004,CUST-0002,2025-04-12,08:59:12,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Atlantic Correspondent Bank,USA,38546.42,416847.50,true,ALERT-2025-00118
+TXN-000343,ACC-0005,CUST-0002,2025-04-12,09:46:54,Cash Deposit,Branch,Cash Deposit,,,USA,8560.46,278283.54,true,ALERT-2025-00113
+TXN-000344,ACC-0005,CUST-0002,2025-04-12,13:52:01,Cash Deposit,Branch,Cash Deposit,,,USA,9648.96,287932.50,true,ALERT-2025-00122
+TXN-000345,ACC-0004,CUST-0002,2025-04-12,14:27:31,Cash Deposit,Branch,Cash Deposit,,,USA,9315.97,426163.47,true,ALERT-2025-00107
+TXN-000346,ACC-0004,CUST-0002,2025-04-12,15:22:52,Cash Deposit,Branch,Cash Deposit,,,USA,9148.38,435311.85,true,ALERT-2025-00104
+TXN-000347,ACC-0004,CUST-0002,2025-04-13,10:01:46,Cash Deposit,Branch,Cash Deposit,,,USA,9026.40,444338.25,true,ALERT-2025-00116
+TXN-000348,ACC-0004,CUST-0002,2025-04-13,15:57:35,Cash Deposit,Branch,Cash Deposit,,,USA,9874.44,454212.69,true,ALERT-2025-00129
+TXN-000349,ACC-0025,CUST-0010,2025-04-13,16:51:44,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,2272.80,34977.70,false,
+TXN-000350,ACC-0005,CUST-0002,2025-04-14,08:19:12,Cash Deposit,Branch,Cash Deposit,,,USA,9552.37,297484.87,true,ALERT-2025-00141
+TXN-000351,ACC-0051,CUST-0019,2025-04-14,17:41:07,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,1642.37,91743.27,false,
+TXN-000352,ACC-0006,CUST-0002,2025-04-14,17:58:56,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,70690.00,477901.22,true,ALERT-2025-00145
+TXN-000353,ACC-0004,CUST-0002,2025-04-15,09:54:57,Cash Deposit,Branch,Cash Deposit,,,USA,9017.87,463230.56,true,ALERT-2025-00140
+TXN-000354,ACC-0004,CUST-0002,2025-04-15,11:04:00,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Continental Trust Bank,USA,37357.29,425873.27,true,ALERT-2025-00130
+TXN-000355,ACC-0004,CUST-0002,2025-04-15,12:17:12,Cash Deposit,Branch,Cash Deposit,,,USA,9881.68,435754.95,true,ALERT-2025-00114
+TXN-000356,ACC-0005,CUST-0002,2025-04-15,14:46:13,Cash Deposit,Branch,Cash Deposit,,,USA,9038.29,306523.16,true,ALERT-2025-00152
+TXN-000357,ACC-0005,CUST-0002,2025-04-16,12:07:24,Cash Deposit,Branch,Cash Deposit,,,USA,9154.84,315678.00,true,ALERT-2025-00124
+TXN-000358,ACC-0004,CUST-0002,2025-04-16,16:46:22,Cash Deposit,Branch,Cash Deposit,,,USA,25486.77,461241.72,true,ALERT-2025-00132
+TXN-000359,ACC-0020,CUST-0008,2025-04-17,13:28:31,Card Debit,Online,Online Purchase,NorthStar Online Retail,Metro Regional Bank,USA,126.00,839063.65,false,
+TXN-000360,ACC-0005,CUST-0002,2025-04-17,17:01:16,Cash Deposit,Branch,Cash Deposit,,,USA,8950.41,324628.41,true,ALERT-2025-00156
+TXN-000361,ACC-0004,CUST-0002,2025-04-18,11:35:06,Cash Deposit,Branch,Cash Deposit,,,USA,8693.06,469934.78,true,ALERT-2025-00135
+TXN-000362,ACC-0005,CUST-0002,2025-04-18,12:53:35,Cash Deposit,Branch,Cash Deposit,,,USA,9684.00,334312.41,true,ALERT-2025-00143
+TXN-000363,ACC-0005,CUST-0002,2025-04-18,14:53:56,Cash Deposit,Branch,Cash Deposit,,,USA,9397.74,343710.15,true,ALERT-2025-00139
+TXN-000364,ACC-0005,CUST-0002,2025-04-18,16:48:30,Cash Deposit,Branch,Cash Deposit,,,USA,9660.49,353370.64,true,ALERT-2025-00136
+TXN-000365,ACC-0005,CUST-0002,2025-04-19,14:47:55,Cash Deposit,Branch,Cash Deposit,,,USA,9076.36,362447.00,true,ALERT-2025-00150
+TXN-000366,ACC-0004,CUST-0002,2025-04-19,16:21:24,Cash Deposit,Branch,Cash Deposit,,,USA,9702.56,479637.34,true,ALERT-2025-00149
+TXN-000367,ACC-0009,CUST-0003,2025-04-19,17:46:22,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,88335.28,835068.23,true,ALERT-2025-00163
+TXN-000368,ACC-0007,CUST-0003,2025-04-20,12:08:20,Wire Credit,Wire,International Wire Transfer,Parsian Industrial Group,Parsian Bank,Iran,71747.19,548703.53,true,ALERT-2025-00175
+TXN-000369,ACC-0007,CUST-0003,2025-04-20,12:34:22,Wire Credit,Wire,International Wire Transfer,Myo Thant Enterprises,Yangon Commercial Bank,Myanmar,80055.02,628758.55,true,ALERT-2025-00172
+TXN-000370,ACC-0004,CUST-0002,2025-04-20,15:09:52,Cash Deposit,Branch,Cash Deposit,,,USA,9770.75,489408.09,true,ALERT-2025-00137
+TXN-000371,ACC-0005,CUST-0002,2025-04-21,08:03:33,Cash Deposit,Branch,Cash Deposit,,,USA,8931.62,371378.62,true,ALERT-2025-00146
+TXN-000372,ACC-0009,CUST-0003,2025-04-21,08:13:56,Wire Credit,Wire,International Wire Transfer,Shwe Mandalay Imports,Mandalay Trade Bank,Myanmar,68754.21,903822.44,true,ALERT-2025-00176
+TXN-000373,ACC-0009,CUST-0003,2025-04-21,09:01:25,Wire Credit,Wire,International Wire Transfer,Taiz General Trading,Aden Commercial Bank,Yemen,58661.77,962484.21,true,ALERT-2025-00169
+TXN-000374,ACC-0004,CUST-0002,2025-04-21,10:58:51,Cash Deposit,Branch,Cash Deposit,,,USA,8708.05,498116.14,true,ALERT-2025-00155
+TXN-000375,ACC-0012,CUST-0004,2025-04-21,11:36:17,ATM Withdrawal,ATM,ATM Withdrawal,City ATM Network,First National Bank — US,USA,196.22,2511246.50,false,
+TXN-000376,ACC-0005,CUST-0002,2025-04-21,16:58:45,Cash Deposit,Branch,Cash Deposit,,,USA,9249.72,380628.34,true,ALERT-2025-00134
+TXN-000377,ACC-0053,CUST-0020,2025-04-21,17:20:49,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,17218.29,268291.66,false,
+TXN-000378,ACC-0001,CUST-0001,2025-04-21,17:34:03,ACH Credit,ACH,Monthly Salary Credit,Mitchell Urban Properties LLC,Payroll Clearing Bank,USA,22906.01,387567.95,false,
+TXN-000379,ACC-0009,CUST-0003,2025-04-21,17:46:39,Wire Credit,Wire,International Wire Transfer,Levant Cedar Group,Levant Correspondent Bank,Syria,42125.73,1004609.94,true,ALERT-2025-00171
+TXN-000380,ACC-0004,CUST-0002,2025-04-21,17:50:13,Cash Deposit,Branch,Cash Deposit,,,USA,8813.17,506929.31,true,ALERT-2025-00142
+TXN-000381,ACC-0047,CUST-0017,2025-04-22,08:44:21,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,31301.74,1734565.67,false,
+TXN-000382,ACC-0007,CUST-0003,2025-04-22,15:11:57,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,52203.42,576555.13,true,ALERT-2025-00183
+TXN-000383,ACC-0016,CUST-0006,2025-04-23,08:21:39,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,1813.67,9415.18,false,
+TXN-000384,ACC-0006,CUST-0002,2025-04-23,10:34:42,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,73.96,477827.26,false,
+TXN-000385,ACC-0009,CUST-0003,2025-04-23,11:57:13,Wire Debit,Wire,International Wire Transfer,Taiz General Trading,Aden Commercial Bank,Yemen,47587.48,957022.46,true,ALERT-2025-00161
+TXN-000386,ACC-0009,CUST-0003,2025-04-23,12:54:38,Wire Credit,Wire,International Wire Transfer,Yadanar Logistics,Yangon Commercial Bank,Myanmar,61657.67,1018680.13,true,ALERT-2025-00181
+TXN-000387,ACC-0005,CUST-0002,2025-04-23,14:44:42,Cash Deposit,Branch,Cash Deposit,,,USA,9229.67,389858.01,true,ALERT-2025-00148
+TXN-000388,ACC-0009,CUST-0003,2025-04-23,16:15:15,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,23887.41,994792.72,true,ALERT-2025-00184
+TXN-000389,ACC-0007,CUST-0003,2025-04-23,16:22:58,Wire Debit,Wire,International Wire Transfer,Damascus General Trading,Levant Correspondent Bank,Syria,20656.54,555898.59,true,ALERT-2025-00162
+TXN-000390,ACC-0004,CUST-0002,2025-04-23,16:23:49,Cash Deposit,Branch,Cash Deposit,,,USA,9182.67,516111.98,true,ALERT-2025-00151
+TXN-000391,ACC-0004,CUST-0002,2025-04-23,17:58:24,Cash Deposit,Branch,Cash Deposit,,,USA,8581.81,524693.79,true,ALERT-2025-00153
+TXN-000392,ACC-0009,CUST-0003,2025-04-24,15:26:23,Wire Credit,Wire,International Wire Transfer,Isfahan Merchant House,Tehran Commerce Bank,Iran,53373.66,1048166.38,true,ALERT-2025-00165
+TXN-000393,ACC-0005,CUST-0002,2025-04-24,17:35:19,Cash Deposit,Branch,Cash Deposit,,,USA,8746.05,398604.06,true,ALERT-2025-00159
+TXN-000394,ACC-0005,CUST-0002,2025-04-25,09:39:30,Cash Deposit,Branch,Cash Deposit,,,USA,34392.66,432996.72,true,ALERT-2025-00160
+TXN-000395,ACC-0007,CUST-0003,2025-04-25,11:52:30,Wire Credit,Wire,International Wire Transfer,Sanaa Export House,Aden Commercial Bank,Yemen,45675.66,601574.25,true,ALERT-2025-00168
+TXN-000396,ACC-0005,CUST-0002,2025-04-25,15:40:34,Cash Deposit,Branch,Cash Deposit,,,USA,9743.13,442739.85,true,ALERT-2025-00154
+TXN-000397,ACC-0009,CUST-0003,2025-04-26,09:44:00,Wire Credit,Wire,International Wire Transfer,Nevsky Trade Bureau,Volga Correspondent Bank,Russia,35104.53,1083270.91,true,ALERT-2025-00167
+TXN-000398,ACC-0042,CUST-0016,2025-04-26,10:30:30,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,1943.18,1007561.01,false,
+TXN-000399,ACC-0027,CUST-0011,2025-04-27,12:34:23,ACH Credit,ACH,Monthly Salary Credit,ONeill Auto Group,Payroll Clearing Bank,USA,14704.10,132722.90,false,
+TXN-000400,ACC-0009,CUST-0003,2025-04-27,16:16:24,Wire Debit,Wire,International Wire Transfer,Aden Freight Services,Aden Commercial Bank,Yemen,42738.59,1040532.32,true,ALERT-2025-00185
+TXN-000401,ACC-0028,CUST-0012,2025-04-27,16:35:03,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,132.07,1433370.59,false,
+TXN-000402,ACC-0007,CUST-0003,2025-04-28,14:17:00,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,49255.06,552319.19,true,ALERT-2025-00192
+TXN-000403,ACC-0009,CUST-0003,2025-04-28,17:06:22,Wire Credit,Wire,Incoming Wire Transfer,NorthBridge Capital LLC,Gateway National Bank,USA,334640.27,1375172.59,true,ALERT-2025-00164
+TXN-000404,ACC-0007,CUST-0003,2025-04-28,17:19:11,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Atlantic Correspondent Bank,USA,53078.08,499241.11,true,ALERT-2025-00174
+TXN-000405,ACC-0007,CUST-0003,2025-04-30,11:39:12,Wire Credit,Wire,International Wire Transfer,Siberia Freight Group,Volga Correspondent Bank,Russia,81690.64,580931.75,true,ALERT-2025-00182
+TXN-000406,ACC-0009,CUST-0003,2025-04-30,15:32:56,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,14984.12,1360188.47,true,ALERT-2025-00177
+TXN-000407,ACC-0009,CUST-0003,2025-05-01,10:46:41,Wire Credit,Wire,International Wire Transfer,Levant Cedar Group,Levant Correspondent Bank,Syria,25624.94,1385813.41,true,ALERT-2025-00187
+TXN-000408,ACC-0051,CUST-0019,2025-05-01,11:27:41,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,84624.77,176368.04,false,
+TXN-000409,ACC-0007,CUST-0003,2025-05-02,14:41:05,Wire Credit,Wire,International Wire Transfer,Levant Cedar Group,Damascus Mercantile Bank,Syria,66117.57,647049.32,true,ALERT-2025-00193
+TXN-000410,ACC-0009,CUST-0003,2025-05-02,16:11:12,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Metro Regional Bank,USA,62786.51,1323026.90,true,ALERT-2025-00189
+TXN-000411,ACC-0009,CUST-0003,2025-05-02,16:15:29,Wire Credit,Wire,International Wire Transfer,Kaveh Mohammadi,Parsian Bank,Iran,71404.78,1394431.68,true,ALERT-2025-00191
+TXN-000412,ACC-0007,CUST-0003,2025-05-02,16:29:03,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Atlantic Correspondent Bank,USA,74471.19,572578.13,true,ALERT-2025-00196
+TXN-000413,ACC-0020,CUST-0008,2025-05-02,16:44:58,ACH Credit,ACH,Monthly Salary Credit,Lakefront Wealth Advisors,Payroll Clearing Bank,USA,11086.65,850150.30,false,
+TXN-000414,ACC-0007,CUST-0003,2025-05-03,11:31:39,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Yangon Commercial Bank,Myanmar,40445.67,532132.46,true,ALERT-2025-00202
+TXN-000415,ACC-0030,CUST-0013,2025-05-03,17:09:30,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,18211.00,332495.30,false,
+TXN-000416,ACC-0009,CUST-0003,2025-05-04,10:01:57,Wire Credit,Wire,International Wire Transfer,Aung Min Trading,Mandalay Trade Bank,Myanmar,61081.48,1455513.16,true,ALERT-2025-00195
+TXN-000417,ACC-0007,CUST-0003,2025-05-04,12:27:25,Wire Debit,Wire,International Wire Transfer,Volga Industrial Supply,Volga Correspondent Bank,Russia,21109.02,511023.44,true,ALERT-2025-00190
+TXN-000418,ACC-0009,CUST-0003,2025-05-04,12:35:12,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Yangon Commercial Bank,Myanmar,31542.56,1423970.60,true,ALERT-2025-00201
+TXN-000419,ACC-0009,CUST-0003,2025-05-04,16:21:24,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Gateway National Bank,USA,78770.00,1345200.60,true,ALERT-2025-00197
+TXN-000420,ACC-0009,CUST-0003,2025-05-04,16:25:56,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Metro Regional Bank,USA,37333.48,1307867.12,true,ALERT-2025-00208
+TXN-000421,ACC-0001,CUST-0001,2025-05-05,08:54:07,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,4015.83,383552.12,false,
+TXN-000422,ACC-0009,CUST-0003,2025-05-05,10:39:34,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Metro Regional Bank,USA,41652.04,1266215.08,true,ALERT-2025-00200
+TXN-000423,ACC-0007,CUST-0003,2025-05-05,12:13:05,Wire Credit,Wire,International Wire Transfer,Nevsky Trade Bureau,Moscow Industrial Bank,Russia,62594.44,573617.88,true,ALERT-2025-00199
+TXN-000424,ACC-0009,CUST-0003,2025-05-05,12:36:58,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Metro Regional Bank,USA,66458.66,1199756.42,true,ALERT-2025-00211
+TXN-000425,ACC-0018,CUST-0007,2025-05-05,13:24:42,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,160.51,233312.72,false,
+TXN-000426,ACC-0007,CUST-0003,2025-05-05,17:15:05,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Gateway National Bank,USA,73097.64,500520.24,true,ALERT-2025-00203
+TXN-000427,ACC-0007,CUST-0003,2025-05-06,08:27:12,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Metro Regional Bank,USA,12328.08,488192.16,true,ALERT-2025-00188
+TXN-000428,ACC-0009,CUST-0003,2025-05-07,09:40:00,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Metro Regional Bank,USA,42045.36,1157711.06,true,ALERT-2025-00194
+TXN-000429,ACC-0007,CUST-0003,2025-05-07,10:48:43,Wire Credit,Wire,International Wire Transfer,Orontes Market Co,Damascus Mercantile Bank,Syria,78580.71,566772.87,true,ALERT-2025-00210
+TXN-000430,ACC-0007,CUST-0003,2025-05-07,14:32:24,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,27695.91,539076.96,true,ALERT-2025-00198
+TXN-000431,ACC-0007,CUST-0003,2025-05-08,10:02:40,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Continental Trust Bank,USA,83702.65,455374.31,true,ALERT-2025-00220
+TXN-000432,ACC-0007,CUST-0003,2025-05-08,10:28:18,Wire Credit,Wire,International Wire Transfer,Volga Industrial Supply,Volga Correspondent Bank,Russia,19599.94,474974.25,true,ALERT-2025-00227
+TXN-000433,ACC-0009,CUST-0003,2025-05-08,10:56:45,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Atlantic Correspondent Bank,USA,83651.97,1074059.09,true,ALERT-2025-00228
+TXN-000434,ACC-0007,CUST-0003,2025-05-08,11:34:33,Wire Credit,Wire,International Wire Transfer,Volga Industrial Supply,Volga Correspondent Bank,Russia,36831.46,511805.71,true,ALERT-2025-00214
+TXN-000435,ACC-0027,CUST-0011,2025-05-08,12:59:51,Card Debit,Online,Online Purchase,NorthStar Online Retail,Metro Regional Bank,USA,419.22,132303.68,false,
+TXN-000436,ACC-0007,CUST-0003,2025-05-08,14:08:05,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Gateway National Bank,USA,78556.70,433249.01,true,ALERT-2025-00213
+TXN-000437,ACC-0049,CUST-0018,2025-05-08,17:47:06,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,20116.94,166641.21,false,
+TXN-000438,ACC-0007,CUST-0003,2025-05-09,08:14:58,Wire Credit,Wire,International Wire Transfer,Parsian Industrial Group,Tehran Commerce Bank,Iran,53955.14,487204.15,true,ALERT-2025-00217
+TXN-000439,ACC-0016,CUST-0006,2025-05-09,08:40:55,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,159.04,9256.14,false,
+TXN-000440,ACC-0007,CUST-0003,2025-05-09,09:04:05,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Atlantic Correspondent Bank,USA,48300.68,438903.47,true,ALERT-2025-00234
+TXN-000441,ACC-0009,CUST-0003,2025-05-09,09:57:42,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Continental Trust Bank,USA,66089.74,1007969.35,true,ALERT-2025-00223
+TXN-000442,ACC-0007,CUST-0003,2025-05-09,13:54:30,Wire Credit,Wire,International Wire Transfer,Kaveh Mohammadi,Parsian Bank,Iran,64721.28,503624.75,true,ALERT-2025-00222
+TXN-000443,ACC-0009,CUST-0003,2025-05-09,15:15:29,Wire Debit,Wire,International Wire Transfer,Orontes Market Co,Levant Correspondent Bank,Syria,60770.43,947198.92,true,ALERT-2025-00207
+TXN-000444,ACC-0012,CUST-0004,2025-05-10,10:49:31,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,49317.71,2461928.79,true,ALERT-2025-00242
+TXN-000445,ACC-0037,CUST-0015,2025-05-10,16:06:39,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,75029.62,877492.95,false,
+TXN-000446,ACC-0009,CUST-0003,2025-05-11,11:44:12,Wire Credit,Wire,International Wire Transfer,Nevsky Trade Bureau,Moscow Industrial Bank,Russia,37336.87,984535.79,true,ALERT-2025-00229
+TXN-000447,ACC-0012,CUST-0004,2025-05-11,16:12:32,Wire Debit,Wire,Trade Payment - Invoice INV26111,Ho Chi Minh Textile Supply,Saigon Commercial Bank,Vietnam,30000.00,2431928.79,true,ALERT-2025-00244
+TXN-000448,ACC-0007,CUST-0003,2025-05-12,10:17:55,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,28156.32,475468.43,true,ALERT-2025-00238
+TXN-000449,ACC-0041,CUST-0016,2025-05-12,12:36:28,Wire Debit,Wire,Supplier Payment,Supplier Payment Clearing,Continental Trust Bank,USA,67900.37,46506.95,false,
+TXN-000450,ACC-0009,CUST-0003,2025-05-12,17:34:39,Wire Credit,Wire,International Wire Transfer,Sanaa Export House,Sanaa Exchange Bank,Yemen,79455.44,1063991.23,true,ALERT-2025-00204
+TXN-000451,ACC-0009,CUST-0003,2025-05-13,13:26:32,Wire Debit,Wire,International Wire Transfer,Volga Industrial Supply,Moscow Industrial Bank,Russia,40029.87,1023961.36,true,ALERT-2025-00226
+TXN-000452,ACC-0010,CUST-0004,2025-05-13,13:27:29,Wire Debit,Wire,International Wire Transfer,Kazan Metals LLC,Moscow Industrial Bank,Russia,75836.79,1272161.60,true,ALERT-2025-00258
+TXN-000453,ACC-0007,CUST-0003,2025-05-13,14:05:18,Wire Credit,Wire,International Wire Transfer,Yadanar Logistics,Mandalay Trade Bank,Myanmar,35186.69,510655.12,true,ALERT-2025-00231
+TXN-000454,ACC-0012,CUST-0004,2025-05-14,08:49:23,Wire Debit,Wire,International Wire Transfer,Kazan Metals LLC,Volga Correspondent Bank,Russia,26713.39,2405215.40,true,ALERT-2025-00257
+TXN-000455,ACC-0009,CUST-0003,2025-05-14,12:06:16,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Continental Trust Bank,USA,77405.99,946555.37,true,ALERT-2025-00216
+TXN-000456,ACC-0009,CUST-0003,2025-05-14,16:57:37,Wire Debit,Wire,International Wire Transfer,Kaveh Mohammadi,Tehran Commerce Bank,Iran,47064.93,899490.44,true,ALERT-2025-00224
+TXN-000457,ACC-0009,CUST-0003,2025-05-14,17:46:32,Wire Credit,Wire,International Wire Transfer,Isfahan Merchant House,Parsian Bank,Iran,37477.06,936967.50,true,ALERT-2025-00221
+TXN-000458,ACC-0007,CUST-0003,2025-05-15,17:09:16,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Metro Regional Bank,USA,60497.67,450157.45,true,ALERT-2025-00218
+TXN-000459,ACC-0010,CUST-0004,2025-05-16,10:19:33,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,74065.07,1198096.53,true,ALERT-2025-00255
+TXN-000460,ACC-0010,CUST-0004,2025-05-16,12:09:00,Wire Debit,Wire,International Wire Transfer,Taiz General Trading,Aden Commercial Bank,Yemen,45251.89,1152844.64,true,ALERT-2025-00248
+TXN-000461,ACC-0009,CUST-0003,2025-05-16,12:51:04,Wire Credit,Wire,International Wire Transfer,Shwe Mandalay Imports,Mandalay Trade Bank,Myanmar,35430.14,972397.64,true,ALERT-2025-00240
+TXN-000462,ACC-0012,CUST-0004,2025-05-16,13:10:08,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,16141.57,2389073.83,true,ALERT-2025-00253
+TXN-000463,ACC-0012,CUST-0004,2025-05-17,17:00:21,Wire Debit,Wire,Trade Payment - Invoice INV20000,Dubai Free Zone Commodities,Emirates Trade Bank,United Arab Emirates,75000.00,2314073.83,true,ALERT-2025-00266
+TXN-000464,ACC-0009,CUST-0003,2025-05-18,08:46:52,Wire Debit,Wire,International Wire Transfer,Shwe Mandalay Imports,Yangon Commercial Bank,Myanmar,58027.89,914369.75,true,ALERT-2025-00232
+TXN-000465,ACC-0012,CUST-0004,2025-05-18,09:09:45,Wire Debit,Wire,International Wire Transfer,Kazan Metals LLC,Volga Correspondent Bank,Russia,18148.58,2295925.25,true,ALERT-2025-00241
+TXN-000466,ACC-0012,CUST-0004,2025-05-18,10:27:16,Wire Debit,Wire,Trade Payment - Invoice INV99536,Ho Chi Minh Textile Supply,Saigon Commercial Bank,Vietnam,50000.00,2245925.25,true,ALERT-2025-00269
+TXN-000467,ACC-0024,CUST-0010,2025-05-18,11:52:08,ACH Credit,ACH,Monthly Salary Credit,University of Wisconsin,Payroll Clearing Bank,USA,6616.96,282634.45,false,
+TXN-000468,ACC-0010,CUST-0004,2025-05-18,13:58:40,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Continental Trust Bank,USA,41071.71,1111772.93,true,ALERT-2025-00243
+TXN-000469,ACC-0012,CUST-0004,2025-05-18,14:28:26,Wire Debit,Wire,Trade Payment - Invoice INV79434,Monterrey Industrial Exporters,Banco Industrial Norte,Mexico,100000.00,2145925.25,true,ALERT-2025-00264
+TXN-000470,ACC-0012,CUST-0004,2025-05-19,08:53:37,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Continental Trust Bank,USA,44953.57,2100971.68,true,ALERT-2025-00246
+TXN-000471,ACC-0012,CUST-0004,2025-05-19,09:14:48,Wire Debit,Wire,Trade Payment - Invoice INV62422,Monterrey Industrial Exporters,Banco Industrial Norte,Mexico,60000.00,2040971.68,true,ALERT-2025-00245
+TXN-000472,ACC-0012,CUST-0004,2025-05-19,13:02:00,Wire Debit,Wire,Trade Payment - Invoice INV98691,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,85000.00,1955971.68,true,ALERT-2025-00252
+TXN-000473,ACC-0054,CUST-0020,2025-05-19,15:25:00,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,38477.89,61783.60,false,
+TXN-000474,ACC-0010,CUST-0004,2025-05-19,16:13:35,Wire Debit,Wire,International Wire Transfer,Damascus General Trading,Damascus Mercantile Bank,Syria,31725.52,1080047.41,true,ALERT-2025-00274
+TXN-000475,ACC-0012,CUST-0004,2025-05-20,08:32:08,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Metro Regional Bank,USA,76569.36,1879402.32,true,ALERT-2025-00259
+TXN-000476,ACC-0010,CUST-0004,2025-05-20,09:46:07,Wire Debit,Wire,International Wire Transfer,Aung Min Trading,Mandalay Trade Bank,Myanmar,68603.96,1011443.45,true,ALERT-2025-00254
+TXN-000477,ACC-0010,CUST-0004,2025-05-20,11:08:44,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Metro Regional Bank,USA,37344.58,974098.87,true,ALERT-2025-00260
+TXN-000478,ACC-0010,CUST-0004,2025-05-21,09:05:13,Wire Debit,Wire,International Wire Transfer,Yadanar Logistics,Mandalay Trade Bank,Myanmar,26263.33,947835.54,true,ALERT-2025-00278
+TXN-000479,ACC-0012,CUST-0004,2025-05-21,12:52:40,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Parsian Bank,Iran,64397.60,1815004.72,true,ALERT-2025-00263
+TXN-000480,ACC-0010,CUST-0004,2025-05-21,16:23:58,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Metro Regional Bank,USA,30121.99,917713.55,true,ALERT-2025-00275
+TXN-000481,ACC-0036,CUST-0014,2025-05-21,17:15:33,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,33707.87,1472727.82,false,
+TXN-000482,ACC-0012,CUST-0004,2025-05-22,10:40:05,Wire Debit,Wire,Trade Payment - Invoice INV70299,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,25000.00,1790004.72,true,ALERT-2025-00271
+TXN-000483,ACC-0010,CUST-0004,2025-05-22,11:57:12,Wire Debit,Wire,International Wire Transfer,Volga Industrial Supply,Moscow Industrial Bank,Russia,29747.73,887965.82,true,ALERT-2025-00262
+TXN-000484,ACC-0010,CUST-0004,2025-05-22,16:21:34,ACH Credit,ACH,Monthly Salary Credit,Pacific Axis Imports,Payroll Clearing Bank,USA,18623.73,906589.55,false,
+TXN-000485,ACC-0010,CUST-0004,2025-05-23,08:34:08,Wire Debit,Wire,International Wire Transfer,Tehran Star Trading,Tehran Commerce Bank,Iran,70562.69,836026.86,true,ALERT-2025-00268
+TXN-000486,ACC-0012,CUST-0004,2025-05-23,11:15:14,Wire Debit,Wire,International Wire Transfer,Aung Min Trading,Yangon Commercial Bank,Myanmar,39519.89,1750484.83,true,ALERT-2025-00277
+TXN-000487,ACC-0012,CUST-0004,2025-05-24,10:10:32,Wire Debit,Wire,Trade Payment - Invoice INV59972,Monterrey Industrial Exporters,Banco Industrial Norte,Mexico,30000.00,1720484.83,true,ALERT-2025-00281
+TXN-000488,ACC-0012,CUST-0004,2025-05-24,10:25:27,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Continental Trust Bank,USA,91371.87,1629112.96,true,ALERT-2025-00276
+TXN-000489,ACC-0012,CUST-0004,2025-05-24,13:00:08,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Gateway National Bank,USA,38354.89,1590758.07,true,ALERT-2025-00279
+TXN-000490,ACC-0012,CUST-0004,2025-05-24,15:22:06,Wire Debit,Wire,International Wire Transfer,Damascus General Trading,Damascus Mercantile Bank,Syria,84365.76,1506392.31,true,ALERT-2025-00261
+TXN-000491,ACC-0012,CUST-0004,2025-05-24,17:19:49,Wire Debit,Wire,International Wire Transfer,Kazan Metals LLC,Volga Correspondent Bank,Russia,61767.89,1444624.42,true,ALERT-2025-00283
+TXN-000492,ACC-0012,CUST-0004,2025-05-25,11:54:07,Wire Debit,Wire,International Wire Transfer,Aden Freight Services,Aden Commercial Bank,Yemen,22703.42,1421921.00,true,ALERT-2025-00267
+TXN-000493,ACC-0012,CUST-0004,2025-05-25,17:51:39,Wire Debit,Wire,International Wire Transfer,Taiz General Trading,Aden Commercial Bank,Yemen,55060.93,1366860.07,true,ALERT-2025-00291
+TXN-000494,ACC-0012,CUST-0004,2025-05-26,11:08:14,Wire Debit,Wire,Trade Payment - Invoice INV39315,Shenzhen Allied Components,Pearl River Trade Bank,China,75000.00,1291860.07,true,ALERT-2025-00286
+TXN-000495,ACC-0006,CUST-0002,2025-05-26,12:49:01,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,205.76,477621.50,false,
+TXN-000496,ACC-0012,CUST-0004,2025-05-26,15:14:53,Wire Debit,Wire,Trade Payment - Invoice INV23712,Shenzhen Allied Components,Pearl River Trade Bank,China,40000.00,1251860.07,true,ALERT-2025-00289
+TXN-000497,ACC-0010,CUST-0004,2025-05-27,11:06:26,Wire Debit,Wire,International Wire Transfer,Sanaa Export House,Aden Commercial Bank,Yemen,72816.49,763210.37,true,ALERT-2025-00295
+TXN-000498,ACC-0012,CUST-0004,2025-05-27,11:12:44,Wire Debit,Wire,International Wire Transfer,Damascus General Trading,Levant Correspondent Bank,Syria,53993.10,1197866.97,true,ALERT-2025-00296
+TXN-000499,ACC-0044,CUST-0017,2025-05-27,17:13:48,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,757.51,3503949.22,false,
+TXN-000500,ACC-0010,CUST-0004,2025-05-28,14:46:50,Wire Debit,Wire,International Wire Transfer,Marib Commodities,Sanaa Exchange Bank,Yemen,63699.53,699510.84,true,ALERT-2025-00290
+TXN-000501,ACC-0014,CUST-0005,2025-05-28,15:35:12,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,320.49,93741.21,false,
+TXN-000502,ACC-0012,CUST-0004,2025-05-28,16:19:18,Wire Debit,Wire,International Wire Transfer,Siberia Freight Group,Volga Correspondent Bank,Russia,35502.38,1162364.59,true,ALERT-2025-00280
+TXN-000503,ACC-0012,CUST-0004,2025-05-29,09:18:20,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Metro Regional Bank,USA,27706.36,1134658.23,true,ALERT-2025-00288
+TXN-000504,ACC-0012,CUST-0004,2025-05-29,11:19:41,Wire Debit,Wire,Trade Payment - Invoice INV59617,Shenzhen Allied Components,Pearl River Trade Bank,China,30000.00,1104658.23,true,ALERT-2025-00287
+TXN-000505,ACC-0012,CUST-0004,2025-05-30,13:09:55,Wire Debit,Wire,Trade Payment - Invoice INV51192,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,125000.00,979658.23,true,ALERT-2025-00294
+TXN-000506,ACC-0010,CUST-0004,2025-05-31,09:07:47,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,43019.45,656491.39,true,ALERT-2025-00284
+TXN-000507,ACC-0010,CUST-0004,2025-05-31,12:02:13,Wire Debit,Wire,International Wire Transfer,Siberia Freight Group,Volga Correspondent Bank,Russia,74048.90,582442.49,true,ALERT-2025-00298
+TXN-000508,ACC-0012,CUST-0004,2025-05-31,13:27:08,Wire Debit,Wire,Trade Payment - Invoice INV53632,Dubai Free Zone Commodities,Emirates Trade Bank,United Arab Emirates,125000.00,854658.23,true,ALERT-2025-00285
+TXN-000509,ACC-0012,CUST-0004,2025-05-31,15:28:45,Wire Debit,Wire,International Wire Transfer,Volga Industrial Supply,Moscow Industrial Bank,Russia,41864.18,812794.05,true,ALERT-2025-00304
+TXN-000510,ACC-0012,CUST-0004,2025-05-31,17:12:51,Wire Debit,Wire,Trade Payment - Invoice INV36278,Monterrey Industrial Exporters,Banco Industrial Norte,Mexico,100000.00,712794.05,true,ALERT-2025-00309
+TXN-000511,ACC-0050,CUST-0018,2025-06-01,11:30:47,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,2135.27,159249.51,false,
+TXN-000512,ACC-0012,CUST-0004,2025-06-01,13:45:13,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Yangon Commercial Bank,Myanmar,18031.16,694762.89,true,ALERT-2025-00306
+TXN-000513,ACC-0010,CUST-0004,2025-06-02,09:15:16,Wire Debit,Wire,International Wire Transfer,Nevsky Trade Bureau,Volga Correspondent Bank,Russia,28652.29,553790.20,true,ALERT-2025-00307
+TXN-000514,ACC-0012,CUST-0004,2025-06-02,09:46:53,Wire Debit,Wire,Trade Payment - Invoice INV71792,Dubai Free Zone Commodities,Emirates Trade Bank,United Arab Emirates,50000.00,644762.89,true,ALERT-2025-00301
+TXN-000515,ACC-0012,CUST-0004,2025-06-02,16:53:40,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,22098.54,622664.35,true,ALERT-2025-00313
+TXN-000516,ACC-0010,CUST-0004,2025-06-03,12:21:44,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,90827.33,462962.87,true,ALERT-2025-00297
+TXN-000517,ACC-0010,CUST-0004,2025-06-04,09:22:32,Wire Debit,Wire,International Wire Transfer,Shwe Mandalay Imports,Mandalay Trade Bank,Myanmar,70046.60,392916.27,true,ALERT-2025-00317
+TXN-000518,ACC-0012,CUST-0004,2025-06-04,15:31:28,Wire Debit,Wire,International Wire Transfer,Aden Freight Services,Sanaa Exchange Bank,Yemen,45358.46,577305.89,true,ALERT-2025-00300
+TXN-000519,ACC-0010,CUST-0004,2025-06-05,08:04:49,Wire Debit,Wire,Outgoing Wire Transfer,NorthBridge Capital LLC,Continental Trust Bank,USA,96287.26,296629.01,true,ALERT-2025-00311
+TXN-000520,ACC-0010,CUST-0004,2025-06-05,10:51:23,Wire Credit,Wire,Incoming Wire Transfer,Metro FX Clearing,Gateway National Bank,USA,211413.99,508043.00,true,ALERT-2025-00299
+TXN-000521,ACC-0009,CUST-0003,2025-06-05,13:22:45,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,2666.50,911703.25,false,
+TXN-000522,ACC-0012,CUST-0004,2025-06-05,14:07:32,Wire Debit,Wire,Trade Payment - Invoice INV69847,Monterrey Industrial Exporters,Banco Industrial Norte,Mexico,125000.00,452305.89,true,ALERT-2025-00312
+TXN-000523,ACC-0012,CUST-0004,2025-06-05,16:41:00,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Atlantic Correspondent Bank,USA,88128.99,364176.90,true,ALERT-2025-00302
+TXN-000524,ACC-0015,CUST-0005,2025-06-05,16:58:26,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,129.37,533702.59,false,
+TXN-000525,ACC-0014,CUST-0005,2025-06-06,01:27:10,Cash Deposit,Branch,Cash Deposit,,,USA,19445.20,113186.41,true,ALERT-2025-00326
+TXN-000526,ACC-0014,CUST-0005,2025-06-07,01:13:51,Cash Deposit,Branch,Cash Deposit,,,USA,9711.06,122897.47,true,ALERT-2025-00328
+TXN-000527,ACC-0034,CUST-0014,2025-06-07,11:07:34,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,57941.72,294832.33,false,
+TXN-000528,ACC-0010,CUST-0004,2025-06-07,14:17:26,Wire Debit,Wire,International Wire Transfer,Volga Industrial Supply,Moscow Industrial Bank,Russia,48286.67,459756.33,true,ALERT-2025-00303
+TXN-000529,ACC-0010,CUST-0004,2025-06-07,15:29:40,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Parsian Bank,Iran,59076.20,400680.13,true,ALERT-2025-00320
+TXN-000530,ACC-0013,CUST-0005,2025-06-08,02:16:26,Cash Deposit,Branch,Cash Deposit,,,USA,41386.51,194557.41,true,ALERT-2025-00323
+TXN-000531,ACC-0053,CUST-0020,2025-06-08,08:10:51,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,20889.07,289180.73,false,
+TXN-000532,ACC-0010,CUST-0004,2025-06-08,09:05:53,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Mandalay Trade Bank,Myanmar,58909.79,341770.34,true,ALERT-2025-00305
+TXN-000533,ACC-0012,CUST-0004,2025-06-08,10:57:40,Wire Debit,Wire,International Wire Transfer,Kaveh Mohammadi,Tehran Commerce Bank,Iran,41008.02,323168.88,true,ALERT-2025-00308
+TXN-000534,ACC-0012,CUST-0004,2025-06-08,11:18:34,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Mandalay Trade Bank,Myanmar,76744.50,246424.38,true,ALERT-2025-00316
+TXN-000535,ACC-0012,CUST-0004,2025-06-08,14:14:07,Wire Debit,Wire,International Wire Transfer,Tehran Star Trading,Parsian Bank,Iran,67912.72,178511.66,true,ALERT-2025-00319
+TXN-000536,ACC-0013,CUST-0005,2025-06-09,01:46:09,Cash Deposit,Branch,Cash Deposit,,,USA,21316.08,215873.49,true,ALERT-2025-00334
+TXN-000537,ACC-0013,CUST-0005,2025-06-09,02:12:30,Cash Deposit,Branch,Cash Deposit,,,USA,9390.30,225263.79,true,ALERT-2025-00322
+TXN-000538,ACC-0015,CUST-0005,2025-06-09,12:40:40,Wire Debit,Wire,Outgoing Wire Transfer,NorthBridge Capital LLC,Atlantic Correspondent Bank,USA,37405.77,496296.82,true,ALERT-2025-00321
+TXN-000539,ACC-0014,CUST-0005,2025-06-10,01:13:17,Cash Deposit,Branch,Cash Deposit,,,USA,9280.86,132178.33,true,ALERT-2025-00337
+TXN-000540,ACC-0010,CUST-0004,2025-06-10,11:14:11,Wire Debit,Wire,International Wire Transfer,Kaveh Mohammadi,Tehran Commerce Bank,Iran,32244.14,309526.20,true,ALERT-2025-00310
+TXN-000541,ACC-0013,CUST-0005,2025-06-10,14:03:13,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Metro Regional Bank,USA,14378.16,210885.63,true,ALERT-2025-00333
+TXN-000542,ACC-0004,CUST-0002,2025-06-11,08:42:12,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,3895.76,520798.03,false,
+TXN-000543,ACC-0012,CUST-0004,2025-06-11,10:21:22,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Tehran Commerce Bank,Iran,21270.87,157240.79,true,ALERT-2025-00314
+TXN-000544,ACC-0010,CUST-0004,2025-06-11,15:20:21,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Tehran Commerce Bank,Iran,80883.94,228642.26,true,ALERT-2025-00315
+TXN-000545,ACC-0013,CUST-0005,2025-06-12,01:11:16,Cash Deposit,Branch,Cash Deposit,,,USA,8644.37,219530.00,true,ALERT-2025-00325
+TXN-000546,ACC-0013,CUST-0005,2025-06-12,02:24:19,Cash Deposit,Branch,Cash Deposit,,,USA,8745.46,228275.46,true,ALERT-2025-00345
+TXN-000547,ACC-0011,CUST-0004,2025-06-12,14:32:42,Card Debit,Online,Online Purchase,NorthStar Online Retail,Metro Regional Bank,USA,219.37,281279.02,false,
+TXN-000548,ACC-0014,CUST-0005,2025-06-13,01:34:01,Cash Deposit,Branch,Cash Deposit,,,USA,20018.99,152197.32,true,ALERT-2025-00349
+TXN-000549,ACC-0014,CUST-0005,2025-06-13,01:44:19,Cash Deposit,Branch,Cash Deposit,,,USA,8800.94,160998.26,true,ALERT-2025-00344
+TXN-000550,ACC-0013,CUST-0005,2025-06-13,08:51:16,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Metro Regional Bank,USA,73860.54,154414.92,true,ALERT-2025-00332
+TXN-000551,ACC-0013,CUST-0005,2025-06-14,02:51:27,Cash Deposit,Branch,Cash Deposit,,,USA,9031.28,163446.20,true,ALERT-2025-00331
+TXN-000552,ACC-0013,CUST-0005,2025-06-14,02:56:04,Cash Deposit,Branch,Cash Deposit,,,USA,24543.17,187989.37,true,ALERT-2025-00341
+TXN-000553,ACC-0013,CUST-0005,2025-06-15,01:28:22,Cash Deposit,Branch,Cash Deposit,,,USA,34810.70,222800.07,true,ALERT-2025-00359
+TXN-000554,ACC-0014,CUST-0005,2025-06-15,02:03:42,Cash Deposit,Branch,Cash Deposit,,,USA,9230.01,170228.27,true,ALERT-2025-00330
+TXN-000555,ACC-0016,CUST-0006,2025-06-15,14:04:51,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,226.57,9029.57,false,
+TXN-000556,ACC-0015,CUST-0005,2025-06-15,17:08:01,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Atlantic Correspondent Bank,USA,83646.44,412650.38,true,ALERT-2025-00346
+TXN-000557,ACC-0013,CUST-0005,2025-06-16,01:05:39,Cash Deposit,Branch,Cash Deposit,,,USA,8644.36,231444.43,true,ALERT-2025-00329
+TXN-000558,ACC-0013,CUST-0005,2025-06-16,01:43:55,Cash Deposit,Branch,Cash Deposit,,,USA,9661.91,241106.34,true,ALERT-2025-00336
+TXN-000559,ACC-0014,CUST-0005,2025-06-16,01:59:28,Cash Deposit,Branch,Cash Deposit,,,USA,8656.67,178884.94,true,ALERT-2025-00358
+TXN-000560,ACC-0014,CUST-0005,2025-06-16,02:29:22,Cash Deposit,Branch,Cash Deposit,,,USA,9341.20,188226.14,true,ALERT-2025-00362
+TXN-000561,ACC-0014,CUST-0005,2025-06-17,01:54:51,Cash Deposit,Branch,Cash Deposit,,,USA,8569.54,196795.68,true,ALERT-2025-00351
+TXN-000562,ACC-0014,CUST-0005,2025-06-17,02:07:58,Cash Deposit,Branch,Cash Deposit,,,USA,9123.96,205919.64,true,ALERT-2025-00335
+TXN-000563,ACC-0013,CUST-0005,2025-06-17,02:45:56,Cash Deposit,Branch,Cash Deposit,,,USA,8815.50,249921.84,true,ALERT-2025-00360
+TXN-000564,ACC-0013,CUST-0005,2025-06-17,08:29:24,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Continental Trust Bank,USA,58105.86,191815.98,true,ALERT-2025-00343
+TXN-000565,ACC-0030,CUST-0013,2025-06-17,15:25:30,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,47993.42,380488.72,false,
+TXN-000566,ACC-0013,CUST-0005,2025-06-18,02:05:26,Cash Deposit,Branch,Cash Deposit,,,USA,29435.72,221251.70,true,ALERT-2025-00348
+TXN-000567,ACC-0013,CUST-0005,2025-06-18,02:10:45,Cash Deposit,Branch,Cash Deposit,,,USA,32375.91,253627.61,true,ALERT-2025-00369
+TXN-000568,ACC-0014,CUST-0005,2025-06-18,02:37:41,Cash Deposit,Branch,Cash Deposit,,,USA,24649.69,230569.33,true,ALERT-2025-00338
+TXN-000569,ACC-0040,CUST-0016,2025-06-18,15:28:34,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,24487.47,131133.43,false,
+TXN-000570,ACC-0013,CUST-0005,2025-06-19,01:39:43,Cash Deposit,Branch,Cash Deposit,,,USA,8561.12,262188.73,true,ALERT-2025-00365
+TXN-000571,ACC-0014,CUST-0005,2025-06-19,01:43:45,Cash Deposit,Branch,Cash Deposit,,,USA,38458.04,269027.37,true,ALERT-2025-00342
+TXN-000572,ACC-0013,CUST-0005,2025-06-19,02:01:25,Cash Deposit,Branch,Cash Deposit,,,USA,20896.88,283085.61,true,ALERT-2025-00377
+TXN-000573,ACC-0024,CUST-0010,2025-06-19,14:09:53,Card Debit,Online,Online Purchase,NorthStar Online Retail,Metro Regional Bank,USA,247.12,282387.33,false,
+TXN-000574,ACC-0014,CUST-0005,2025-06-20,01:34:44,Cash Deposit,Branch,Cash Deposit,,,USA,33212.07,302239.44,true,ALERT-2025-00368
+TXN-000575,ACC-0013,CUST-0005,2025-06-20,01:35:37,Cash Deposit,Branch,Cash Deposit,,,USA,9205.83,292291.44,true,ALERT-2025-00354
+TXN-000576,ACC-0014,CUST-0005,2025-06-20,01:54:06,Cash Deposit,Branch,Cash Deposit,,,USA,27303.93,329543.37,true,ALERT-2025-00372
+TXN-000577,ACC-0013,CUST-0005,2025-06-20,02:00:20,Cash Deposit,Branch,Cash Deposit,,,USA,9240.22,301531.66,true,ALERT-2025-00370
+TXN-000578,ACC-0013,CUST-0005,2025-06-20,02:09:55,Cash Deposit,Branch,Cash Deposit,,,USA,9518.51,311050.17,true,ALERT-2025-00350
+TXN-000579,ACC-0013,CUST-0005,2025-06-20,02:21:49,Cash Deposit,Branch,Cash Deposit,,,USA,36117.24,347167.41,true,ALERT-2025-00366
+TXN-000580,ACC-0037,CUST-0015,2025-06-20,16:48:05,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,41097.88,918590.83,false,
+TXN-000581,ACC-0014,CUST-0005,2025-06-21,01:52:00,Cash Deposit,Branch,Cash Deposit,,,USA,8826.99,338370.36,true,ALERT-2025-00378
+TXN-000582,ACC-0014,CUST-0005,2025-06-21,01:57:15,Cash Deposit,Branch,Cash Deposit,,,USA,9194.29,347564.65,true,ALERT-2025-00356
+TXN-000583,ACC-0014,CUST-0005,2025-06-21,02:33:01,Cash Deposit,Branch,Cash Deposit,,,USA,9463.30,357027.95,true,ALERT-2025-00367
+TXN-000584,ACC-0029,CUST-0012,2025-06-21,09:55:02,ATM Withdrawal,ATM,ATM Withdrawal,City ATM Network,First National Bank — US,USA,483.85,141166.30,false,
+TXN-000585,ACC-0014,CUST-0005,2025-06-22,01:11:14,Cash Deposit,Branch,Cash Deposit,,,USA,9825.67,366853.62,true,ALERT-2025-00347
+TXN-000586,ACC-0014,CUST-0005,2025-06-22,02:01:39,Cash Deposit,Branch,Cash Deposit,,,USA,32349.39,399203.01,true,ALERT-2025-00353
+TXN-000587,ACC-0003,CUST-0001,2025-06-22,16:32:52,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,236.72,393972.88,false,
+TXN-000588,ACC-0014,CUST-0005,2025-06-23,02:00:03,Cash Deposit,Branch,Cash Deposit,,,USA,34897.43,434100.44,true,ALERT-2025-00379
+TXN-000589,ACC-0020,CUST-0008,2025-06-23,15:38:11,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,256.78,849893.52,false,
+TXN-000590,ACC-0046,CUST-0017,2025-06-23,17:34:40,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,79525.78,969978.08,false,
+TXN-000591,ACC-0051,CUST-0019,2025-06-24,08:02:04,Wire Debit,Wire,Supplier Payment,Supplier Payment Clearing,Continental Trust Bank,USA,58697.75,117670.29,false,
+TXN-000592,ACC-0013,CUST-0005,2025-06-24,15:29:06,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Gateway National Bank,USA,75745.34,271422.07,true,ALERT-2025-00355
+TXN-000593,ACC-0018,CUST-0007,2025-06-24,16:17:39,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,63.79,233248.93,false,
+TXN-000594,ACC-0014,CUST-0005,2025-06-25,01:30:16,Cash Deposit,Branch,Cash Deposit,,,USA,8601.79,442702.23,true,ALERT-2025-00382
+TXN-000595,ACC-0013,CUST-0005,2025-06-25,02:01:59,Cash Deposit,Branch,Cash Deposit,,,USA,31808.53,303230.60,true,ALERT-2025-00384
+TXN-000596,ACC-0027,CUST-0011,2025-06-25,13:46:41,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,181.12,132122.56,false,
+TXN-000597,ACC-0013,CUST-0005,2025-06-26,01:16:37,Cash Deposit,Branch,Cash Deposit,,,USA,24067.14,327297.74,true,ALERT-2025-00381
+TXN-000598,ACC-0014,CUST-0005,2025-06-26,01:18:29,Cash Deposit,Branch,Cash Deposit,,,USA,33686.32,476388.55,true,ALERT-2025-00390
+TXN-000599,ACC-0014,CUST-0005,2025-06-26,01:21:01,Cash Deposit,Branch,Cash Deposit,,,USA,8940.13,485328.68,true,ALERT-2025-00364
+TXN-000600,ACC-0013,CUST-0005,2025-06-26,02:03:42,Cash Deposit,Branch,Cash Deposit,,,USA,9383.74,336681.48,true,ALERT-2025-00385
+TXN-000601,ACC-0013,CUST-0005,2025-06-27,01:58:53,Cash Deposit,Branch,Cash Deposit,,,USA,8677.80,345359.28,true,ALERT-2025-00380
+TXN-000602,ACC-0014,CUST-0005,2025-06-28,01:11:50,Cash Deposit,Branch,Cash Deposit,,,USA,40220.02,525548.70,true,ALERT-2025-00383
+TXN-000603,ACC-0014,CUST-0005,2025-06-28,02:19:07,Cash Deposit,Branch,Cash Deposit,,,USA,9760.53,535309.23,true,ALERT-2025-00371
+TXN-000604,ACC-0013,CUST-0005,2025-06-28,02:41:21,Cash Deposit,Branch,Cash Deposit,,,USA,9549.97,354909.25,true,ALERT-2025-00398
+TXN-000605,ACC-0014,CUST-0005,2025-06-29,01:23:57,Cash Deposit,Branch,Cash Deposit,,,USA,8833.96,544143.19,true,ALERT-2025-00386
+TXN-000606,ACC-0015,CUST-0005,2025-06-29,12:57:46,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Atlantic Correspondent Bank,USA,69863.60,342786.78,true,ALERT-2025-00400
+TXN-000607,ACC-0013,CUST-0005,2025-07-01,02:03:18,Cash Deposit,Branch,Cash Deposit,,,USA,29322.47,384231.72,true,ALERT-2025-00391
+TXN-000608,ACC-0050,CUST-0018,2025-07-01,12:39:41,ACH Debit,Online,Tax or Insurance Payment,Treasury Services Clearing,First National Bank — US,USA,15593.36,143656.15,false,
+TXN-000609,ACC-0018,CUST-0007,2025-07-01,14:16:40,Wire Debit,Wire,International Wire Transfer,Cap-Haitien Goods Depot,Haiti Commercial Bank,Haiti,32851.83,200397.10,true,ALERT-2025-00406
+TXN-000610,ACC-0013,CUST-0005,2025-07-02,01:29:52,Cash Deposit,Branch,Cash Deposit,,,USA,9638.55,393870.27,true,ALERT-2025-00396
+TXN-000611,ACC-0014,CUST-0005,2025-07-02,02:30:31,Cash Deposit,Branch,Cash Deposit,,,USA,8582.68,552725.87,true,ALERT-2025-00399
+TXN-000612,ACC-0016,CUST-0006,2025-07-02,08:23:41,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,142.21,8887.36,false,
+TXN-000613,ACC-0016,CUST-0006,2025-07-02,15:14:38,Cash Deposit,Branch,Cash Deposit,,,USA,9604.74,18492.10,true,ALERT-2025-00401
+TXN-000614,ACC-0020,CUST-0008,2025-07-02,15:36:25,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Gateway National Bank,USA,76347.66,773545.86,true,ALERT-2025-00414
+TXN-000615,ACC-0014,CUST-0005,2025-07-03,01:23:28,Cash Deposit,Branch,Cash Deposit,,,USA,8617.80,561343.67,true,ALERT-2025-00395
+TXN-000616,ACC-0013,CUST-0005,2025-07-03,02:44:04,Cash Deposit,Branch,Cash Deposit,,,USA,33735.73,427606.00,true,ALERT-2025-00389
+TXN-000617,ACC-0020,CUST-0008,2025-07-03,08:26:08,Wire Debit,Wire,International Wire Transfer,Karachi Textile Mart,Karachi Mercantile Bank,Pakistan,46939.46,726606.40,true,ALERT-2025-00417
+TXN-000618,ACC-0021,CUST-0008,2025-07-03,11:46:01,Cash Deposit,Branch,Cash Deposit,,,USA,9128.76,55586.62,true,ALERT-2025-00413
+TXN-000619,ACC-0020,CUST-0008,2025-07-03,14:00:04,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Continental Trust Bank,USA,12631.86,713974.54,true,ALERT-2025-00412
+TXN-000620,ACC-0030,CUST-0013,2025-07-04,08:56:36,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,70190.02,450678.74,false,
+TXN-000621,ACC-0016,CUST-0006,2025-07-04,09:06:34,Cash Deposit,Branch,Cash Deposit,,,USA,9268.91,27761.01,true,ALERT-2025-00403
+TXN-000622,ACC-0020,CUST-0008,2025-07-04,11:21:05,Cash Deposit,Branch,Cash Deposit,,,USA,8595.75,722570.29,true,ALERT-2025-00426
+TXN-000623,ACC-0016,CUST-0006,2025-07-04,11:43:45,Cash Deposit,Branch,Cash Deposit,,,USA,9207.64,36968.65,true,ALERT-2025-00402
+TXN-000624,ACC-0018,CUST-0007,2025-07-04,15:15:26,ACH Credit,ACH,Monthly Salary Credit,Bennett Cardiology PLLC,Payroll Clearing Bank,USA,17034.57,217431.67,false,
+TXN-000625,ACC-0014,CUST-0005,2025-07-05,02:54:48,Cash Deposit,Branch,Cash Deposit,,,USA,29966.88,591310.55,true,ALERT-2025-00392
+TXN-000626,ACC-0053,CUST-0020,2025-07-05,12:14:26,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,33690.98,322871.71,false,
+TXN-000627,ACC-0020,CUST-0008,2025-07-05,16:19:06,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Atlantic Correspondent Bank,USA,10623.24,711947.05,true,ALERT-2025-00419
+TXN-000628,ACC-0018,CUST-0007,2025-07-05,17:36:40,Wire Debit,Wire,International Wire Transfer,Sanaa Export House,Sanaa Exchange Bank,Yemen,76170.36,141261.31,true,ALERT-2025-00408
+TXN-000629,ACC-0014,CUST-0005,2025-07-06,02:12:02,Cash Deposit,Branch,Cash Deposit,,,USA,29462.93,620773.48,true,ALERT-2025-00394
+TXN-000630,ACC-0020,CUST-0008,2025-07-06,10:04:09,Wire Debit,Wire,International Wire Transfer,Shwe Mandalay Imports,Yangon Commercial Bank,Myanmar,46679.66,665267.39,true,ALERT-2025-00432
+TXN-000631,ACC-0020,CUST-0008,2025-07-06,11:03:43,Wire Debit,Wire,International Wire Transfer,Taiz General Trading,Sanaa Exchange Bank,Yemen,40013.44,625253.95,true,ALERT-2025-00433
+TXN-000632,ACC-0007,CUST-0003,2025-07-06,11:49:39,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,233.97,449923.48,false,
+TXN-000633,ACC-0016,CUST-0006,2025-07-06,14:02:34,Cash Deposit,Branch,Cash Deposit,,,USA,9074.68,46043.33,true,ALERT-2025-00404
+TXN-000634,ACC-0018,CUST-0007,2025-07-07,08:02:07,Wire Debit,Wire,International Wire Transfer,Sanaa Export House,Sanaa Exchange Bank,Yemen,46574.19,94687.12,true,ALERT-2025-00407
+TXN-000635,ACC-0020,CUST-0008,2025-07-07,12:35:04,Wire Debit,Wire,International Wire Transfer,Horizon Haiti Trading,Haiti Commercial Bank,Haiti,74980.38,550273.57,true,ALERT-2025-00415
+TXN-000636,ACC-0022,CUST-0009,2025-07-08,09:51:24,Cash Deposit,Branch,Cash Deposit,,,USA,30956.37,182140.99,true,ALERT-2025-00443
+TXN-000637,ACC-0020,CUST-0008,2025-07-08,10:57:38,Wire Debit,Wire,International Wire Transfer,Shwe Mandalay Imports,Mandalay Trade Bank,Myanmar,22479.62,527793.95,true,ALERT-2025-00430
+TXN-000638,ACC-0020,CUST-0008,2025-07-08,12:47:35,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,80249.75,447544.20,true,ALERT-2025-00416
+TXN-000639,ACC-0022,CUST-0009,2025-07-08,13:21:29,Cash Deposit,Branch,Cash Deposit,,,USA,9236.38,191377.37,true,ALERT-2025-00446
+TXN-000640,ACC-0020,CUST-0008,2025-07-09,10:25:55,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Gateway National Bank,USA,85456.87,362087.33,true,ALERT-2025-00438
+TXN-000641,ACC-0041,CUST-0016,2025-07-09,12:07:20,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,44506.95,2000.00,false,
+TXN-000642,ACC-0021,CUST-0008,2025-07-09,12:42:37,Cash Deposit,Branch,Cash Deposit,,,USA,8559.77,64146.39,true,ALERT-2025-00423
+TXN-000643,ACC-0020,CUST-0008,2025-07-10,08:20:47,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,11081.49,351005.84,true,ALERT-2025-00439
+TXN-000644,ACC-0020,CUST-0008,2025-07-11,08:18:24,Cash Deposit,Branch,Cash Deposit,,,USA,8838.67,359844.51,true,ALERT-2025-00411
+TXN-000645,ACC-0022,CUST-0009,2025-07-11,08:34:11,Cash Deposit,Branch,Cash Deposit,,,USA,42805.03,234182.40,true,ALERT-2025-00445
+TXN-000646,ACC-0022,CUST-0009,2025-07-11,14:09:37,Cash Deposit,Branch,Cash Deposit,,,USA,9789.88,243972.28,true,ALERT-2025-00448
+TXN-000647,ACC-0020,CUST-0008,2025-07-11,15:53:25,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,77079.10,282765.41,true,ALERT-2025-00435
+TXN-000648,ACC-0018,CUST-0007,2025-07-11,17:11:26,Wire Debit,Wire,International Wire Transfer,Orontes Market Co,Damascus Mercantile Bank,Syria,60591.29,34095.83,true,ALERT-2025-00409
+TXN-000649,ACC-0020,CUST-0008,2025-07-12,11:41:47,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Gateway National Bank,USA,52829.63,229935.78,true,ALERT-2025-00418
+TXN-000650,ACC-0020,CUST-0008,2025-07-12,12:31:12,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Continental Trust Bank,USA,11452.11,218483.67,true,ALERT-2025-00436
+TXN-000651,ACC-0020,CUST-0008,2025-07-12,12:53:44,Cash Deposit,Branch,Cash Deposit,,,USA,8828.81,227312.48,true,ALERT-2025-00422
+TXN-000652,ACC-0020,CUST-0008,2025-07-12,14:30:15,Cash Deposit,Branch,Cash Deposit,,,USA,9009.02,236321.50,true,ALERT-2025-00420
+TXN-000653,ACC-0020,CUST-0008,2025-07-12,16:35:32,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Gateway National Bank,USA,80572.10,155749.40,true,ALERT-2025-00427
+TXN-000654,ACC-0021,CUST-0008,2025-07-12,17:15:10,Cash Deposit,Branch,Cash Deposit,,,USA,9010.89,73157.28,true,ALERT-2025-00421
+TXN-000655,ACC-0022,CUST-0009,2025-07-13,11:37:08,Card Debit,Online,Online Purchase,NorthStar Online Retail,Metro Regional Bank,USA,299.41,243672.87,false,
+TXN-000656,ACC-0021,CUST-0008,2025-07-13,13:32:41,Cash Deposit,Branch,Cash Deposit,,,USA,9075.06,82232.34,true,ALERT-2025-00428
+TXN-000657,ACC-0022,CUST-0009,2025-07-14,10:04:07,Cash Deposit,Branch,Cash Deposit,,,USA,8914.88,252587.75,true,ALERT-2025-00469
+TXN-000658,ACC-0023,CUST-0009,2025-07-14,10:33:08,Cash Deposit,Branch,Cash Deposit,,,USA,9119.07,56814.76,true,ALERT-2025-00459
+TXN-000659,ACC-0023,CUST-0009,2025-07-14,10:56:46,Cash Deposit,Branch,Cash Deposit,,,USA,8738.77,65553.53,true,ALERT-2025-00447
+TXN-000660,ACC-0020,CUST-0008,2025-07-14,11:15:22,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Gateway National Bank,USA,84209.95,71539.45,true,ALERT-2025-00429
+TXN-000661,ACC-0022,CUST-0009,2025-07-14,11:29:07,Cash Deposit,Branch,Cash Deposit,,,USA,9667.26,262255.01,true,ALERT-2025-00467
+TXN-000662,ACC-0022,CUST-0009,2025-07-14,13:10:09,Cash Deposit,Branch,Cash Deposit,,,USA,42567.91,304822.92,true,ALERT-2025-00457
+TXN-000663,ACC-0022,CUST-0009,2025-07-14,13:44:29,Cash Deposit,Branch,Cash Deposit,,,USA,9449.49,314272.41,true,ALERT-2025-00441
+TXN-000664,ACC-0024,CUST-0010,2025-07-15,12:03:28,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Continental Trust Bank,USA,53495.27,228892.06,true,ALERT-2025-00474
+TXN-000665,ACC-0022,CUST-0009,2025-07-15,12:17:25,Wire Debit,Wire,International Wire Transfer,Aung Min Trading,Mandalay Trade Bank,Myanmar,44475.55,269796.86,true,ALERT-2025-00465
+TXN-000666,ACC-0023,CUST-0009,2025-07-15,16:33:54,Cash Deposit,Branch,Cash Deposit,,,USA,30352.21,95905.74,true,ALERT-2025-00444
+TXN-000667,ACC-0023,CUST-0009,2025-07-15,17:42:35,Cash Deposit,Branch,Cash Deposit,,,USA,9766.95,105672.69,true,ALERT-2025-00442
+TXN-000668,ACC-0024,CUST-0010,2025-07-16,11:38:07,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Continental Trust Bank,USA,73015.53,155876.53,true,ALERT-2025-00473
+TXN-000669,ACC-0023,CUST-0009,2025-07-16,15:14:27,Cash Deposit,Branch,Cash Deposit,,,USA,9552.14,115224.83,true,ALERT-2025-00470
+TXN-000670,ACC-0015,CUST-0005,2025-07-17,10:37:33,ATM Withdrawal,ATM,ATM Withdrawal,City ATM Network,First National Bank — US,USA,199.14,342587.64,false,
+TXN-000671,ACC-0027,CUST-0011,2025-07-17,16:29:58,Cash Deposit,Branch,Cash Deposit,,,USA,38328.36,170450.92,true,ALERT-2025-00477
+TXN-000672,ACC-0024,CUST-0010,2025-07-17,16:45:08,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Atlantic Correspondent Bank,USA,52395.77,103480.76,true,ALERT-2025-00475
+TXN-000673,ACC-0022,CUST-0009,2025-07-18,10:40:43,Cash Deposit,Branch,Cash Deposit,,,USA,8828.06,278624.92,true,ALERT-2025-00450
+TXN-000674,ACC-0006,CUST-0002,2025-07-18,13:15:07,ATM Withdrawal,ATM,ATM Withdrawal,City ATM Network,First National Bank — US,USA,304.30,477317.20,false,
+TXN-000675,ACC-0022,CUST-0009,2025-07-19,10:13:54,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Tehran Commerce Bank,Iran,55304.28,223320.64,true,ALERT-2025-00462
+TXN-000676,ACC-0027,CUST-0011,2025-07-19,10:44:00,Cash Deposit,Branch,Cash Deposit,,,USA,9606.49,180057.41,true,ALERT-2025-00487
+TXN-000677,ACC-0012,CUST-0004,2025-07-19,11:02:33,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,150.10,157090.69,false,
+TXN-000678,ACC-0023,CUST-0009,2025-07-19,12:48:20,Cash Deposit,Branch,Cash Deposit,,,USA,8619.98,123844.81,true,ALERT-2025-00456
+TXN-000679,ACC-0027,CUST-0011,2025-07-19,14:15:56,Cash Deposit,Branch,Cash Deposit,,,USA,9340.56,189397.97,true,ALERT-2025-00480
+TXN-000680,ACC-0024,CUST-0010,2025-07-19,15:37:53,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Gateway National Bank,USA,81690.45,21790.31,true,ALERT-2025-00471
+TXN-000681,ACC-0028,CUST-0012,2025-07-19,16:08:44,ACH Credit,ACH,Monthly Salary Credit,Stone Legal PLLC,Payroll Clearing Bank,USA,14885.52,1448256.11,false,
+TXN-000682,ACC-0023,CUST-0009,2025-07-20,11:27:10,Cash Deposit,Branch,Cash Deposit,,,USA,9614.01,133458.82,true,ALERT-2025-00468
+TXN-000683,ACC-0027,CUST-0011,2025-07-20,11:56:06,Cash Deposit,Branch,Cash Deposit,,,USA,8791.48,198189.45,true,ALERT-2025-00481
+TXN-000684,ACC-0022,CUST-0009,2025-07-20,12:06:16,Cash Deposit,Branch,Cash Deposit,,,USA,9237.81,232558.45,true,ALERT-2025-00463
+TXN-000685,ACC-0023,CUST-0009,2025-07-20,15:54:42,Cash Deposit,Branch,Cash Deposit,,,USA,9493.42,142952.24,true,ALERT-2025-00451
+TXN-000686,ACC-0022,CUST-0009,2025-07-21,08:15:36,Wire Debit,Wire,International Wire Transfer,Lahore Machinery Works,Lahore Exchange Bank,Pakistan,50548.89,182009.56,true,ALERT-2025-00460
+TXN-000687,ACC-0027,CUST-0011,2025-07-21,10:37:37,Cash Deposit,Branch,Cash Deposit,,,USA,8555.46,206744.91,true,ALERT-2025-00478
+TXN-000688,ACC-0027,CUST-0011,2025-07-21,10:45:57,Cash Deposit,Branch,Cash Deposit,,,USA,24575.28,231320.19,true,ALERT-2025-00496
+TXN-000689,ACC-0022,CUST-0009,2025-07-21,15:46:41,Wire Debit,Wire,International Wire Transfer,Kaveh Mohammadi,Tehran Commerce Bank,Iran,24630.85,157378.71,true,ALERT-2025-00461
+TXN-000690,ACC-0022,CUST-0009,2025-07-21,17:43:40,Cash Deposit,Branch,Cash Deposit,,,USA,9880.48,167259.19,true,ALERT-2025-00458
+TXN-000691,ACC-0027,CUST-0011,2025-07-22,09:39:43,Cash Deposit,Branch,Cash Deposit,,,USA,9220.05,240540.24,true,ALERT-2025-00482
+TXN-000692,ACC-0027,CUST-0011,2025-07-22,12:01:21,Cash Deposit,Branch,Cash Deposit,,,USA,29704.04,270244.28,true,ALERT-2025-00495
+TXN-000693,ACC-0027,CUST-0011,2025-07-22,15:55:51,Cash Deposit,Branch,Cash Deposit,,,USA,9589.05,279833.33,true,ALERT-2025-00499
+TXN-000694,ACC-0027,CUST-0011,2025-07-23,09:44:39,Cash Deposit,Branch,Cash Deposit,,,USA,8599.64,288432.97,true,ALERT-2025-00483
+TXN-000695,ACC-0051,CUST-0019,2025-07-23,09:45:30,ACH Debit,Online,Tax or Insurance Payment,Treasury Services Clearing,First National Bank — US,USA,17994.83,99675.46,false,
+TXN-000696,ACC-0027,CUST-0011,2025-07-23,10:16:19,Cash Deposit,Branch,Cash Deposit,,,USA,8769.63,297202.60,true,ALERT-2025-00489
+TXN-000697,ACC-0027,CUST-0011,2025-07-23,10:25:18,Cash Deposit,Branch,Cash Deposit,,,USA,44095.59,341298.19,true,ALERT-2025-00479
+TXN-000698,ACC-0027,CUST-0011,2025-07-23,13:52:37,Cash Deposit,Branch,Cash Deposit,,,USA,9509.15,350807.34,true,ALERT-2025-00497
+TXN-000699,ACC-0023,CUST-0009,2025-07-23,13:54:17,Cash Deposit,Branch,Cash Deposit,,,USA,8677.61,151629.85,true,ALERT-2025-00466
+TXN-000700,ACC-0028,CUST-0012,2025-07-23,16:11:10,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Gateway National Bank,USA,67205.91,1381050.20,true,ALERT-2025-00508
+TXN-000701,ACC-0021,CUST-0008,2025-07-23,16:25:00,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,2365.36,79866.98,false,
+TXN-000702,ACC-0047,CUST-0017,2025-07-24,08:16:12,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,25327.07,1709238.60,false,
+TXN-000703,ACC-0027,CUST-0011,2025-07-24,11:57:32,Cash Deposit,Branch,Cash Deposit,,,USA,8710.39,359517.73,true,ALERT-2025-00504
+TXN-000704,ACC-0027,CUST-0011,2025-07-24,12:26:01,ACH Credit,ACH,Monthly Salary Credit,ONeill Auto Group,Payroll Clearing Bank,USA,13346.03,372863.76,false,
+TXN-000705,ACC-0027,CUST-0011,2025-07-24,15:32:01,Cash Deposit,Branch,Cash Deposit,,,USA,32368.22,405231.98,true,ALERT-2025-00492
+TXN-000706,ACC-0027,CUST-0011,2025-07-25,08:06:23,Cash Deposit,Branch,Cash Deposit,,,USA,8906.73,414138.71,true,ALERT-2025-00501
+TXN-000707,ACC-0027,CUST-0011,2025-07-25,09:48:12,Cash Deposit,Branch,Cash Deposit,,,USA,8878.66,423017.37,true,ALERT-2025-00486
+TXN-000708,ACC-0028,CUST-0012,2025-07-25,13:49:36,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,62093.04,1318957.16,true,ALERT-2025-00511
+TXN-000709,ACC-0028,CUST-0012,2025-07-25,14:11:56,Wire Debit,Wire,International Wire Transfer,Shwe Mandalay Imports,Mandalay Trade Bank,Myanmar,37147.63,1281809.53,true,ALERT-2025-00509
+TXN-000710,ACC-0027,CUST-0011,2025-07-25,15:12:48,Cash Deposit,Branch,Cash Deposit,,,USA,9089.57,432106.94,true,ALERT-2025-00498
+TXN-000711,ACC-0027,CUST-0011,2025-07-25,17:31:46,Cash Deposit,Branch,Cash Deposit,,,USA,8911.65,441018.59,true,ALERT-2025-00502
+TXN-000712,ACC-0027,CUST-0011,2025-07-26,10:17:53,Cash Deposit,Branch,Cash Deposit,,,USA,9356.40,450374.99,true,ALERT-2025-00488
+TXN-000713,ACC-0027,CUST-0011,2025-07-26,11:42:06,Cash Deposit,Branch,Cash Deposit,,,USA,40157.00,490531.99,true,ALERT-2025-00505
+TXN-000714,ACC-0027,CUST-0011,2025-07-26,12:53:19,Cash Deposit,Branch,Cash Deposit,,,USA,31313.54,521845.53,true,ALERT-2025-00490
+TXN-000715,ACC-0027,CUST-0011,2025-07-27,13:37:02,Cash Deposit,Branch,Cash Deposit,,,USA,38960.29,560805.82,true,ALERT-2025-00493
+TXN-000716,ACC-0028,CUST-0012,2025-07-27,16:15:31,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Metro Regional Bank,USA,39602.26,1242207.27,true,ALERT-2025-00516
+TXN-000717,ACC-0028,CUST-0012,2025-07-28,09:00:43,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Metro Regional Bank,USA,73543.55,1168663.72,true,ALERT-2025-00512
+TXN-000718,ACC-0034,CUST-0014,2025-07-28,12:20:23,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,15707.17,279125.16,false,
+TXN-000719,ACC-0028,CUST-0012,2025-07-30,11:27:01,Wire Debit,Wire,International Wire Transfer,Caribbean Relief Logistics,Port-au-Prince Bank,Haiti,62408.53,1106255.19,true,ALERT-2025-00524
+TXN-000720,ACC-0028,CUST-0012,2025-07-30,12:25:44,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,28308.05,1077947.14,true,ALERT-2025-00525
+TXN-000721,ACC-0027,CUST-0011,2025-07-30,15:48:06,Cash Deposit,Branch,Cash Deposit,,,USA,9627.59,570433.41,true,ALERT-2025-00500
+TXN-000722,ACC-0028,CUST-0012,2025-07-31,09:25:11,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Atlantic Correspondent Bank,USA,12807.43,1065139.71,true,ALERT-2025-00507
+TXN-000723,ACC-0028,CUST-0012,2025-07-31,09:49:50,Wire Debit,Wire,International Wire Transfer,Shwe Mandalay Imports,Yangon Commercial Bank,Myanmar,66358.04,998781.67,true,ALERT-2025-00523
+TXN-000724,ACC-0028,CUST-0012,2025-07-31,10:33:31,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Gateway National Bank,USA,66867.06,931914.61,true,ALERT-2025-00515
+TXN-000725,ACC-0028,CUST-0012,2025-07-31,13:18:46,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Metro Regional Bank,USA,17534.78,914379.83,true,ALERT-2025-00517
+TXN-000726,ACC-0028,CUST-0012,2025-07-31,15:28:12,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Gateway National Bank,USA,40711.46,873668.37,true,ALERT-2025-00522
+TXN-000727,ACC-0044,CUST-0017,2025-08-01,09:20:17,Wire Debit,Wire,Supplier Payment,Supplier Payment Clearing,Continental Trust Bank,USA,16182.93,3487766.29,false,
+TXN-000728,ACC-0016,CUST-0006,2025-08-01,17:13:50,Card Debit,Online,Online Purchase,NorthStar Online Retail,Metro Regional Bank,USA,177.97,45865.36,false,
+TXN-000729,ACC-0028,CUST-0012,2025-08-02,08:39:14,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Metro Regional Bank,USA,91832.95,781835.42,true,ALERT-2025-00527
+TXN-000730,ACC-0028,CUST-0012,2025-08-02,12:46:55,Wire Debit,Wire,International Wire Transfer,Caribbean Relief Logistics,Haiti Commercial Bank,Haiti,53947.57,727887.85,true,ALERT-2025-00518
+TXN-000731,ACC-0028,CUST-0012,2025-08-02,16:08:21,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Atlantic Correspondent Bank,USA,78965.75,648922.10,true,ALERT-2025-00519
+TXN-000732,ACC-0028,CUST-0012,2025-08-03,10:24:49,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Tehran Commerce Bank,Iran,67736.80,581185.30,true,ALERT-2025-00513
+TXN-000733,ACC-0021,CUST-0008,2025-08-04,11:25:59,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,3498.94,76368.04,false,
+TXN-000734,ACC-0027,CUST-0011,2025-08-04,13:20:12,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,61.82,570371.59,false,
+TXN-000735,ACC-0032,CUST-0013,2025-08-04,15:07:32,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,1114.89,266294.21,false,
+TXN-000736,ACC-0028,CUST-0012,2025-08-04,15:39:19,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Metro Regional Bank,USA,25472.65,555712.65,true,ALERT-2025-00514
+TXN-000737,ACC-0029,CUST-0012,2025-08-05,10:26:41,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,114.30,141052.00,false,
+TXN-000738,ACC-0028,CUST-0012,2025-08-05,17:09:14,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Atlantic Correspondent Bank,USA,70629.18,485083.47,true,ALERT-2025-00534
+TXN-000739,ACC-0028,CUST-0012,2025-08-05,17:58:09,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,52386.14,432697.33,true,ALERT-2025-00526
+TXN-000740,ACC-0030,CUST-0013,2025-08-06,13:40:48,Cash Deposit,Branch,Cash Deposit,,,USA,8608.20,459286.94,true,ALERT-2025-00538
+TXN-000741,ACC-0028,CUST-0012,2025-08-07,08:40:38,Wire Debit,Wire,International Wire Transfer,Sanaa Export House,Aden Commercial Bank,Yemen,66461.05,366236.28,true,ALERT-2025-00528
+TXN-000742,ACC-0030,CUST-0013,2025-08-07,09:54:15,Cash Deposit,Branch,Cash Deposit,,,USA,32037.20,491324.14,true,ALERT-2025-00540
+TXN-000743,ACC-0028,CUST-0012,2025-08-07,15:54:39,Wire Debit,Wire,International Wire Transfer,Orontes Market Co,Damascus Mercantile Bank,Syria,27862.38,338373.90,true,ALERT-2025-00532
+TXN-000744,ACC-0030,CUST-0013,2025-08-08,12:59:58,Cash Deposit,Branch,Cash Deposit,,,USA,39287.92,530612.06,true,ALERT-2025-00536
+TXN-000745,ACC-0028,CUST-0012,2025-08-08,15:10:56,Wire Debit,Wire,International Wire Transfer,Kaveh Mohammadi,Tehran Commerce Bank,Iran,30175.03,308198.87,true,ALERT-2025-00531
+TXN-000746,ACC-0031,CUST-0013,2025-08-08,16:12:11,Cash Deposit,Branch,Cash Deposit,,,USA,29142.78,302716.00,true,ALERT-2025-00543
+TXN-000747,ACC-0028,CUST-0012,2025-08-09,13:13:18,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Atlantic Correspondent Bank,USA,20305.48,287893.39,true,ALERT-2025-00530
+TXN-000748,ACC-0028,CUST-0012,2025-08-09,17:22:54,Wire Debit,Wire,International Wire Transfer,Damascus General Trading,Damascus Mercantile Bank,Syria,31636.86,256256.53,true,ALERT-2025-00529
+TXN-000749,ACC-0031,CUST-0013,2025-08-10,08:25:10,Cash Deposit,Branch,Cash Deposit,,,USA,8537.94,311253.94,true,ALERT-2025-00545
+TXN-000750,ACC-0032,CUST-0013,2025-08-10,12:17:02,Cash Deposit,Branch,Cash Deposit,,,USA,9825.33,276119.54,true,ALERT-2025-00547
+TXN-000751,ACC-0028,CUST-0012,2025-08-11,09:58:58,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Metro Regional Bank,USA,91669.32,164587.21,true,ALERT-2025-00535
+TXN-000752,ACC-0051,CUST-0019,2025-08-11,10:55:03,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,33330.78,66344.68,false,
+TXN-000753,ACC-0030,CUST-0013,2025-08-11,14:54:37,Cash Deposit,Branch,Cash Deposit,,,USA,8888.18,539500.24,true,ALERT-2025-00546
+TXN-000754,ACC-0031,CUST-0013,2025-08-12,09:54:43,Cash Deposit,Branch,Cash Deposit,,,USA,9437.66,320691.60,true,ALERT-2025-00552
+TXN-000755,ACC-0019,CUST-0007,2025-08-12,10:53:36,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,285.33,38224.40,false,
+TXN-000756,ACC-0032,CUST-0013,2025-08-12,14:18:31,Cash Deposit,Branch,Cash Deposit,,,USA,42904.44,319023.98,true,ALERT-2025-00537
+TXN-000757,ACC-0015,CUST-0005,2025-08-12,15:48:54,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,111.55,342476.09,false,
+TXN-000758,ACC-0002,CUST-0001,2025-08-12,16:09:35,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,163.11,384507.56,false,
+TXN-000759,ACC-0054,CUST-0020,2025-08-12,16:54:48,Wire Debit,Wire,Supplier Payment,Supplier Payment Clearing,Continental Trust Bank,USA,10928.92,50854.68,false,
+TXN-000760,ACC-0032,CUST-0013,2025-08-13,10:45:10,Cash Deposit,Branch,Cash Deposit,,,USA,19283.97,338307.95,true,ALERT-2025-00550
+TXN-000761,ACC-0032,CUST-0013,2025-08-13,13:54:04,Cash Deposit,Branch,Cash Deposit,,,USA,38435.17,376743.12,true,ALERT-2025-00542
+TXN-000762,ACC-0028,CUST-0012,2025-08-13,17:42:18,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Continental Trust Bank,USA,39952.55,124634.66,true,ALERT-2025-00533
+TXN-000763,ACC-0030,CUST-0013,2025-08-14,14:39:09,Cash Deposit,Branch,Cash Deposit,,,USA,33049.02,572549.26,true,ALERT-2025-00561
+TXN-000764,ACC-0023,CUST-0009,2025-08-14,15:49:25,ATM Withdrawal,ATM,ATM Withdrawal,City ATM Network,First National Bank — US,USA,399.44,151230.41,false,
+TXN-000765,ACC-0030,CUST-0013,2025-08-15,09:32:08,Cash Deposit,Branch,Cash Deposit,,,USA,9351.08,581900.34,true,ALERT-2025-00556
+TXN-000766,ACC-0030,CUST-0013,2025-08-15,11:30:10,Cash Deposit,Branch,Cash Deposit,,,USA,9131.86,591032.20,true,ALERT-2025-00553
+TXN-000767,ACC-0032,CUST-0013,2025-08-15,13:33:12,Cash Deposit,Branch,Cash Deposit,,,USA,34712.19,411455.31,true,ALERT-2025-00562
+TXN-000768,ACC-0031,CUST-0013,2025-08-15,17:52:46,Cash Deposit,Branch,Cash Deposit,,,USA,22003.97,342695.57,true,ALERT-2025-00539
+TXN-000769,ACC-0032,CUST-0013,2025-08-16,14:40:35,Cash Deposit,Branch,Cash Deposit,,,USA,9348.28,420803.59,true,ALERT-2025-00541
+TXN-000770,ACC-0030,CUST-0013,2025-08-17,09:42:52,Cash Deposit,Branch,Cash Deposit,,,USA,40077.47,631109.67,true,ALERT-2025-00570
+TXN-000771,ACC-0031,CUST-0013,2025-08-17,12:14:36,Cash Deposit,Branch,Cash Deposit,,,USA,9098.63,351794.20,true,ALERT-2025-00548
+TXN-000772,ACC-0032,CUST-0013,2025-08-17,12:17:49,Cash Deposit,Branch,Cash Deposit,,,USA,9878.31,430681.90,true,ALERT-2025-00557
+TXN-000773,ACC-0031,CUST-0013,2025-08-17,12:22:20,Cash Deposit,Branch,Cash Deposit,,,USA,29447.71,381241.91,true,ALERT-2025-00563
+TXN-000774,ACC-0032,CUST-0013,2025-08-17,15:54:08,Cash Deposit,Branch,Cash Deposit,,,USA,9774.39,440456.29,true,ALERT-2025-00564
+TXN-000775,ACC-0032,CUST-0013,2025-08-17,16:21:21,Cash Deposit,Branch,Cash Deposit,,,USA,8671.88,449128.17,true,ALERT-2025-00551
+TXN-000776,ACC-0030,CUST-0013,2025-08-17,16:42:37,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Continental Trust Bank,USA,90715.32,540394.35,true,ALERT-2025-00569
+TXN-000777,ACC-0030,CUST-0013,2025-08-18,17:48:26,Cash Deposit,Branch,Cash Deposit,,,USA,9847.23,550241.58,true,ALERT-2025-00549
+TXN-000778,ACC-0031,CUST-0013,2025-08-19,08:43:34,Cash Deposit,Branch,Cash Deposit,,,USA,8916.74,390158.65,true,ALERT-2025-00578
+TXN-000779,ACC-0030,CUST-0013,2025-08-19,10:07:47,Cash Deposit,Branch,Cash Deposit,,,USA,8699.45,558941.03,true,ALERT-2025-00587
+TXN-000780,ACC-0031,CUST-0013,2025-08-19,11:27:27,Cash Deposit,Branch,Cash Deposit,,,USA,30841.60,421000.25,true,ALERT-2025-00560
+TXN-000781,ACC-0025,CUST-0010,2025-08-19,11:48:58,ATM Withdrawal,ATM,ATM Withdrawal,City ATM Network,First National Bank — US,USA,305.81,34671.89,false,
+TXN-000782,ACC-0030,CUST-0013,2025-08-19,12:55:57,Cash Deposit,Branch,Cash Deposit,,,USA,27531.78,586472.81,true,ALERT-2025-00565
+TXN-000783,ACC-0032,CUST-0013,2025-08-19,13:22:47,Cash Deposit,Branch,Cash Deposit,,,USA,9701.64,458829.81,true,ALERT-2025-00554
+TXN-000784,ACC-0040,CUST-0016,2025-08-19,14:05:38,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,26789.05,104344.38,false,
+TXN-000785,ACC-0031,CUST-0013,2025-08-20,09:35:31,Cash Deposit,Branch,Cash Deposit,,,USA,9698.58,430698.83,true,ALERT-2025-00558
+TXN-000786,ACC-0007,CUST-0003,2025-08-20,12:59:55,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,251.89,449671.59,false,
+TXN-000787,ACC-0031,CUST-0013,2025-08-20,13:58:22,Cash Deposit,Branch,Cash Deposit,,,USA,9138.29,439837.12,true,ALERT-2025-00573
+TXN-000788,ACC-0030,CUST-0013,2025-08-21,13:40:43,Cash Deposit,Branch,Cash Deposit,,,USA,8613.63,595086.44,true,ALERT-2025-00559
+TXN-000789,ACC-0031,CUST-0013,2025-08-21,15:47:12,Cash Deposit,Branch,Cash Deposit,,,USA,18862.09,458699.21,true,ALERT-2025-00568
+TXN-000790,ACC-0031,CUST-0013,2025-08-22,11:30:03,Cash Deposit,Branch,Cash Deposit,,,USA,8766.80,467466.01,true,ALERT-2025-00567
+TXN-000791,ACC-0032,CUST-0013,2025-08-22,13:02:00,Cash Deposit,Branch,Cash Deposit,,,USA,9458.26,468288.07,true,ALERT-2025-00572
+TXN-000792,ACC-0048,CUST-0018,2025-08-22,17:11:02,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,14061.38,864140.45,false,
+TXN-000793,ACC-0031,CUST-0013,2025-08-23,10:55:17,Cash Deposit,Branch,Cash Deposit,,,USA,9763.79,477229.80,true,ALERT-2025-00593
+TXN-000794,ACC-0037,CUST-0015,2025-08-23,11:05:04,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,20742.38,897848.45,false,
+TXN-000795,ACC-0032,CUST-0013,2025-08-23,13:52:35,Cash Deposit,Branch,Cash Deposit,,,USA,9659.52,477947.59,true,ALERT-2025-00598
+TXN-000796,ACC-0032,CUST-0013,2025-08-23,15:48:06,Cash Deposit,Branch,Cash Deposit,,,USA,8784.51,486732.10,true,ALERT-2025-00588
+TXN-000797,ACC-0031,CUST-0013,2025-08-24,14:55:14,Cash Deposit,Branch,Cash Deposit,,,USA,8804.18,486033.98,true,ALERT-2025-00582
+TXN-000798,ACC-0031,CUST-0013,2025-08-25,08:22:21,Cash Deposit,Branch,Cash Deposit,,,USA,9896.15,495930.13,true,ALERT-2025-00596
+TXN-000799,ACC-0030,CUST-0013,2025-08-25,09:20:50,Cash Deposit,Branch,Cash Deposit,,,USA,9226.19,604312.63,true,ALERT-2025-00597
+TXN-000800,ACC-0031,CUST-0013,2025-08-25,10:18:04,Cash Deposit,Branch,Cash Deposit,,,USA,9459.76,505389.89,true,ALERT-2025-00599
+TXN-000801,ACC-0030,CUST-0013,2025-08-25,14:49:25,Cash Deposit,Branch,Cash Deposit,,,USA,9684.49,613997.12,true,ALERT-2025-00583
+TXN-000802,ACC-0032,CUST-0013,2025-08-25,16:58:41,Cash Deposit,Branch,Cash Deposit,,,USA,21322.61,508054.71,true,ALERT-2025-00586
+TXN-000803,ACC-0032,CUST-0013,2025-08-26,09:23:04,Cash Deposit,Branch,Cash Deposit,,,USA,9406.34,517461.05,true,ALERT-2025-00577
+TXN-000804,ACC-0030,CUST-0013,2025-08-26,09:47:55,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Atlantic Correspondent Bank,USA,19800.86,594196.26,true,ALERT-2025-00601
+TXN-000805,ACC-0030,CUST-0013,2025-08-26,12:21:11,Cash Deposit,Branch,Cash Deposit,,,USA,9608.74,603805.00,true,ALERT-2025-00579
+TXN-000806,ACC-0030,CUST-0013,2025-08-27,14:43:23,Cash Deposit,Branch,Cash Deposit,,,USA,8506.18,612311.18,true,ALERT-2025-00575
+TXN-000807,ACC-0030,CUST-0013,2025-08-28,08:13:55,Cash Deposit,Branch,Cash Deposit,,,USA,9293.00,621604.18,true,ALERT-2025-00594
+TXN-000808,ACC-0031,CUST-0013,2025-08-28,09:29:52,Cash Deposit,Branch,Cash Deposit,,,USA,31820.15,537210.04,true,ALERT-2025-00600
+TXN-000809,ACC-0032,CUST-0013,2025-08-28,10:45:22,Cash Deposit,Branch,Cash Deposit,,,USA,9571.36,527032.41,true,ALERT-2025-00584
+TXN-000810,ACC-0030,CUST-0013,2025-08-28,11:38:07,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,56577.96,565026.22,true,ALERT-2025-00606
+TXN-000811,ACC-0032,CUST-0013,2025-08-28,11:53:17,Cash Deposit,Branch,Cash Deposit,,,USA,8965.45,535997.86,true,ALERT-2025-00615
+TXN-000812,ACC-0030,CUST-0013,2025-08-28,13:09:14,Cash Deposit,Branch,Cash Deposit,,,USA,37407.26,602433.48,true,ALERT-2025-00614
+TXN-000813,ACC-0032,CUST-0013,2025-08-28,13:30:53,Cash Deposit,Branch,Cash Deposit,,,USA,9639.84,545637.70,true,ALERT-2025-00592
+TXN-000814,ACC-0004,CUST-0002,2025-08-28,13:31:22,ACH Credit,ACH,Monthly Salary Credit,Kaplan Fine Jewelry,Payroll Clearing Bank,USA,15764.46,536562.49,false,
+TXN-000815,ACC-0031,CUST-0013,2025-08-30,10:04:58,Cash Deposit,Branch,Cash Deposit,,,USA,8993.70,546203.74,true,ALERT-2025-00607
+TXN-000816,ACC-0031,CUST-0013,2025-08-31,13:43:32,Cash Deposit,Branch,Cash Deposit,,,USA,8734.02,554937.76,true,ALERT-2025-00589
+TXN-000817,ACC-0030,CUST-0013,2025-08-31,16:11:27,Cash Deposit,Branch,Cash Deposit,,,USA,9476.91,611910.39,true,ALERT-2025-00590
+TXN-000818,ACC-0036,CUST-0014,2025-08-31,17:49:53,Wire Debit,Wire,International Wire Transfer,Al-Nour Supplies,Damascus Mercantile Bank,Syria,69020.18,1403707.64,true,ALERT-2025-00621
+TXN-000819,ACC-0033,CUST-0014,2025-09-01,09:10:47,Wire Debit,Wire,International Wire Transfer,Volga Industrial Supply,Moscow Industrial Bank,Russia,35413.86,2933632.05,true,ALERT-2025-00616
+TXN-000820,ACC-0030,CUST-0013,2025-09-01,14:04:08,Cash Deposit,Branch,Cash Deposit,,,USA,8789.79,620700.18,true,ALERT-2025-00608
+TXN-000821,ACC-0033,CUST-0014,2025-09-02,12:18:36,Wire Debit,Wire,Trade Payment - Invoice INV63694,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,75000.00,2858632.05,true,ALERT-2025-00626
+TXN-000822,ACC-0033,CUST-0014,2025-09-02,13:24:45,Wire Debit,Wire,International Wire Transfer,Yadanar Logistics,Yangon Commercial Bank,Myanmar,46592.05,2812040.00,true,ALERT-2025-00619
+TXN-000823,ACC-0030,CUST-0013,2025-09-03,13:20:08,Cash Deposit,Branch,Cash Deposit,,,USA,27790.63,648490.81,true,ALERT-2025-00604
+TXN-000824,ACC-0030,CUST-0013,2025-09-03,16:54:59,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,39441.65,609049.16,true,ALERT-2025-00603
+TXN-000825,ACC-0035,CUST-0014,2025-09-04,10:23:35,Wire Debit,Wire,Trade Payment - Invoice INV60151,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,60000.00,2370270.43,true,ALERT-2025-00624
+TXN-000826,ACC-0035,CUST-0014,2025-09-04,15:06:28,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Parsian Bank,Iran,78811.16,2291459.27,true,ALERT-2025-00633
+TXN-000827,ACC-0030,CUST-0013,2025-09-05,09:12:00,Cash Deposit,Branch,Cash Deposit,,,USA,9329.99,618379.15,true,ALERT-2025-00612
+TXN-000828,ACC-0033,CUST-0014,2025-09-05,12:02:44,Wire Debit,Wire,Trade Payment - Invoice INV60106,Monterrey Industrial Exporters,Banco Industrial Norte,Mexico,50000.00,2762040.00,true,ALERT-2025-00641
+TXN-000829,ACC-0035,CUST-0014,2025-09-05,12:29:01,Wire Debit,Wire,International Wire Transfer,Orontes Market Co,Levant Correspondent Bank,Syria,61435.76,2230023.51,true,ALERT-2025-00625
+TXN-000830,ACC-0002,CUST-0001,2025-09-05,12:58:40,Card Debit,Online,Online Purchase,NorthStar Online Retail,Metro Regional Bank,USA,160.47,384347.09,false,
+TXN-000831,ACC-0032,CUST-0013,2025-09-05,13:43:31,Cash Deposit,Branch,Cash Deposit,,,USA,9199.89,554837.59,true,ALERT-2025-00605
+TXN-000832,ACC-0035,CUST-0014,2025-09-05,15:26:13,Wire Debit,Wire,International Wire Transfer,Tehran Star Trading,Parsian Bank,Iran,45604.11,2184419.40,true,ALERT-2025-00617
+TXN-000833,ACC-0036,CUST-0014,2025-09-05,16:44:35,Wire Debit,Wire,International Wire Transfer,Aung Min Trading,Mandalay Trade Bank,Myanmar,49949.61,1353758.03,true,ALERT-2025-00628
+TXN-000834,ACC-0031,CUST-0013,2025-09-05,17:20:18,Cash Deposit,Branch,Cash Deposit,,,USA,9273.19,564210.95,true,ALERT-2025-00611
+TXN-000835,ACC-0035,CUST-0014,2025-09-06,09:55:32,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Continental Trust Bank,USA,50830.05,2133589.35,true,ALERT-2025-00646
+TXN-000836,ACC-0051,CUST-0019,2025-09-06,11:11:16,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,17022.64,49322.04,false,
+TXN-000837,ACC-0035,CUST-0014,2025-09-06,14:29:07,Wire Debit,Wire,Trade Payment - Invoice INV32670,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,60000.00,2073589.35,true,ALERT-2025-00630
+TXN-000838,ACC-0036,CUST-0014,2025-09-06,16:21:13,Wire Debit,Wire,International Wire Transfer,Kaveh Mohammadi,Parsian Bank,Iran,48386.90,1305371.13,true,ALERT-2025-00634
+TXN-000839,ACC-0036,CUST-0014,2025-09-06,16:35:51,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Mandalay Trade Bank,Myanmar,35008.77,1270362.36,true,ALERT-2025-00618
+TXN-000840,ACC-0033,CUST-0014,2025-09-06,16:42:27,Wire Debit,Wire,Trade Payment - Invoice INV61426,Monterrey Industrial Exporters,Banco Industrial Norte,Mexico,40000.00,2722040.00,true,ALERT-2025-00632
+TXN-000841,ACC-0021,CUST-0008,2025-09-07,08:24:27,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,159.03,76209.01,false,
+TXN-000842,ACC-0025,CUST-0010,2025-09-07,08:31:47,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,119.30,34552.59,false,
+TXN-000843,ACC-0036,CUST-0014,2025-09-07,10:59:31,Wire Debit,Wire,Trade Payment - Invoice INV54235,Shenzhen Allied Components,Pearl River Trade Bank,China,75000.00,1195362.36,true,ALERT-2025-00627
+TXN-000844,ACC-0035,CUST-0014,2025-09-07,13:17:44,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Gateway National Bank,USA,15886.95,2057702.40,true,ALERT-2025-00631
+TXN-000845,ACC-0035,CUST-0014,2025-09-07,13:21:25,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Tehran Commerce Bank,Iran,53609.46,2004092.94,true,ALERT-2025-00620
+TXN-000846,ACC-0033,CUST-0014,2025-09-07,16:16:03,Wire Debit,Wire,International Wire Transfer,Nevsky Trade Bureau,Moscow Industrial Bank,Russia,30998.56,2691041.44,true,ALERT-2025-00623
+TXN-000847,ACC-0023,CUST-0009,2025-09-07,16:18:14,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,241.21,150989.20,false,
+TXN-000848,ACC-0035,CUST-0014,2025-09-08,08:26:55,Wire Debit,Wire,International Wire Transfer,Tehran Star Trading,Tehran Commerce Bank,Iran,43184.38,1960908.56,true,ALERT-2025-00651
+TXN-000849,ACC-0035,CUST-0014,2025-09-08,12:28:49,Wire Debit,Wire,Trade Payment - Invoice INV70908,Monterrey Industrial Exporters,Banco Industrial Norte,Mexico,75000.00,1885908.56,true,ALERT-2025-00647
+TXN-000850,ACC-0033,CUST-0014,2025-09-08,14:00:30,Wire Debit,Wire,International Wire Transfer,Volga Industrial Supply,Moscow Industrial Bank,Russia,65920.97,2625120.47,true,ALERT-2025-00635
+TXN-000851,ACC-0033,CUST-0014,2025-09-09,12:22:10,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Metro Regional Bank,USA,52450.37,2572670.10,true,ALERT-2025-00654
+TXN-000852,ACC-0033,CUST-0014,2025-09-09,14:20:21,Wire Debit,Wire,International Wire Transfer,Tehran Star Trading,Tehran Commerce Bank,Iran,77452.37,2495217.73,true,ALERT-2025-00629
+TXN-000853,ACC-0035,CUST-0014,2025-09-09,15:06:35,Wire Debit,Wire,International Wire Transfer,Levant Cedar Group,Damascus Mercantile Bank,Syria,81540.85,1804367.71,true,ALERT-2025-00636
+TXN-000854,ACC-0033,CUST-0014,2025-09-09,15:15:31,Wire Debit,Wire,International Wire Transfer,Parsian Industrial Group,Parsian Bank,Iran,29314.24,2465903.49,true,ALERT-2025-00643
+TXN-000855,ACC-0035,CUST-0014,2025-09-09,17:14:20,Wire Debit,Wire,International Wire Transfer,Yadanar Logistics,Yangon Commercial Bank,Myanmar,83252.66,1721115.05,true,ALERT-2025-00645
+TXN-000856,ACC-0013,CUST-0005,2025-09-10,13:10:04,ACH Credit,ACH,Monthly Salary Credit,Reed Nightlife Group,Payroll Clearing Bank,USA,15762.62,443368.62,false,
+TXN-000857,ACC-0035,CUST-0014,2025-09-10,15:03:56,Wire Debit,Wire,International Wire Transfer,Aden Freight Services,Sanaa Exchange Bank,Yemen,35667.33,1685447.72,true,ALERT-2025-00661
+TXN-000858,ACC-0036,CUST-0014,2025-09-10,16:22:56,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,88699.20,1106663.16,true,ALERT-2025-00637
+TXN-000859,ACC-0036,CUST-0014,2025-09-11,08:38:10,Wire Debit,Wire,International Wire Transfer,Siberia Freight Group,Moscow Industrial Bank,Russia,83459.10,1023204.06,true,ALERT-2025-00662
+TXN-000860,ACC-0033,CUST-0014,2025-09-11,13:45:16,Wire Debit,Wire,International Wire Transfer,Kaveh Mohammadi,Parsian Bank,Iran,44466.53,2421436.96,true,ALERT-2025-00653
+TXN-000861,ACC-0033,CUST-0014,2025-09-11,17:13:29,Wire Debit,Wire,International Wire Transfer,Aung Min Trading,Mandalay Trade Bank,Myanmar,84365.55,2337071.41,true,ALERT-2025-00663
+TXN-000862,ACC-0033,CUST-0014,2025-09-12,08:50:07,Wire Debit,Wire,Trade Payment - Invoice INV94349,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,125000.00,2212071.41,true,ALERT-2025-00655
+TXN-000863,ACC-0035,CUST-0014,2025-09-12,09:42:12,Wire Debit,Wire,International Wire Transfer,Shwe Mandalay Imports,Yangon Commercial Bank,Myanmar,21447.07,1664000.65,true,ALERT-2025-00664
+TXN-000864,ACC-0036,CUST-0014,2025-09-12,09:57:39,Wire Debit,Wire,Trade Payment - Invoice INV39751,Dubai Free Zone Commodities,Emirates Trade Bank,United Arab Emirates,60000.00,963204.06,true,ALERT-2025-00644
+TXN-000865,ACC-0035,CUST-0014,2025-09-12,14:43:22,Wire Debit,Wire,Trade Payment - Invoice INV82392,Dubai Free Zone Commodities,Emirates Trade Bank,United Arab Emirates,100000.00,1564000.65,true,ALERT-2025-00639
+TXN-000866,ACC-0033,CUST-0014,2025-09-13,09:22:26,Wire Debit,Wire,International Wire Transfer,Nevsky Trade Bureau,Volga Correspondent Bank,Russia,41509.84,2170561.57,true,ALERT-2025-00669
+TXN-000867,ACC-0035,CUST-0014,2025-09-13,10:55:01,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Atlantic Correspondent Bank,USA,17434.43,1546566.22,true,ALERT-2025-00656
+TXN-000868,ACC-0042,CUST-0016,2025-09-14,08:13:05,ACH Debit,Online,Tax or Insurance Payment,Treasury Services Clearing,First National Bank — US,USA,27616.39,979944.62,false,
+TXN-000869,ACC-0033,CUST-0014,2025-09-14,08:22:26,Wire Debit,Wire,International Wire Transfer,Shwe Mandalay Imports,Mandalay Trade Bank,Myanmar,33489.47,2137072.10,true,ALERT-2025-00676
+TXN-000870,ACC-0036,CUST-0014,2025-09-14,09:17:54,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Atlantic Correspondent Bank,USA,23062.60,940141.46,true,ALERT-2025-00666
+TXN-000871,ACC-0036,CUST-0014,2025-09-14,12:09:20,Wire Debit,Wire,International Wire Transfer,Tehran Star Trading,Tehran Commerce Bank,Iran,65027.56,875113.90,true,ALERT-2025-00642
+TXN-000872,ACC-0033,CUST-0014,2025-09-14,15:07:55,Wire Debit,Wire,International Wire Transfer,Tehran Star Trading,Parsian Bank,Iran,70788.61,2066283.49,true,ALERT-2025-00649
+TXN-000873,ACC-0037,CUST-0015,2025-09-14,16:12:14,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,22846.32,875002.13,false,
+TXN-000874,ACC-0033,CUST-0014,2025-09-14,17:53:21,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,47385.53,2018897.96,true,ALERT-2025-00675
+TXN-000875,ACC-0033,CUST-0014,2025-09-15,12:49:44,Wire Debit,Wire,Supplier Payment,Supplier Payment Clearing,Continental Trust Bank,USA,23956.25,1994941.71,false,
+TXN-000876,ACC-0016,CUST-0006,2025-09-15,17:58:44,ACH Credit,ACH,Monthly Salary Credit,Cascade Cloud Systems,Payroll Clearing Bank,USA,6769.01,52634.37,false,
+TXN-000877,ACC-0036,CUST-0014,2025-09-16,12:43:45,Wire Debit,Wire,International Wire Transfer,Yadanar Logistics,Mandalay Trade Bank,Myanmar,25464.74,849649.16,true,ALERT-2025-00681
+TXN-000878,ACC-0033,CUST-0014,2025-09-16,16:40:05,Wire Debit,Wire,International Wire Transfer,Kaveh Mohammadi,Parsian Bank,Iran,70929.19,1924012.52,true,ALERT-2025-00679
+TXN-000879,ACC-0035,CUST-0014,2025-09-17,08:56:52,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Parsian Bank,Iran,78232.24,1468333.98,true,ALERT-2025-00680
+TXN-000880,ACC-0036,CUST-0014,2025-09-17,12:06:23,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Tehran Commerce Bank,Iran,63788.34,785860.82,true,ALERT-2025-00652
+TXN-000881,ACC-0033,CUST-0014,2025-09-17,14:27:31,Wire Debit,Wire,International Wire Transfer,Al-Nour Supplies,Damascus Mercantile Bank,Syria,36797.82,1887214.70,true,ALERT-2025-00682
+TXN-000882,ACC-0033,CUST-0014,2025-09-18,09:11:17,Wire Debit,Wire,Trade Payment - Invoice INV36634,Ho Chi Minh Textile Supply,Saigon Commercial Bank,Vietnam,40000.00,1847214.70,true,ALERT-2025-00674
+TXN-000883,ACC-0036,CUST-0014,2025-09-18,09:55:39,Wire Debit,Wire,International Wire Transfer,Marib Commodities,Sanaa Exchange Bank,Yemen,24766.68,761094.14,true,ALERT-2025-00659
+TXN-000884,ACC-0035,CUST-0014,2025-09-18,12:24:32,Wire Debit,Wire,International Wire Transfer,Damascus General Trading,Levant Correspondent Bank,Syria,50802.33,1417531.65,true,ALERT-2025-00657
+TXN-000885,ACC-0036,CUST-0014,2025-09-18,13:10:31,Wire Debit,Wire,International Wire Transfer,Kazan Metals LLC,Moscow Industrial Bank,Russia,45593.64,715500.50,true,ALERT-2025-00665
+TXN-000886,ACC-0035,CUST-0014,2025-09-19,09:01:46,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Metro Regional Bank,USA,47659.79,1369871.86,true,ALERT-2025-00671
+TXN-000887,ACC-0036,CUST-0014,2025-09-19,10:02:12,Wire Debit,Wire,Trade Payment - Invoice INV42840,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,50000.00,665500.50,true,ALERT-2025-00685
+TXN-000888,ACC-0029,CUST-0012,2025-09-19,15:28:15,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,3601.51,137450.49,false,
+TXN-000889,ACC-0036,CUST-0014,2025-09-21,10:47:48,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Yangon Commercial Bank,Myanmar,27133.28,638367.22,true,ALERT-2025-00672
+TXN-000890,ACC-0036,CUST-0014,2025-09-21,11:58:26,Wire Debit,Wire,International Wire Transfer,Nevsky Trade Bureau,Moscow Industrial Bank,Russia,37484.55,600882.67,true,ALERT-2025-00678
+TXN-000891,ACC-0033,CUST-0014,2025-09-21,12:42:53,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Metro Regional Bank,USA,66410.78,1780803.92,true,ALERT-2025-00668
+TXN-000892,ACC-0004,CUST-0002,2025-09-21,12:55:45,ACH Credit,ACH,Monthly Salary Credit,Kaplan Fine Jewelry,Payroll Clearing Bank,USA,16434.28,552996.77,false,
+TXN-000893,ACC-0053,CUST-0020,2025-09-21,15:32:29,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,13046.01,309825.70,false,
+TXN-000894,ACC-0035,CUST-0014,2025-09-22,14:08:10,Wire Debit,Wire,International Wire Transfer,Levant Cedar Group,Damascus Mercantile Bank,Syria,25018.22,1344853.64,true,ALERT-2025-00683
+TXN-000895,ACC-0035,CUST-0014,2025-09-23,09:32:49,Wire Debit,Wire,International Wire Transfer,Orontes Market Co,Damascus Mercantile Bank,Syria,49580.22,1295273.42,true,ALERT-2025-00677
+TXN-000896,ACC-0036,CUST-0014,2025-09-23,11:59:37,Wire Debit,Wire,International Wire Transfer,Volga Industrial Supply,Moscow Industrial Bank,Russia,23063.72,577818.95,true,ALERT-2025-00693
+TXN-000897,ACC-0035,CUST-0014,2025-09-23,16:31:51,Wire Debit,Wire,International Wire Transfer,Damascus General Trading,Levant Correspondent Bank,Syria,24328.43,1270944.99,true,ALERT-2025-00692
+TXN-000898,ACC-0039,CUST-0015,2025-09-24,10:01:50,Wire Debit,Wire,Trade Payment - Invoice INV49846,Dubai Free Zone Commodities,Emirates Trade Bank,United Arab Emirates,125000.00,1170927.76,true,ALERT-2025-00700
+TXN-000899,ACC-0030,CUST-0013,2025-09-25,09:35:57,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,24825.73,593553.42,false,
+TXN-000900,ACC-0039,CUST-0015,2025-09-25,14:43:11,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Metro Regional Bank,USA,26703.06,1144224.70,true,ALERT-2025-00701
+TXN-000901,ACC-0039,CUST-0015,2025-09-26,10:22:27,Wire Debit,Wire,International Wire Transfer,Yadanar Logistics,Mandalay Trade Bank,Myanmar,21979.19,1122245.51,true,ALERT-2025-00702
+TXN-000902,ACC-0037,CUST-0015,2025-09-26,14:03:51,Wire Debit,Wire,International Wire Transfer,Kazan Metals LLC,Volga Correspondent Bank,Russia,19243.40,855758.73,true,ALERT-2025-00697
+TXN-000903,ACC-0037,CUST-0015,2025-09-27,09:45:14,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Gateway National Bank,USA,89370.36,766388.37,true,ALERT-2025-00707
+TXN-000904,ACC-0045,CUST-0017,2025-09-27,12:33:33,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,46362.63,2402672.35,false,
+TXN-000905,ACC-0037,CUST-0015,2025-09-27,16:23:43,Cash Deposit,Branch,Cash Deposit,,,USA,9010.21,775398.58,true,ALERT-2025-00699
+TXN-000906,ACC-0009,CUST-0003,2025-09-28,10:17:28,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,206.08,911497.17,false,
+TXN-000907,ACC-0035,CUST-0014,2025-09-28,16:48:48,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,68158.87,1202786.12,true,ALERT-2025-00686
+TXN-000908,ACC-0037,CUST-0015,2025-09-29,11:48:08,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,69251.59,706146.99,true,ALERT-2025-00712
+TXN-000909,ACC-0036,CUST-0014,2025-09-29,12:53:08,Wire Debit,Wire,International Wire Transfer,Parsian Industrial Group,Tehran Commerce Bank,Iran,61487.81,516331.14,true,ALERT-2025-00689
+TXN-000910,ACC-0037,CUST-0015,2025-09-29,17:08:29,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Gateway National Bank,USA,25025.86,681121.13,true,ALERT-2025-00698
+TXN-000911,ACC-0038,CUST-0015,2025-09-30,09:24:48,Cash Deposit,Branch,Cash Deposit,,,USA,9456.41,168585.47,true,ALERT-2025-00714
+TXN-000912,ACC-0033,CUST-0014,2025-09-30,09:57:53,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Parsian Bank,Iran,58609.59,1722194.33,true,ALERT-2025-00690
+TXN-000913,ACC-0039,CUST-0015,2025-09-30,11:26:06,Wire Debit,Wire,International Wire Transfer,Kazan Metals LLC,Moscow Industrial Bank,Russia,38218.96,1084026.55,true,ALERT-2025-00717
+TXN-000914,ACC-0031,CUST-0013,2025-10-01,15:19:29,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,15728.80,548482.15,false,
+TXN-000915,ACC-0027,CUST-0011,2025-10-01,16:28:23,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,4013.42,566358.17,false,
+TXN-000916,ACC-0039,CUST-0015,2025-10-02,10:48:37,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,88271.98,995754.57,true,ALERT-2025-00710
+TXN-000917,ACC-0037,CUST-0015,2025-10-02,12:57:45,Cash Deposit,Branch,Cash Deposit,,,USA,41645.92,722767.05,true,ALERT-2025-00709
+TXN-000918,ACC-0019,CUST-0007,2025-10-03,08:17:14,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,317.61,37906.79,false,
+TXN-000919,ACC-0051,CUST-0019,2025-10-03,09:02:40,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,549.64,48772.40,false,
+TXN-000920,ACC-0005,CUST-0002,2025-10-03,13:30:34,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,178.99,442560.86,false,
+TXN-000921,ACC-0012,CUST-0004,2025-10-03,14:48:40,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,213.64,156877.05,false,
+TXN-000922,ACC-0002,CUST-0001,2025-10-03,15:16:20,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,88.05,384259.04,false,
+TXN-000923,ACC-0039,CUST-0015,2025-10-03,16:25:02,Wire Debit,Wire,International Wire Transfer,Aung Min Trading,Mandalay Trade Bank,Myanmar,21268.07,974486.50,true,ALERT-2025-00725
+TXN-000924,ACC-0039,CUST-0015,2025-10-03,16:50:53,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Continental Trust Bank,USA,82810.83,891675.67,true,ALERT-2025-00718
+TXN-000925,ACC-0038,CUST-0015,2025-10-04,08:40:09,Cash Deposit,Branch,Cash Deposit,,,USA,36671.50,205256.97,true,ALERT-2025-00705
+TXN-000926,ACC-0037,CUST-0015,2025-10-04,12:31:18,Wire Debit,Wire,International Wire Transfer,Nevsky Trade Bureau,Volga Correspondent Bank,Russia,48946.58,673820.47,true,ALERT-2025-00704
+TXN-000927,ACC-0039,CUST-0015,2025-10-05,11:15:04,Wire Debit,Wire,International Wire Transfer,Aden Freight Services,Sanaa Exchange Bank,Yemen,23652.61,868023.06,true,ALERT-2025-00729
+TXN-000928,ACC-0038,CUST-0015,2025-10-05,11:37:38,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,42869.62,162387.35,false,
+TXN-000929,ACC-0038,CUST-0015,2025-10-05,14:01:31,Cash Deposit,Branch,Cash Deposit,,,USA,40518.13,202905.48,true,ALERT-2025-00727
+TXN-000930,ACC-0049,CUST-0018,2025-10-05,16:32:00,Wire Debit,Wire,Supplier Payment,Supplier Payment Clearing,Continental Trust Bank,USA,88615.49,78025.72,false,
+TXN-000931,ACC-0037,CUST-0015,2025-10-05,16:57:03,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Metro Regional Bank,USA,33703.88,640116.59,true,ALERT-2025-00716
+TXN-000932,ACC-0039,CUST-0015,2025-10-06,08:44:15,Wire Debit,Wire,International Wire Transfer,Yadanar Logistics,Mandalay Trade Bank,Myanmar,56501.75,811521.31,true,ALERT-2025-00711
+TXN-000933,ACC-0037,CUST-0015,2025-10-06,11:47:16,Cash Deposit,Branch,Cash Deposit,,,USA,8748.73,648865.32,true,ALERT-2025-00713
+TXN-000934,ACC-0038,CUST-0015,2025-10-06,17:56:44,Cash Deposit,Branch,Cash Deposit,,,USA,9281.88,212187.36,true,ALERT-2025-00740
+TXN-000935,ACC-0038,CUST-0015,2025-10-07,11:04:00,Cash Deposit,Branch,Cash Deposit,,,USA,31981.44,244168.80,true,ALERT-2025-00719
+TXN-000936,ACC-0037,CUST-0015,2025-10-07,16:06:59,Wire Debit,Wire,International Wire Transfer,Nevsky Trade Bureau,Volga Correspondent Bank,Russia,82902.39,565962.93,true,ALERT-2025-00744
+TXN-000937,ACC-0037,CUST-0015,2025-10-08,08:25:31,Wire Debit,Wire,International Wire Transfer,Damascus General Trading,Levant Correspondent Bank,Syria,39687.74,526275.19,true,ALERT-2025-00750
+TXN-000938,ACC-0037,CUST-0015,2025-10-08,08:44:21,Cash Deposit,Branch,Cash Deposit,,,USA,9853.56,536128.75,true,ALERT-2025-00724
+TXN-000939,ACC-0039,CUST-0015,2025-10-08,09:25:37,Wire Debit,Wire,International Wire Transfer,Volga Industrial Supply,Moscow Industrial Bank,Russia,70274.25,741247.06,true,ALERT-2025-00736
+TXN-000940,ACC-0038,CUST-0015,2025-10-08,10:45:39,Cash Deposit,Branch,Cash Deposit,,,USA,9860.56,254029.36,true,ALERT-2025-00749
+TXN-000941,ACC-0037,CUST-0015,2025-10-08,10:59:02,Cash Deposit,Branch,Cash Deposit,,,USA,8800.40,544929.15,true,ALERT-2025-00745
+TXN-000942,ACC-0037,CUST-0015,2025-10-08,14:06:10,Cash Deposit,Branch,Cash Deposit,,,USA,19516.09,564445.24,true,ALERT-2025-00726
+TXN-000943,ACC-0038,CUST-0015,2025-10-09,08:22:03,Cash Deposit,Branch,Cash Deposit,,,USA,8949.85,262979.21,true,ALERT-2025-00753
+TXN-000944,ACC-0037,CUST-0015,2025-10-09,08:26:20,Wire Debit,Wire,International Wire Transfer,Yadanar Logistics,Yangon Commercial Bank,Myanmar,74032.86,490412.38,true,ALERT-2025-00722
+TXN-000945,ACC-0037,CUST-0015,2025-10-09,08:43:30,Cash Deposit,Branch,Cash Deposit,,,USA,9450.94,499863.32,true,ALERT-2025-00739
+TXN-000946,ACC-0039,CUST-0015,2025-10-09,08:52:13,Wire Debit,Wire,International Wire Transfer,Aung Min Trading,Yangon Commercial Bank,Myanmar,76911.99,664335.07,true,ALERT-2025-00734
+TXN-000947,ACC-0037,CUST-0015,2025-10-09,09:21:26,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Metro Regional Bank,USA,41848.94,458014.38,true,ALERT-2025-00723
+TXN-000948,ACC-0037,CUST-0015,2025-10-09,09:31:46,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Atlantic Correspondent Bank,USA,29828.71,428185.67,true,ALERT-2025-00731
+TXN-000949,ACC-0037,CUST-0015,2025-10-09,10:01:11,Wire Debit,Wire,International Wire Transfer,Damascus General Trading,Damascus Mercantile Bank,Syria,34110.71,394074.96,true,ALERT-2025-00732
+TXN-000950,ACC-0039,CUST-0015,2025-10-09,13:53:45,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Atlantic Correspondent Bank,USA,28566.18,635768.89,true,ALERT-2025-00730
+TXN-000951,ACC-0022,CUST-0009,2025-10-10,09:09:51,ACH Credit,ACH,Monthly Salary Credit,Ramirez Contracting LLC,Payroll Clearing Bank,USA,8570.80,175829.99,false,
+TXN-000952,ACC-0037,CUST-0015,2025-10-10,10:08:15,Wire Debit,Wire,International Wire Transfer,Taiz General Trading,Aden Commercial Bank,Yemen,55440.47,338634.49,true,ALERT-2025-00738
+TXN-000953,ACC-0037,CUST-0015,2025-10-10,14:09:39,Cash Deposit,Branch,Cash Deposit,,,USA,40333.42,378967.91,true,ALERT-2025-00752
+TXN-000954,ACC-0038,CUST-0015,2025-10-10,16:35:22,Cash Deposit,Branch,Cash Deposit,,,USA,20641.22,283620.43,true,ALERT-2025-00759
+TXN-000955,ACC-0037,CUST-0015,2025-10-11,08:07:30,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Continental Trust Bank,USA,79721.90,299246.01,true,ALERT-2025-00763
+TXN-000956,ACC-0045,CUST-0017,2025-10-11,08:09:00,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,10804.56,2391867.79,false,
+TXN-000957,ACC-0038,CUST-0015,2025-10-11,10:06:56,Cash Deposit,Branch,Cash Deposit,,,USA,8743.49,292363.92,true,ALERT-2025-00755
+TXN-000958,ACC-0038,CUST-0015,2025-10-11,13:25:26,Cash Deposit,Branch,Cash Deposit,,,USA,9055.52,301419.44,true,ALERT-2025-00737
+TXN-000959,ACC-0037,CUST-0015,2025-10-12,09:04:23,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Gateway National Bank,USA,87370.97,211875.04,true,ALERT-2025-00769
+TXN-000960,ACC-0039,CUST-0015,2025-10-12,15:09:43,Wire Debit,Wire,Trade Payment - Invoice INV72207,Istanbul Marine Parts,Anatolia Merchant Bank,Turkey,60000.00,575768.89,true,ALERT-2025-00743
+TXN-000961,ACC-0038,CUST-0015,2025-10-13,08:41:02,Cash Deposit,Branch,Cash Deposit,,,USA,9051.49,310470.93,true,ALERT-2025-00770
+TXN-000962,ACC-0040,CUST-0016,2025-10-13,10:16:32,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,54889.42,159233.80,false,
+TXN-000963,ACC-0037,CUST-0015,2025-10-13,11:59:35,Wire Debit,Wire,International Wire Transfer,Aden Freight Services,Aden Commercial Bank,Yemen,18155.46,193719.58,true,ALERT-2025-00767
+TXN-000964,ACC-0037,CUST-0015,2025-10-13,15:41:56,Cash Deposit,Branch,Cash Deposit,,,USA,41510.89,235230.47,true,ALERT-2025-00741
+TXN-000965,ACC-0039,CUST-0015,2025-10-13,16:44:58,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Tehran Commerce Bank,Iran,72461.17,503307.72,true,ALERT-2025-00765
+TXN-000966,ACC-0039,CUST-0015,2025-10-14,14:18:39,Wire Debit,Wire,International Wire Transfer,Aung Min Trading,Yangon Commercial Bank,Myanmar,59732.39,443575.33,true,ALERT-2025-00742
+TXN-000967,ACC-0038,CUST-0015,2025-10-15,11:15:51,Cash Deposit,Branch,Cash Deposit,,,USA,8739.30,319210.23,true,ALERT-2025-00758
+TXN-000968,ACC-0037,CUST-0015,2025-10-15,11:22:06,Cash Deposit,Branch,Cash Deposit,,,USA,9388.11,244618.58,true,ALERT-2025-00751
+TXN-000969,ACC-0039,CUST-0015,2025-10-15,12:46:07,Wire Debit,Wire,International Wire Transfer,Isfahan Merchant House,Tehran Commerce Bank,Iran,70101.38,373473.95,true,ALERT-2025-00768
+TXN-000970,ACC-0020,CUST-0008,2025-10-15,14:12:22,ACH Credit,ACH,Monthly Salary Credit,Lakefront Wealth Advisors,Payroll Clearing Bank,USA,10771.37,82310.82,false,
+TXN-000971,ACC-0040,CUST-0016,2025-10-16,09:42:53,Cash Deposit,Branch,Cash Deposit,,,USA,23300.67,182534.47,true,ALERT-2025-00783
+TXN-000972,ACC-0037,CUST-0015,2025-10-16,13:11:07,Cash Deposit,Branch,Cash Deposit,,,USA,9000.18,253618.76,true,ALERT-2025-00754
+TXN-000973,ACC-0039,CUST-0015,2025-10-16,15:01:14,Wire Debit,Wire,International Wire Transfer,Kaveh Mohammadi,Parsian Bank,Iran,36969.30,336504.65,true,ALERT-2025-00775
+TXN-000974,ACC-0037,CUST-0015,2025-10-16,15:23:11,Cash Deposit,Branch,Cash Deposit,,,USA,9002.31,262621.07,true,ALERT-2025-00756
+TXN-000975,ACC-0040,CUST-0016,2025-10-17,09:14:11,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Metro Regional Bank,USA,17639.53,164894.94,true,ALERT-2025-00788
+TXN-000976,ACC-0040,CUST-0016,2025-10-17,13:39:01,Cash Deposit,Branch,Cash Deposit,,,USA,31989.96,196884.90,true,ALERT-2025-00776
+TXN-000977,ACC-0037,CUST-0015,2025-10-17,15:06:50,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Yangon Commercial Bank,Myanmar,24762.94,237858.13,true,ALERT-2025-00774
+TXN-000978,ACC-0041,CUST-0016,2025-10-18,09:51:14,Cash Deposit,Branch,Cash Deposit,,,USA,36401.55,38401.55,true,ALERT-2025-00785
+TXN-000979,ACC-0040,CUST-0016,2025-10-18,14:13:03,Cash Deposit,Branch,Cash Deposit,,,USA,35118.38,232003.28,true,ALERT-2025-00781
+TXN-000980,ACC-0007,CUST-0003,2025-10-18,14:45:10,Card Debit,Online,Online Purchase,NorthStar Online Retail,Metro Regional Bank,USA,250.79,449420.80,false,
+TXN-000981,ACC-0038,CUST-0015,2025-10-18,15:42:26,Cash Deposit,Branch,Cash Deposit,,,USA,9104.04,328314.27,true,ALERT-2025-00762
+TXN-000982,ACC-0037,CUST-0015,2025-10-19,12:21:56,Cash Deposit,Branch,Cash Deposit,,,USA,8566.43,246424.56,true,ALERT-2025-00766
+TXN-000983,ACC-0037,CUST-0015,2025-10-19,14:54:54,Wire Debit,Wire,International Wire Transfer,Aden Freight Services,Aden Commercial Bank,Yemen,38290.14,208134.42,true,ALERT-2025-00772
+TXN-000984,ACC-0037,CUST-0015,2025-10-19,16:56:02,Wire Debit,Wire,Outgoing Wire Transfer,NorthBridge Capital LLC,Gateway National Bank,USA,57015.94,151118.48,true,ALERT-2025-00771
+TXN-000985,ACC-0041,CUST-0016,2025-10-20,08:55:49,Cash Deposit,Branch,Cash Deposit,,,USA,36719.24,75120.79,true,ALERT-2025-00789
+TXN-000986,ACC-0040,CUST-0016,2025-10-21,08:24:46,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Continental Trust Bank,USA,33598.67,198404.61,true,ALERT-2025-00795
+TXN-000987,ACC-0039,CUST-0015,2025-10-21,08:52:49,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Yangon Commercial Bank,Myanmar,41345.44,295159.21,true,ALERT-2025-00773
+TXN-000988,ACC-0040,CUST-0016,2025-10-21,13:57:16,Cash Deposit,Branch,Cash Deposit,,,USA,25771.63,224176.24,true,ALERT-2025-00791
+TXN-000989,ACC-0041,CUST-0016,2025-10-22,08:56:11,Cash Deposit,Branch,Cash Deposit,,,USA,30782.13,105902.92,true,ALERT-2025-00796
+TXN-000990,ACC-0040,CUST-0016,2025-10-22,09:38:11,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Atlantic Correspondent Bank,USA,33240.85,190935.39,true,ALERT-2025-00798
+TXN-000991,ACC-0040,CUST-0016,2025-10-22,16:56:59,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,43161.79,147773.60,true,ALERT-2025-00784
+TXN-000992,ACC-0040,CUST-0016,2025-10-23,09:27:56,Cash Deposit,Branch,Cash Deposit,,,USA,38528.45,186302.05,true,ALERT-2025-00787
+TXN-000993,ACC-0041,CUST-0016,2025-10-23,14:24:55,Cash Deposit,Branch,Cash Deposit,,,USA,24619.77,130522.69,true,ALERT-2025-00782
+TXN-000994,ACC-0040,CUST-0016,2025-10-23,16:33:42,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Gateway National Bank,USA,38296.45,148005.60,true,ALERT-2025-00780
+TXN-000995,ACC-0041,CUST-0016,2025-10-23,16:55:29,Cash Deposit,Branch,Cash Deposit,,,USA,28429.23,158951.92,true,ALERT-2025-00799
+TXN-000996,ACC-0040,CUST-0016,2025-10-23,17:28:35,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Metro Regional Bank,USA,14968.52,133037.08,true,ALERT-2025-00779
+TXN-000997,ACC-0040,CUST-0016,2025-10-24,08:50:22,Cash Deposit,Branch,Cash Deposit,,,USA,28362.91,161399.99,true,ALERT-2025-00806
+TXN-000998,ACC-0055,CUST-0020,2025-10-24,10:40:59,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,1624.39,470763.16,false,
+TXN-000999,ACC-0016,CUST-0006,2025-10-24,11:58:44,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,1938.48,50695.89,false,
+TXN-001000,ACC-0042,CUST-0016,2025-10-24,14:18:29,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Gateway National Bank,USA,30760.61,949184.01,true,ALERT-2025-00804
+TXN-001001,ACC-0040,CUST-0016,2025-10-24,16:55:14,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Metro Regional Bank,USA,32104.19,129295.80,true,ALERT-2025-00803
+TXN-001002,ACC-0041,CUST-0016,2025-10-25,08:32:50,Cash Deposit,Branch,Cash Deposit,,,USA,23023.83,181975.75,true,ALERT-2025-00809
+TXN-001003,ACC-0041,CUST-0016,2025-10-25,09:03:33,Cash Deposit,Branch,Cash Deposit,,,USA,23643.99,205619.74,true,ALERT-2025-00792
+TXN-001004,ACC-0042,CUST-0016,2025-10-25,11:13:33,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Metro Regional Bank,USA,32233.67,916950.34,true,ALERT-2025-00786
+TXN-001005,ACC-0040,CUST-0016,2025-10-26,11:09:55,Cash Deposit,Branch,Cash Deposit,,,USA,39202.33,168498.13,true,ALERT-2025-00793
+TXN-001006,ACC-0014,CUST-0005,2025-10-26,15:15:30,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,179.66,620593.82,false,
+TXN-001007,ACC-0040,CUST-0016,2025-10-26,17:02:40,Cash Deposit,Branch,Cash Deposit,,,USA,32203.47,200701.60,true,ALERT-2025-00800
+TXN-001008,ACC-0042,CUST-0016,2025-10-27,08:22:13,Wire Credit,Wire,Incoming Wire Transfer,Gateway Settlement Partners,Atlantic Correspondent Bank,USA,245365.84,1162316.18,true,ALERT-2025-00802
+TXN-001009,ACC-0040,CUST-0016,2025-10-27,08:25:41,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Continental Trust Bank,USA,8605.17,192096.43,true,ALERT-2025-00822
+TXN-001010,ACC-0028,CUST-0012,2025-10-27,12:56:10,ACH Credit,ACH,Monthly Salary Credit,Stone Legal PLLC,Payroll Clearing Bank,USA,13059.40,137694.06,false,
+TXN-001011,ACC-0040,CUST-0016,2025-10-27,13:19:54,Cash Deposit,Branch,Cash Deposit,,,USA,32114.25,224210.68,true,ALERT-2025-00815
+TXN-001012,ACC-0040,CUST-0016,2025-10-27,14:08:45,Cash Deposit,Branch,Cash Deposit,,,USA,27611.23,251821.91,true,ALERT-2025-00808
+TXN-001013,ACC-0040,CUST-0016,2025-10-29,16:52:48,Cash Deposit,Branch,Cash Deposit,,,USA,34562.23,286384.14,true,ALERT-2025-00797
+TXN-001014,ACC-0040,CUST-0016,2025-10-30,14:55:31,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Continental Trust Bank,USA,30117.80,256266.34,true,ALERT-2025-00811
+TXN-001015,ACC-0041,CUST-0016,2025-10-30,15:14:12,Cash Deposit,Branch,Cash Deposit,,,USA,39517.18,245136.92,true,ALERT-2025-00814
+TXN-001016,ACC-0040,CUST-0016,2025-10-31,12:03:16,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Gateway National Bank,USA,30372.58,225893.76,true,ALERT-2025-00818
+TXN-001017,ACC-0041,CUST-0016,2025-10-31,12:12:11,Cash Deposit,Branch,Cash Deposit,,,USA,23260.79,268397.71,true,ALERT-2025-00801
+TXN-001018,ACC-0040,CUST-0016,2025-10-31,13:19:58,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Gateway National Bank,USA,30006.51,195887.25,true,ALERT-2025-00821
+TXN-001019,ACC-0040,CUST-0016,2025-11-01,08:51:10,Cash Deposit,Branch,Cash Deposit,,,USA,19824.81,215712.06,true,ALERT-2025-00810
+TXN-001020,ACC-0039,CUST-0015,2025-11-01,09:57:45,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,2002.19,293157.02,false,
+TXN-001021,ACC-0040,CUST-0016,2025-11-01,11:57:07,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Metro Regional Bank,USA,74570.86,141141.20,true,ALERT-2025-00816
+TXN-001022,ACC-0041,CUST-0016,2025-11-01,13:56:08,Cash Deposit,Branch,Cash Deposit,,,USA,21188.85,289586.56,true,ALERT-2025-00825
+TXN-001023,ACC-0040,CUST-0016,2025-11-01,17:13:12,Cash Deposit,Branch,Cash Deposit,,,USA,24635.43,165776.63,true,ALERT-2025-00831
+TXN-001024,ACC-0041,CUST-0016,2025-11-02,09:00:22,Cash Deposit,Branch,Cash Deposit,,,USA,33257.96,322844.52,true,ALERT-2025-00812
+TXN-001025,ACC-0041,CUST-0016,2025-11-02,14:52:02,Cash Deposit,Branch,Cash Deposit,,,USA,18356.22,341200.74,true,ALERT-2025-00832
+TXN-001026,ACC-0040,CUST-0016,2025-11-02,15:31:44,Cash Deposit,Branch,Cash Deposit,,,USA,40710.02,206486.65,true,ALERT-2025-00829
+TXN-001027,ACC-0042,CUST-0016,2025-11-02,17:57:59,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Gateway National Bank,USA,51145.56,1111170.62,true,ALERT-2025-00835
+TXN-001028,ACC-0040,CUST-0016,2025-11-03,08:42:32,Cash Deposit,Branch,Cash Deposit,,,USA,42170.05,248656.70,true,ALERT-2025-00823
+TXN-001029,ACC-0040,CUST-0016,2025-11-03,14:59:58,Wire Credit,Wire,Incoming Wire Transfer,NorthBridge Capital LLC,Atlantic Correspondent Bank,USA,345869.75,594526.45,true,ALERT-2025-00826
+TXN-001030,ACC-0029,CUST-0012,2025-11-03,16:06:48,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,1556.61,135893.88,false,
+TXN-001031,ACC-0042,CUST-0016,2025-11-04,11:01:22,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Continental Trust Bank,USA,30054.74,1081115.88,true,ALERT-2025-00817
+TXN-001032,ACC-0040,CUST-0016,2025-11-04,17:16:52,Cash Deposit,Branch,Cash Deposit,,,USA,39199.11,633725.56,true,ALERT-2025-00813
+TXN-001033,ACC-0041,CUST-0016,2025-11-04,17:50:47,Cash Deposit,Branch,Cash Deposit,,,USA,25257.74,366458.48,true,ALERT-2025-00819
+TXN-001034,ACC-0040,CUST-0016,2025-11-04,17:59:57,Cash Deposit,Branch,Cash Deposit,,,USA,42631.72,676357.28,true,ALERT-2025-00833
+TXN-001035,ACC-0042,CUST-0016,2025-11-05,09:28:11,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Continental Trust Bank,USA,30007.22,1051108.66,true,ALERT-2025-00824
+TXN-001036,ACC-0040,CUST-0016,2025-11-05,11:30:28,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,55369.68,620987.60,true,ALERT-2025-00846
+TXN-001037,ACC-0021,CUST-0008,2025-11-05,11:45:51,ATM Withdrawal,ATM,ATM Withdrawal,City ATM Network,First National Bank — US,USA,409.61,75799.40,false,
+TXN-001038,ACC-0041,CUST-0016,2025-11-05,15:26:49,Cash Deposit,Branch,Cash Deposit,,,USA,26245.10,392703.58,true,ALERT-2025-00839
+TXN-001039,ACC-0041,CUST-0016,2025-11-07,10:40:40,Cash Deposit,Branch,Cash Deposit,,,USA,23959.59,416663.17,true,ALERT-2025-00830
+TXN-001040,ACC-0040,CUST-0016,2025-11-07,10:58:24,Cash Deposit,Branch,Cash Deposit,,,USA,18978.27,639965.87,true,ALERT-2025-00849
+TXN-001041,ACC-0046,CUST-0017,2025-11-07,11:18:00,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Continental Trust Bank,USA,53436.97,916541.11,true,ALERT-2025-00856
+TXN-001042,ACC-0041,CUST-0016,2025-11-07,12:27:24,Cash Deposit,Branch,Cash Deposit,,,USA,27901.32,444564.49,true,ALERT-2025-00848
+TXN-001043,ACC-0041,CUST-0016,2025-11-07,12:50:12,Cash Deposit,Branch,Cash Deposit,,,USA,42649.72,487214.21,true,ALERT-2025-00845
+TXN-001044,ACC-0040,CUST-0016,2025-11-07,14:57:59,Cash Deposit,Branch,Cash Deposit,,,USA,26425.86,666391.73,true,ALERT-2025-00827
+TXN-001045,ACC-0044,CUST-0017,2025-11-07,14:58:11,Cash Deposit,Branch,Cash Deposit,,,USA,39320.06,3527086.35,true,ALERT-2025-00860
+TXN-001046,ACC-0041,CUST-0016,2025-11-07,15:47:45,Cash Deposit,Branch,Cash Deposit,,,USA,26049.56,513263.77,true,ALERT-2025-00828
+TXN-001047,ACC-0040,CUST-0016,2025-11-07,17:35:17,Cash Deposit,Branch,Cash Deposit,,,USA,26588.08,692979.81,true,ALERT-2025-00842
+TXN-001048,ACC-0040,CUST-0016,2025-11-08,10:17:30,Cash Deposit,Branch,Cash Deposit,,,USA,31054.33,724034.14,true,ALERT-2025-00847
+TXN-001049,ACC-0040,CUST-0016,2025-11-08,13:33:26,Cash Deposit,Branch,Cash Deposit,,,USA,34869.16,758903.30,true,ALERT-2025-00840
+TXN-001050,ACC-0040,CUST-0016,2025-11-08,15:50:29,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Gateway National Bank,USA,87685.77,671217.53,true,ALERT-2025-00836
+TXN-001051,ACC-0007,CUST-0003,2025-11-08,16:19:04,ACH Credit,ACH,Monthly Salary Credit,Retired,Payroll Clearing Bank,USA,5505.44,454926.24,false,
+TXN-001052,ACC-0044,CUST-0017,2025-11-09,12:31:53,Wire Debit,Wire,Outgoing Wire Transfer,NorthBridge Capital LLC,Continental Trust Bank,USA,60924.13,3466162.22,true,ALERT-2025-00865
+TXN-001053,ACC-0013,CUST-0005,2025-11-09,13:39:13,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,4075.61,439293.01,false,
+TXN-001054,ACC-0035,CUST-0014,2025-11-10,10:02:37,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,30257.46,1233043.58,false,
+TXN-001055,ACC-0040,CUST-0016,2025-11-10,11:00:14,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Continental Trust Bank,USA,10601.40,660616.13,true,ALERT-2025-00854
+TXN-001056,ACC-0046,CUST-0017,2025-11-10,11:07:01,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Gateway National Bank,USA,60096.07,856445.04,true,ALERT-2025-00869
+TXN-001057,ACC-0016,CUST-0006,2025-11-10,12:26:00,ACH Credit,ACH,Monthly Salary Credit,Cascade Cloud Systems,Payroll Clearing Bank,USA,7787.68,58483.57,false,
+TXN-001058,ACC-0041,CUST-0016,2025-11-10,15:55:49,Cash Deposit,Branch,Cash Deposit,,,USA,19682.64,532946.41,true,ALERT-2025-00843
+TXN-001059,ACC-0041,CUST-0016,2025-11-10,16:08:23,Cash Deposit,Branch,Cash Deposit,,,USA,22345.00,555291.41,true,ALERT-2025-00841
+TXN-001060,ACC-0040,CUST-0016,2025-11-10,16:37:32,Cash Deposit,Branch,Cash Deposit,,,USA,19942.55,680558.68,true,ALERT-2025-00844
+TXN-001061,ACC-0004,CUST-0002,2025-11-10,17:00:35,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,2293.77,550703.00,false,
+TXN-001062,ACC-0042,CUST-0016,2025-11-10,17:09:30,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Gateway National Bank,USA,80419.87,970688.79,true,ALERT-2025-00838
+TXN-001063,ACC-0044,CUST-0017,2025-11-11,11:17:46,Wire Debit,Wire,Outgoing Wire Transfer,NorthBridge Capital LLC,Gateway National Bank,USA,47847.10,3418315.12,true,ALERT-2025-00872
+TXN-001064,ACC-0047,CUST-0017,2025-11-12,09:19:22,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Atlantic Correspondent Bank,USA,9386.07,1699852.53,true,ALERT-2025-00858
+TXN-001065,ACC-0044,CUST-0017,2025-11-12,13:48:07,Wire Debit,Wire,International Wire Transfer,Lahore Machinery Works,Lahore Exchange Bank,Pakistan,75164.02,3343151.10,true,ALERT-2025-00866
+TXN-001066,ACC-0046,CUST-0017,2025-11-12,14:25:56,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Metro Regional Bank,USA,56143.82,800301.22,true,ALERT-2025-00867
+TXN-001067,ACC-0044,CUST-0017,2025-11-12,15:22:37,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Gateway National Bank,USA,87211.12,3255939.98,true,ALERT-2025-00861
+TXN-001068,ACC-0044,CUST-0017,2025-11-13,11:42:18,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Gateway National Bank,USA,75567.52,3180372.46,true,ALERT-2025-00859
+TXN-001069,ACC-0046,CUST-0017,2025-11-13,12:29:06,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Continental Trust Bank,USA,44390.32,755910.90,true,ALERT-2025-00864
+TXN-001070,ACC-0027,CUST-0011,2025-11-14,11:29:51,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,3228.01,563130.16,false,
+TXN-001071,ACC-0044,CUST-0017,2025-11-14,13:38:35,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,71714.53,3108657.93,true,ALERT-2025-00871
+TXN-001072,ACC-0041,CUST-0016,2025-11-14,17:12:42,Cash Deposit,Branch,Cash Deposit,,,USA,19719.93,575011.34,true,ALERT-2025-00855
+TXN-001073,ACC-0044,CUST-0017,2025-11-14,17:15:43,Wire Credit,Wire,Incoming Wire Transfer,Continental Payment Hub,Continental Trust Bank,USA,261452.93,3370110.86,true,ALERT-2025-00868
+TXN-001074,ACC-0044,CUST-0017,2025-11-15,12:40:04,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Metro Regional Bank,USA,68789.16,3301321.70,true,ALERT-2025-00857
+TXN-001075,ACC-0041,CUST-0016,2025-11-15,15:00:08,Cash Deposit,Branch,Cash Deposit,,,USA,44864.31,619875.65,true,ALERT-2025-00852
+TXN-001076,ACC-0040,CUST-0016,2025-11-15,17:11:44,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Metro Regional Bank,USA,87978.51,592580.17,true,ALERT-2025-00850
+TXN-001077,ACC-0046,CUST-0017,2025-11-16,11:26:01,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Gateway National Bank,USA,30130.78,725780.12,true,ALERT-2025-00875
+TXN-001078,ACC-0044,CUST-0017,2025-11-16,15:00:29,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Continental Trust Bank,USA,85745.26,3215576.44,true,ALERT-2025-00863
+TXN-001079,ACC-0031,CUST-0013,2025-11-16,16:07:53,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,33255.29,515226.86,false,
+TXN-001080,ACC-0010,CUST-0004,2025-11-17,09:28:13,ACH Credit,ACH,Monthly Salary Credit,Pacific Axis Imports,Payroll Clearing Bank,USA,18643.39,247285.65,false,
+TXN-001081,ACC-0044,CUST-0017,2025-11-17,12:20:51,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Atlantic Correspondent Bank,USA,30113.28,3185463.16,true,ALERT-2025-00874
+TXN-001082,ACC-0047,CUST-0017,2025-11-17,12:20:52,Wire Debit,Wire,International Wire Transfer,Taiz General Trading,Sanaa Exchange Bank,Yemen,40973.94,1658878.59,true,ALERT-2025-00887
+TXN-001083,ACC-0044,CUST-0017,2025-11-17,12:36:34,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,65934.16,3119529.00,true,ALERT-2025-00885
+TXN-001084,ACC-0046,CUST-0017,2025-11-17,13:21:46,Wire Credit,Wire,Incoming Wire Transfer,Atlantic Liquidity Desk,Continental Trust Bank,USA,416827.01,1142607.13,true,ALERT-2025-00884
+TXN-001085,ACC-0047,CUST-0017,2025-11-18,15:44:33,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Atlantic Correspondent Bank,USA,27842.84,1631035.75,true,ALERT-2025-00870
+TXN-001086,ACC-0046,CUST-0017,2025-11-18,17:09:29,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Metro Regional Bank,USA,89121.43,1053485.70,true,ALERT-2025-00890
+TXN-001087,ACC-0051,CUST-0019,2025-11-19,09:35:45,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,34731.50,14040.90,false,
+TXN-001088,ACC-0024,CUST-0010,2025-11-19,13:10:17,ACH Credit,ACH,Monthly Salary Credit,University of Wisconsin,Payroll Clearing Bank,USA,6041.94,27832.25,false,
+TXN-001089,ACC-0044,CUST-0017,2025-11-19,15:55:40,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,67841.67,3051687.33,true,ALERT-2025-00895
+TXN-001090,ACC-0044,CUST-0017,2025-11-19,17:29:49,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Gateway National Bank,USA,73261.94,2978425.39,true,ALERT-2025-00880
+TXN-001091,ACC-0046,CUST-0017,2025-11-19,17:37:12,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Continental Trust Bank,USA,30181.66,1023304.04,true,ALERT-2025-00877
+TXN-001092,ACC-0045,CUST-0017,2025-11-20,09:41:33,Cash Deposit,Branch,Cash Deposit,,,USA,27377.73,2419245.52,true,ALERT-2025-00891
+TXN-001093,ACC-0044,CUST-0017,2025-11-20,13:16:15,Wire Credit,Wire,Incoming Wire Transfer,NorthBridge Capital LLC,Atlantic Correspondent Bank,USA,222602.41,3201027.80,true,ALERT-2025-00896
+TXN-001094,ACC-0046,CUST-0017,2025-11-20,14:10:12,Wire Debit,Wire,Outgoing Wire Transfer,NorthBridge Capital LLC,Metro Regional Bank,USA,30082.21,993221.83,true,ALERT-2025-00882
+TXN-001095,ACC-0019,CUST-0007,2025-11-21,12:03:47,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,1899.57,36007.22,false,
+TXN-001096,ACC-0047,CUST-0017,2025-11-22,11:13:03,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,83555.93,1547479.82,true,ALERT-2025-00892
+TXN-001097,ACC-0044,CUST-0017,2025-11-22,13:24:08,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,23224.18,3177803.62,true,ALERT-2025-00899
+TXN-001098,ACC-0046,CUST-0017,2025-11-23,08:08:02,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Metro Regional Bank,USA,78918.62,914303.21,true,ALERT-2025-00888
+TXN-001099,ACC-0044,CUST-0017,2025-11-23,12:16:46,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Atlantic Correspondent Bank,USA,39878.67,3137924.95,true,ALERT-2025-00886
+TXN-001100,ACC-0044,CUST-0017,2025-11-24,08:53:52,Wire Debit,Wire,Outgoing Wire Transfer,NorthBridge Capital LLC,Metro Regional Bank,USA,86329.01,3051595.94,true,ALERT-2025-00889
+TXN-001101,ACC-0044,CUST-0017,2025-11-24,10:43:35,Wire Debit,Wire,Outgoing Wire Transfer,NorthBridge Capital LLC,Metro Regional Bank,USA,88197.56,2963398.38,true,ALERT-2025-00893
+TXN-001102,ACC-0023,CUST-0009,2025-11-24,15:50:52,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,2004.71,148984.49,false,
+TXN-001103,ACC-0046,CUST-0017,2025-11-24,17:50:22,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Metro Regional Bank,USA,33956.46,880346.75,true,ALERT-2025-00897
+TXN-001104,ACC-0046,CUST-0017,2025-11-25,11:34:17,Wire Credit,Wire,Incoming Wire Transfer,NorthBridge Capital LLC,Metro Regional Bank,USA,399136.15,1279482.90,true,ALERT-2025-00914
+TXN-001105,ACC-0047,CUST-0017,2025-11-25,14:31:06,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Atlantic Correspondent Bank,USA,67223.50,1480256.32,true,ALERT-2025-00904
+TXN-001106,ACC-0046,CUST-0017,2025-11-26,11:15:51,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Metro Regional Bank,USA,33549.00,1245933.90,true,ALERT-2025-00903
+TXN-001107,ACC-0044,CUST-0017,2025-11-26,16:04:12,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Gateway National Bank,USA,35183.68,2928214.70,true,ALERT-2025-00905
+TXN-001108,ACC-0044,CUST-0017,2025-11-26,16:17:31,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Metro Regional Bank,USA,44198.87,2884015.83,true,ALERT-2025-00902
+TXN-001109,ACC-0044,CUST-0017,2025-11-27,12:51:33,Wire Debit,Wire,Outgoing Wire Transfer,NorthBridge Capital LLC,Gateway National Bank,USA,30348.23,2853667.60,true,ALERT-2025-00910
+TXN-001110,ACC-0044,CUST-0017,2025-11-27,13:40:02,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Continental Trust Bank,USA,43960.64,2809706.96,true,ALERT-2025-00918
+TXN-001111,ACC-0047,CUST-0017,2025-11-27,14:05:22,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Continental Trust Bank,USA,18922.40,1461333.92,true,ALERT-2025-00898
+TXN-001112,ACC-0044,CUST-0017,2025-11-27,16:08:28,Cash Deposit,Branch,Cash Deposit,,,USA,22373.54,2832080.50,true,ALERT-2025-00906
+TXN-001113,ACC-0044,CUST-0017,2025-11-27,17:28:55,Cash Deposit,Branch,Cash Deposit,,,USA,25594.08,2857674.58,true,ALERT-2025-00923
+TXN-001114,ACC-0044,CUST-0017,2025-11-28,09:56:53,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Metro Regional Bank,USA,23597.76,2834076.82,true,ALERT-2025-00916
+TXN-001115,ACC-0048,CUST-0018,2025-11-28,10:47:10,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,18376.85,882517.30,false,
+TXN-001116,ACC-0045,CUST-0017,2025-11-28,13:31:44,ACH Debit,Online,Tax or Insurance Payment,Treasury Services Clearing,First National Bank — US,USA,8921.68,2410323.84,false,
+TXN-001117,ACC-0047,CUST-0017,2025-11-28,14:11:23,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Gateway National Bank,USA,18228.09,1443105.83,true,ALERT-2025-00900
+TXN-001118,ACC-0044,CUST-0017,2025-11-28,14:33:51,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Continental Trust Bank,USA,31549.81,2802527.01,true,ALERT-2025-00901
+TXN-001119,ACC-0044,CUST-0017,2025-11-28,17:41:51,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Gateway National Bank,USA,30239.58,2772287.43,true,ALERT-2025-00907
+TXN-001120,ACC-0047,CUST-0017,2025-11-29,10:22:08,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Gateway National Bank,USA,53200.66,1389905.17,true,ALERT-2025-00909
+TXN-001121,ACC-0046,CUST-0017,2025-11-29,10:56:06,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Gateway National Bank,USA,30806.10,1215127.80,true,ALERT-2025-00908
+TXN-001122,ACC-0044,CUST-0017,2025-11-30,09:22:09,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Atlantic Correspondent Bank,USA,85529.40,2686758.03,true,ALERT-2025-00921
+TXN-001123,ACC-0044,CUST-0017,2025-11-30,16:45:39,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Atlantic Correspondent Bank,USA,28311.00,2658447.03,true,ALERT-2025-00926
+TXN-001124,ACC-0047,CUST-0017,2025-11-30,17:43:59,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Continental Trust Bank,USA,14501.20,1375403.97,true,ALERT-2025-00922
+TXN-001125,ACC-0044,CUST-0017,2025-12-01,15:11:17,Wire Debit,Wire,Outgoing Wire Transfer,Metro FX Clearing,Metro Regional Bank,USA,52186.53,2606260.50,true,ALERT-2025-00925
+TXN-001126,ACC-0055,CUST-0020,2025-12-01,16:05:12,ACH Debit,Online,Tax or Insurance Payment,Treasury Services Clearing,First National Bank — US,USA,2551.89,468211.27,false,
+TXN-001127,ACC-0044,CUST-0017,2025-12-01,17:23:51,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Continental Trust Bank,USA,17729.05,2588531.45,true,ALERT-2025-00913
+TXN-001128,ACC-0045,CUST-0017,2025-12-01,17:54:15,Cash Deposit,Branch,Cash Deposit,,,USA,41625.33,2451949.17,true,ALERT-2025-00912
+TXN-001129,ACC-0044,CUST-0017,2025-12-02,11:21:49,Wire Debit,Wire,International Wire Transfer,Lahore Machinery Works,Karachi Mercantile Bank,Pakistan,59343.55,2529187.90,true,ALERT-2025-00931
+TXN-001130,ACC-0048,CUST-0018,2025-12-02,16:52:21,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Atlantic Correspondent Bank,USA,60144.67,822372.63,true,ALERT-2025-00936
+TXN-001131,ACC-0044,CUST-0017,2025-12-03,08:07:32,Wire Debit,Wire,Outgoing Wire Transfer,Atlantic Liquidity Desk,Metro Regional Bank,USA,38189.19,2490998.71,true,ALERT-2025-00920
+TXN-001132,ACC-0044,CUST-0017,2025-12-03,15:31:41,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Metro Regional Bank,USA,50568.93,2440429.78,true,ALERT-2025-00934
+TXN-001133,ACC-0047,CUST-0017,2025-12-04,17:25:33,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Metro Regional Bank,USA,63332.58,1312071.39,true,ALERT-2025-00917
+TXN-001134,ACC-0023,CUST-0009,2025-12-05,10:30:08,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,2254.59,146729.90,false,
+TXN-001135,ACC-0042,CUST-0016,2025-12-05,15:53:33,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,2171.66,968517.13,false,
+TXN-001136,ACC-0046,CUST-0017,2025-12-05,16:23:21,Wire Debit,Wire,Outgoing Wire Transfer,Continental Payment Hub,Atlantic Correspondent Bank,USA,57920.75,1157207.05,true,ALERT-2025-00924
+TXN-001137,ACC-0046,CUST-0017,2025-12-06,10:07:27,Wire Debit,Wire,Outgoing Wire Transfer,Gateway Settlement Partners,Atlantic Correspondent Bank,USA,88173.63,1069033.42,true,ALERT-2025-00927
+TXN-001138,ACC-0048,CUST-0018,2025-12-06,13:57:51,Cash Deposit,Branch,Cash Deposit,,,USA,9548.03,831920.66,true,ALERT-2025-00943
+TXN-001139,ACC-0025,CUST-0010,2025-12-06,14:28:35,ACH Debit,ACH,Mortgage or Rent Payment,Riverstone Mortgage Servicing,Atlantic Correspondent Bank,USA,4151.54,30401.05,false,
+TXN-001140,ACC-0048,CUST-0018,2025-12-06,16:24:41,Wire Debit,Wire,International Wire Transfer,Cap-Haitien Goods Depot,Port-au-Prince Bank,Haiti,36798.65,795122.01,true,ALERT-2025-00945
+TXN-001141,ACC-0048,CUST-0018,2025-12-06,17:45:43,Cash Deposit,Branch,Cash Deposit,,,USA,8666.45,803788.46,true,ALERT-2025-00937
+TXN-001142,ACC-0044,CUST-0017,2025-12-07,13:42:21,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Gateway National Bank,USA,36858.88,2403570.90,true,ALERT-2025-00933
+TXN-001143,ACC-0048,CUST-0018,2025-12-07,14:58:02,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Continental Trust Bank,USA,91686.61,712101.85,true,ALERT-2025-00953
+TXN-001144,ACC-0046,CUST-0017,2025-12-08,09:41:51,Wire Debit,Wire,Outgoing Wire Transfer,NorthBridge Capital LLC,Metro Regional Bank,USA,42663.66,1026369.76,true,ALERT-2025-00935
+TXN-001145,ACC-0048,CUST-0018,2025-12-08,14:28:53,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,9274.07,702827.78,true,ALERT-2025-00958
+TXN-001146,ACC-0020,CUST-0008,2025-12-08,14:40:04,POS Debit,Debit Card,Grocery Purchase,FreshMart Grocery,First National Bank — US,USA,270.33,82040.49,false,
+TXN-001147,ACC-0048,CUST-0018,2025-12-09,12:49:45,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Atlantic Correspondent Bank,USA,81010.77,621817.01,true,ALERT-2025-00959
+TXN-001148,ACC-0048,CUST-0018,2025-12-09,16:14:20,Cash Deposit,Branch,Cash Deposit,,,USA,8820.57,630637.58,true,ALERT-2025-00949
+TXN-001149,ACC-0048,CUST-0018,2025-12-09,16:26:22,Wire Debit,Wire,International Wire Transfer,Horizon Haiti Trading,Haiti Commercial Bank,Haiti,37029.28,593608.30,true,ALERT-2025-00946
+TXN-001150,ACC-0048,CUST-0018,2025-12-10,16:23:38,Wire Debit,Wire,International Wire Transfer,Nevsky Trade Bureau,Volga Correspondent Bank,Russia,45359.81,548248.49,true,ALERT-2025-00939
+TXN-001151,ACC-0055,CUST-0020,2025-12-11,10:39:17,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Continental Trust Bank,USA,62410.46,405800.81,true,ALERT-2025-00974
+TXN-001152,ACC-0053,CUST-0020,2025-12-11,13:24:55,Cash Deposit,Branch,Cash Deposit,,,USA,8680.14,318505.84,true,ALERT-2025-00971
+TXN-001153,ACC-0048,CUST-0018,2025-12-12,08:37:26,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Gateway National Bank,USA,23551.84,524696.65,true,ALERT-2025-00942
+TXN-001154,ACC-0029,CUST-0012,2025-12-12,08:45:51,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,198.49,135695.39,false,
+TXN-001155,ACC-0048,CUST-0018,2025-12-12,12:44:45,Wire Debit,Wire,International Wire Transfer,Marib Commodities,Aden Commercial Bank,Yemen,69580.31,455116.34,true,ALERT-2025-00938
+TXN-001156,ACC-0048,CUST-0018,2025-12-12,12:49:12,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Yangon Commercial Bank,Myanmar,54888.31,400228.03,true,ALERT-2025-00955
+TXN-001157,ACC-0055,CUST-0020,2025-12-12,12:59:24,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Metro Regional Bank,USA,61555.51,344245.30,true,ALERT-2025-00981
+TXN-001158,ACC-0048,CUST-0018,2025-12-12,13:28:26,Wire Debit,Wire,International Wire Transfer,Faisalabad Export Co,Karachi Mercantile Bank,Pakistan,81644.96,318583.07,true,ALERT-2025-00956
+TXN-001159,ACC-0049,CUST-0018,2025-12-12,16:46:55,Cash Deposit,Branch,Cash Deposit,,,USA,9551.60,87577.32,true,ALERT-2025-00962
+TXN-001160,ACC-0007,CUST-0003,2025-12-13,08:02:09,ACH Credit,ACH,Monthly Salary Credit,Retired,Payroll Clearing Bank,USA,5314.25,460240.49,false,
+TXN-001161,ACC-0049,CUST-0018,2025-12-13,08:19:43,Cash Deposit,Branch,Cash Deposit,,,USA,8746.68,96324.00,true,ALERT-2025-00940
+TXN-001162,ACC-0049,CUST-0018,2025-12-13,08:38:18,Cash Deposit,Branch,Cash Deposit,,,USA,8990.36,105314.36,true,ALERT-2025-00965
+TXN-001163,ACC-0048,CUST-0018,2025-12-13,14:51:50,Wire Debit,Wire,International Wire Transfer,Siberia Freight Group,Volga Correspondent Bank,Russia,63156.99,255426.08,true,ALERT-2025-00952
+TXN-001164,ACC-0049,CUST-0018,2025-12-14,08:34:38,Cash Deposit,Branch,Cash Deposit,,,USA,8843.69,114158.05,true,ALERT-2025-00957
+TXN-001165,ACC-0051,CUST-0019,2025-12-14,13:48:38,Cash Deposit,Branch,Cash Deposit,,,USA,39356.10,53397.00,true,ALERT-2025-00968
+TXN-001166,ACC-0053,CUST-0020,2025-12-15,08:54:08,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Metro Regional Bank,USA,23706.55,294799.29,true,ALERT-2025-00980
+TXN-001167,ACC-0048,CUST-0018,2025-12-15,10:12:04,Wire Debit,Wire,International Wire Transfer,Myo Thant Enterprises,Mandalay Trade Bank,Myanmar,23788.95,231637.13,true,ALERT-2025-00950
+TXN-001168,ACC-0051,CUST-0019,2025-12-15,11:19:31,Cash Deposit,Branch,Cash Deposit,,,USA,20754.45,74151.45,true,ALERT-2025-00970
+TXN-001169,ACC-0048,CUST-0018,2025-12-15,11:55:22,Cash Deposit,Branch,Cash Deposit,,,USA,9361.46,240998.59,true,ALERT-2025-00960
+TXN-001170,ACC-0051,CUST-0019,2025-12-15,12:16:58,Cash Deposit,Branch,Cash Deposit,,,USA,44860.35,119011.80,true,ALERT-2025-00967
+TXN-001171,ACC-0048,CUST-0018,2025-12-15,13:03:53,Wire Debit,Wire,International Wire Transfer,Cap-Haitien Goods Depot,Port-au-Prince Bank,Haiti,39571.21,201427.38,true,ALERT-2025-00954
+TXN-001172,ACC-0048,CUST-0018,2025-12-15,14:15:57,Cash Deposit,Branch,Cash Deposit,,,USA,9879.51,211306.89,true,ALERT-2025-00963
+TXN-001173,ACC-0053,CUST-0020,2025-12-15,17:01:23,Cash Deposit,Branch,Cash Deposit,,,USA,9744.43,304543.72,true,ALERT-2025-00982
+TXN-001174,ACC-0048,CUST-0018,2025-12-16,12:08:24,Wire Debit,Wire,International Wire Transfer,Karachi Textile Mart,Karachi Mercantile Bank,Pakistan,30791.73,180515.16,true,ALERT-2025-00964
+TXN-001175,ACC-0051,CUST-0019,2025-12-16,15:58:57,Cash Deposit,Branch,Cash Deposit,,,USA,25527.67,144539.47,true,ALERT-2025-00969
+TXN-001176,ACC-0033,CUST-0014,2025-12-17,17:09:14,ACH Credit,ACH,Client Invoice Payment,Client Invoice Payment,Gateway National Bank,USA,25518.74,1747713.07,false,
+TXN-001177,ACC-0053,CUST-0020,2025-12-18,09:10:29,Wire Debit,Wire,International Wire Transfer,Port-au-Prince Trading SA,Haiti Commercial Bank,Haiti,62080.98,242462.74,true,ALERT-2025-00990
+TXN-001178,ACC-0055,CUST-0020,2025-12-18,09:14:35,Wire Debit,Wire,International Wire Transfer,Yadanar Logistics,Mandalay Trade Bank,Myanmar,79445.42,264799.88,true,ALERT-2025-00983
+TXN-001179,ACC-0054,CUST-0020,2025-12-18,11:08:48,Cash Deposit,Branch,Cash Deposit,,,USA,8525.48,59380.16,true,ALERT-2025-00999
+TXN-001180,ACC-0053,CUST-0020,2025-12-18,15:35:53,Wire Debit,Wire,Counterparty Screening Match,Nova Commerce Group,Gateway National Bank,USA,20757.79,221704.95,true,ALERT-2025-00973
+TXN-001181,ACC-0053,CUST-0020,2025-12-18,16:25:50,Cash Deposit,Branch,Cash Deposit,,,USA,8945.44,230650.39,true,ALERT-2025-00991
+TXN-001182,ACC-0046,CUST-0017,2025-12-18,17:51:43,ACH Debit,ACH,Commercial Utility Payment,Utility Services USA,Metro Utility Bank,USA,1464.86,1024904.90,false,
+TXN-001183,ACC-0055,CUST-0020,2025-12-19,09:42:36,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,25402.82,239397.06,true,ALERT-2025-00985
+TXN-001184,ACC-0054,CUST-0020,2025-12-19,12:03:15,Cash Deposit,Branch,Cash Deposit,,,USA,9853.04,69233.20,true,ALERT-2025-00978
+TXN-001185,ACC-0011,CUST-0004,2025-12-19,13:28:23,ACH Debit,ACH,Utility Payment,Green Electric Utility,Metro Utility Bank,USA,252.69,281026.33,false,
+TXN-001186,ACC-0053,CUST-0020,2025-12-19,14:26:49,Wire Debit,Wire,Counterparty Screening Match,Kaveh Mohammadi,Atlantic Correspondent Bank,USA,59892.81,170757.58,true,ALERT-2025-00993
+TXN-001187,ACC-0005,CUST-0002,2025-12-19,14:50:32,Card Debit,Online,Online Purchase,NorthStar Online Retail,Metro Regional Bank,USA,287.83,442273.03,false,
+TXN-001188,ACC-0054,CUST-0020,2025-12-19,15:58:51,Cash Deposit,Branch,Cash Deposit,,,USA,8843.35,78076.55,true,ALERT-2025-00986
+TXN-001189,ACC-0053,CUST-0020,2025-12-19,16:17:54,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,61707.46,109050.12,true,ALERT-2025-00989
+TXN-001190,ACC-0055,CUST-0020,2025-12-19,16:22:53,Wire Debit,Wire,International Wire Transfer,Shwe Mandalay Imports,Mandalay Trade Bank,Myanmar,30230.32,209166.74,true,ALERT-2025-00997
+TXN-001191,ACC-0053,CUST-0020,2025-12-20,08:42:51,Cash Deposit,Branch,Cash Deposit,,,USA,8559.04,117609.16,true,ALERT-2025-00995
+TXN-001192,ACC-0053,CUST-0020,2025-12-21,10:02:03,Cash Deposit,Branch,Cash Deposit,,,USA,9064.11,126673.27,true,ALERT-2025-00987
+TXN-001193,ACC-0053,CUST-0020,2025-12-21,10:24:50,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Metro Regional Bank,USA,43757.06,82916.21,true,ALERT-2025-01000
+TXN-001194,ACC-0038,CUST-0015,2025-12-22,12:18:54,ACH Debit,ACH,Payroll Payment,Payroll Processing Co,First National Bank — US,USA,8223.45,320090.82,false,
+TXN-001195,ACC-0054,CUST-0020,2025-12-23,13:09:48,Cash Deposit,Branch,Cash Deposit,,,USA,8566.24,86642.79,true,ALERT-2025-00994
+TXN-001196,ACC-0001,CUST-0001,2025-12-24,16:03:43,ACH Credit,ACH,Monthly Salary Credit,Mitchell Urban Properties LLC,Payroll Clearing Bank,USA,25978.28,409530.40,false,
+TXN-001197,ACC-0027,CUST-0011,2025-12-25,15:22:21,ATM Withdrawal,ATM,ATM Withdrawal,City ATM Network,First National Bank — US,USA,367.12,562763.04,false,
+TXN-001198,ACC-0055,CUST-0020,2025-12-25,16:59:23,Wire Debit,Wire,Counterparty Screening Match,Eastern Star Holdings,Atlantic Correspondent Bank,USA,36174.49,172992.25,true,ALERT-2025-00992
+TXN-001199,ACC-0055,CUST-0020,2025-12-26,10:23:55,Wire Debit,Wire,Counterparty Screening Match,Al-Rashid Trading LLC,Atlantic Correspondent Bank,USA,36461.35,136530.90,true,ALERT-2025-00996
+TXN-001200,ACC-0048,CUST-0018,2025-12-26,10:32:37,ACH Debit,ACH,Commercial Rent Payment,Commercial Property Services,Atlantic Correspondent Bank,USA,13741.44,166773.72,false,
+TXN-001201,ACC-0016,CUST-0006,2025-12-30,09:09:36,ACH Debit,ACH,Investment Transfer,External Investment Account,Atlantic Correspondent Bank,USA,37832.00,20651.57,false,
+TXN-001202,ACC-0041,CUST-0016,2025-12-30,09:39:20,ACH Debit,ACH,Operating Expense Sweep,Operating Expense Clearing,Atlantic Correspondent Bank,USA,198394.66,421480.99,false,
+TXN-001203,ACC-0014,CUST-0005,2025-12-30,09:45:11,ACH Debit,ACH,Investment Transfer,External Investment Account,Atlantic Correspondent Bank,USA,302290.93,318302.89,false,
+TXN-001204,ACC-0040,CUST-0016,2025-12-30,10:07:20,ACH Debit,ACH,Operating Expense Sweep,Operating Expense Clearing,Atlantic Correspondent Bank,USA,234918.96,357661.21,false,
+TXN-001205,ACC-0005,CUST-0002,2025-12-30,10:22:02,ACH Debit,ACH,Investment Transfer,External Investment Account,Atlantic Correspondent Bank,USA,218288.47,223984.56,false,
+TXN-001206,ACC-0013,CUST-0005,2025-12-30,12:02:20,ACH Debit,ACH,Investment Transfer,External Investment Account,Atlantic Correspondent Bank,USA,67884.24,371408.77,false,
+TXN-001207,ACC-0002,CUST-0001,2025-12-30,12:32:44,ACH Debit,ACH,Investment Transfer,External Investment Account,Atlantic Correspondent Bank,USA,157285.31,226973.73,false,
+TXN-001208,ACC-0027,CUST-0011,2025-12-30,15:06:01,ACH Debit,ACH,Investment Transfer,External Investment Account,Atlantic Correspondent Bank,USA,450425.55,112337.49,false,
+TXN-001209,ACC-0051,CUST-0019,2025-12-30,16:43:49,ACH Debit,ACH,Operating Expense Sweep,Operating Expense Clearing,Atlantic Correspondent Bank,USA,132035.99,12503.48,false,
