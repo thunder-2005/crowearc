@@ -4,6 +4,7 @@
 // URL. We never store public URLs in the DB; only the storage path.
 
 const { createClient } = require('@supabase/supabase-js');
+const WebSocket = require('ws');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -16,7 +17,14 @@ function client() {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     throw new Error('Supabase Storage not configured: missing SUPABASE_URL or SUPABASE_SERVICE_KEY');
   }
-  _client = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  // supabase-js v2 always boots a Realtime (WebSocket) client even when we
+  // only use Storage. Node 18 (Railway's default runtime) has no native
+  // WebSocket — we hand it the `ws` package so the constructor doesn't
+  // throw on startup.
+  _client = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+    realtime: { transport: WebSocket },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
   return _client;
 }
 
