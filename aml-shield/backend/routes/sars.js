@@ -1,8 +1,7 @@
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
 const archiver = require('archiver');
 const pool = require('../database/db');
+const { downloadStream } = require('../utils/supabaseStorage');
 
 const router = express.Router();
 
@@ -206,12 +205,17 @@ router.get('/:id/export', async (req, res, next) => {
     ].join('\n');
     archive.append(readable, { name: `${sar.sar_id}_summary.txt` });
 
+    // Pull each supporting doc from Supabase Storage and append the bytes
+    // to the archive. Errors on individual files are swallowed so a single
+    // missing object doesn't break the whole zip — the manifest TXT still
+    // lists every document by name.
     for (const doc of documents) {
-      const abs = path.isAbsolute(doc.file_path)
-        ? doc.file_path
-        : path.join(__dirname, '..', doc.file_path);
-      if (fs.existsSync(abs)) {
-        archive.file(abs, { name: `documents/${doc.document_name}` });
+      if (!doc.file_path) continue;
+      try {
+        const buf = await downloadStream(doc.file_path);
+        archive.append(buf, { name: `documents/${doc.document_name}` });
+      } catch (e) {
+        console.warn(`[sars zip] skip ${doc.document_name}: ${e.message}`);
       }
     }
 

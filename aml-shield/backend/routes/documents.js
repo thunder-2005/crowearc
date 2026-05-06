@@ -1,9 +1,8 @@
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
 const pool = require('../database/db');
 const { upload } = require('../middleware/upload');
 const { requireAnyAnalyst } = require('../middleware/roleGuard');
+const { uploadFile, deleteFile, getSignedUrl } = require('../utils/supabaseStorage');
 
 const router = express.Router();
 
@@ -14,16 +13,15 @@ router.post('/upload', requireAnyAnalyst, upload.single('file'), async (req, res
     if (!sar_id) return res.status(400).json({ error: 'sar_id is required' });
 
     const sar = await pool.query('SELECT sar_id FROM sar_filings WHERE sar_id = $1', [sar_id]);
-    if (!sar.rows[0]) {
-      fs.unlinkSync(req.file.path);
-      return res.status(404).json({ error: 'SAR not found' });
-    }
+    if (!sar.rows[0]) return res.status(404).json({ error: 'SAR not found' });
 
-    const relPath = path.join('uploads', req.file.filename);
+    const { filePath } = await uploadFile(
+      req.file.buffer, req.file.originalname, req.file.mimetype, 'sar'
+    );
     const ins = await pool.query(`
       INSERT INTO documents (sar_id, document_name, document_type, file_path, file_size, uploaded_by)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
-    `, [sar_id, req.file.originalname, document_type || null, relPath,
+    `, [sar_id, req.file.originalname, document_type || null, filePath,
         req.file.size, uploaded_by || 'system']);
 
     await pool.query(`
@@ -48,18 +46,15 @@ router.get('/:id', async (req, res, next) => {
     const result = await pool.query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
     const doc = result.rows[0];
     if (!doc) return res.status(404).json({ error: 'Document not found' });
-
-    const abs = path.isAbsolute(doc.file_path)
-      ? doc.file_path
-      : path.join(__dirname, '..', doc.file_path);
-    if (!fs.existsSync(abs)) return res.status(404).json({ error: 'File missing on disk' });
+    if (!doc.file_path) return res.status(404).json({ error: 'File missing' });
 
     await pool.query(`
       INSERT INTO audit_trail (entity_type, sar_id, action, performed_by, details)
       VALUES ('sar', $1, 'Document Downloaded', $2, $3)
     `, [doc.sar_id, req.query.user || 'system', doc.document_name]);
 
-    res.download(abs, doc.document_name);
+    const url = await getSignedUrl(doc.file_path);
+    res.redirect(url);
   } catch (err) { next(err); }
 });
 
@@ -76,10 +71,9 @@ router.delete('/:id', requireAnyAnalyst, async (req, res, next) => {
       return res.status(403).json({ error: 'Only the uploader or a manager can delete this document' });
     }
 
-    const abs = path.isAbsolute(doc.file_path)
-      ? doc.file_path
-      : path.join(__dirname, '..', doc.file_path);
-    if (fs.existsSync(abs)) { try { fs.unlinkSync(abs); } catch (_e) {} }
+    if (doc.file_path) {
+      try { await deleteFile(doc.file_path); } catch (e) { console.warn('[documents] supabase delete failed:', e.message); }
+    }
 
     await pool.query('DELETE FROM documents WHERE id = $1', [req.params.id]);
     await pool.query(`

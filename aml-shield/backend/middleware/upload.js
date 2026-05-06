@@ -1,22 +1,24 @@
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// In-memory storage — files never touch the Railway disk. The route
+// handler reads req.file.buffer and ships it straight to Supabase Storage.
+const storage = multer.memoryStorage();
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const ts = Date.now();
-    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    cb(null, `${ts}_${safe}`);
-  }
-});
+const ALLOWED_MIME = new Set([
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'        // .xlsx
+]);
 
 const upload = multer({
   storage,
-  limits: { fileSize: 25 * 1024 * 1024 }
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIME.has(file.mimetype)) return cb(null, true);
+    cb(new Error(`File type not allowed: ${file.mimetype}`));
+  }
 });
 
-module.exports = { upload, UPLOAD_DIR };
+module.exports = { upload };

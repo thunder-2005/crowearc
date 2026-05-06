@@ -13,6 +13,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.3",
     "archiver": "^7.0.1",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",

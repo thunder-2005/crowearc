@@ -1,11 +1,10 @@
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
 const pool = require('../database/db');
 const { upload } = require('../middleware/upload');
 const { intervalDaysForRating } = require('../jobs/kycReviewMonitor');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 const { requireManager, requireAnyAnalyst } = require('../middleware/roleGuard');
+const { uploadFile, deleteFile, getSignedUrl } = require('../utils/supabaseStorage');
 
 const router = express.Router();
 
@@ -593,15 +592,15 @@ router.post('/:id/documents', requireAnyAnalyst, upload.single('file'), async (r
     const review = (await pool.query(
       'SELECT * FROM kyc_reviews WHERE id = $1', [req.params.id]
     )).rows[0];
-    if (!review) {
-      fs.unlinkSync(req.file.path);
-      return res.status(404).json({ error: 'Review not found' });
-    }
-    const relPath = path.join('uploads', req.file.filename);
+    if (!review) return res.status(404).json({ error: 'Review not found' });
+
+    const { filePath } = await uploadFile(
+      req.file.buffer, req.file.originalname, req.file.mimetype, 'kyc'
+    );
     const ins = await pool.query(`
       INSERT INTO kyc_review_documents (review_id, document_name, file_path, document_type, uploaded_by, file_size)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
-    `, [req.params.id, req.file.originalname, relPath,
+    `, [req.params.id, req.file.originalname, filePath,
         req.body.document_type || 'Supporting',
         req.body.uploaded_by || review.assigned_to || 'system',
         req.file.size]);
@@ -622,8 +621,9 @@ router.delete('/:id/documents/:docId', requireAnyAnalyst, async (req, res, next)
       [req.params.docId, req.params.id]
     )).rows[0];
     if (!doc) return res.status(404).json({ error: 'Document not found' });
-    const abs = path.isAbsolute(doc.file_path) ? doc.file_path : path.join(__dirname, '..', doc.file_path);
-    if (fs.existsSync(abs)) { try { fs.unlinkSync(abs); } catch (_e) {} }
+    if (doc.file_path) {
+      try { await deleteFile(doc.file_path); } catch (e) { console.warn('[kyc-docs] supabase delete failed:', e.message); }
+    }
     await pool.query('DELETE FROM kyc_review_documents WHERE id = $1', [doc.id]);
     res.json({ ok: true });
   } catch (err) { next(err); }
@@ -636,10 +636,9 @@ router.get('/:id/documents/:docId/file', async (req, res, next) => {
       [req.params.docId, req.params.id]
     )).rows[0];
     if (!doc) return res.status(404).json({ error: 'Document not found' });
-    const abs = path.isAbsolute(doc.file_path) ? doc.file_path : path.join(__dirname, '..', doc.file_path);
-    if (!fs.existsSync(abs)) return res.status(404).json({ error: 'File missing' });
-    if (req.query.preview === '1') return res.sendFile(abs);
-    res.download(abs, doc.document_name);
+    if (!doc.file_path) return res.status(404).json({ error: 'File missing' });
+    const url = await getSignedUrl(doc.file_path);
+    res.redirect(url);
   } catch (err) { next(err); }
 });
 

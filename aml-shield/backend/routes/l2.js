@@ -1,15 +1,10 @@
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
-const multer = require('multer');
 const pool = require('../database/db');
 const { requireL2OrManager, requireAnyAnalyst } = require('../middleware/roleGuard');
+const { upload } = require('../middleware/upload');
+const { uploadFile, deleteFile, getSignedUrl } = require('../utils/supabaseStorage');
 
 const router = express.Router();
-
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'l2');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-const upload = multer({ dest: UPLOAD_DIR, limits: { fileSize: 25 * 1024 * 1024 } });
 
 // ─────────────────────────────────────────────── helpers
 
@@ -298,18 +293,58 @@ router.post('/:id/documents', requireL2OrManager, upload.single('file'), async (
     const { document_type, uploaded_by } = req.body || {};
     if (!req.file) return res.status(400).json({ error: 'file required' });
     const lc = (await pool.query('SELECT * FROM l2_cases WHERE l2_case_id = $1', [req.params.id])).rows[0];
-    if (!lc) {
-      try { fs.unlinkSync(req.file.path); } catch (_e) {}
-      return res.status(404).json({ error: 'L2 case not found' });
-    }
+    if (!lc) return res.status(404).json({ error: 'L2 case not found' });
+
     const filename = req.file.originalname;
-    const relPath = path.relative(path.join(__dirname, '..'), req.file.path).replace(/\\/g, '/');
+    const { filePath } = await uploadFile(
+      req.file.buffer, filename, req.file.mimetype, 'l2'
+    );
     const ins = await pool.query(`
       INSERT INTO l2_documents (l2_case_id, document_name, file_path, document_type, uploaded_by, uploaded_at, file_size)
       VALUES ($1, $2, $3, $4, $5, NOW(), $6) RETURNING *
-    `, [req.params.id, filename, relPath, document_type || 'Other', uploaded_by || null, req.file.size || 0]);
+    `, [req.params.id, filename, filePath, document_type || 'Other', uploaded_by || null, req.file.size || 0]);
     await logAudit(lc.alert_id, `L2 document uploaded — ${filename}`, uploaded_by, document_type || null);
     res.status(201).json(ins.rows[0]);
+  } catch (err) { next(err); }
+});
+
+// Download an L2 case document. Same redirect-to-signed-URL pattern as the
+// other document routes — bare <a href> and <iframe src> work in the
+// browser. The frontend currently doesn't link to this anywhere (L2
+// workspace points at /api/case-documents/file/:id for cross-case docs)
+// but the route is here for completeness and future use.
+router.get('/:id/documents/:docId/file', async (req, res, next) => {
+  try {
+    const doc = (await pool.query(
+      'SELECT * FROM l2_documents WHERE id = $1 AND l2_case_id = $2',
+      [req.params.docId, req.params.id]
+    )).rows[0];
+    if (!doc) return res.status(404).json({ error: 'Document not found' });
+    if (!doc.file_path) return res.status(404).json({ error: 'File missing' });
+    const url = await getSignedUrl(doc.file_path);
+    res.redirect(url);
+  } catch (err) { next(err); }
+});
+
+router.delete('/:id/documents/:docId', requireL2OrManager, async (req, res, next) => {
+  try {
+    const doc = (await pool.query(
+      'SELECT * FROM l2_documents WHERE id = $1 AND l2_case_id = $2',
+      [req.params.docId, req.params.id]
+    )).rows[0];
+    if (!doc) return res.status(404).json({ error: 'Document not found' });
+
+    const requesterRole = req.headers['x-user-role'];
+    const requesterName = req.headers['x-user-name'];
+    if (requesterRole !== 'compliance_manager' && doc.uploaded_by && requesterName !== doc.uploaded_by) {
+      return res.status(403).json({ error: 'Only the uploader or a manager can delete this document' });
+    }
+
+    if (doc.file_path) {
+      try { await deleteFile(doc.file_path); } catch (e) { console.warn('[l2-docs] supabase delete failed:', e.message); }
+    }
+    await pool.query('DELETE FROM l2_documents WHERE id = $1', [doc.id]);
+    res.json({ ok: true });
   } catch (err) { next(err); }
 });
 
