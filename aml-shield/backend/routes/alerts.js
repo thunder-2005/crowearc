@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../database/db');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
+const { requireManager, requireAnyAnalyst } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -139,7 +140,7 @@ router.get('/:id/transactions', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/disposition', async (req, res, next) => {
+router.patch('/:id/disposition', requireAnyAnalyst, async (req, res, next) => {
   try {
     const { disposition, performed_by, reason } = req.body;
     if (!disposition) return res.status(400).json({ error: 'disposition required' });
@@ -181,7 +182,7 @@ router.patch('/:id/disposition', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/status', async (req, res, next) => {
+router.patch('/:id/status', requireAnyAnalyst, async (req, res, next) => {
   try {
     const { alert_status, assigned_to, performed_by } = req.body;
     if (!alert_status) return res.status(400).json({ error: 'alert_status required' });
@@ -219,7 +220,7 @@ router.patch('/:id/status', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/assign', async (req, res, next) => {
+router.patch('/:id/assign', requireManager, async (req, res, next) => {
   try {
     const { assigned_to, performed_by } = req.body;
     if (!assigned_to) return res.status(400).json({ error: 'assigned_to required' });
@@ -269,7 +270,7 @@ router.patch('/:id/assign', async (req, res, next) => {
 //
 // Body: { alert_ids: string[], assigned_to: string, assigned_by?: string }
 // Response: { assigned, skipped, failed }
-router.patch('/bulk-assign', async (req, res, next) => {
+router.patch('/bulk-assign', requireManager, async (req, res, next) => {
   const { alert_ids, assigned_to, assigned_by } = req.body || {};
   if (!Array.isArray(alert_ids) || alert_ids.length === 0) {
     return res.status(400).json({ error: 'alert_ids array required' });
@@ -333,7 +334,7 @@ const CLOSED_ALERT_STATUSES = new Set([
   'Escalated - L2', 'Escalated - SAR'
 ]);
 
-router.patch('/bulk-close', async (req, res, next) => {
+router.patch('/bulk-close', requireManager, async (req, res, next) => {
   const { alert_ids, disposition, reason, notes, closed_by } = req.body || {};
   if (!Array.isArray(alert_ids) || alert_ids.length === 0) {
     return res.status(400).json({ error: 'alert_ids array required' });

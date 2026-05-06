@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../database/db');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
+const { requireL2OrManager } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -13,21 +14,6 @@ const STEP_LABELS = [
   'Attachments',          // Step 5
   'Review'                // Step 6
 ];
-
-// SAR filing is restricted to L2 analysts and above. The role is read from
-// the x-user-role header (set by the frontend Axios interceptor); fallback
-// to req.body.user_role for any caller that prefers a body-only payload.
-// GET routes are intentionally left open so L1 analysts can still read SARs
-// for case reference — only mutating routes are gated.
-function requireL2OrManager(req, res, next) {
-  const userRole = req.headers['x-user-role'] || req.body?.user_role || '';
-  if (userRole === 'analyst_l1') {
-    return res.status(403).json({
-      error: 'SAR filing requires L2 analyst or above'
-    });
-  }
-  next();
-}
 
 const JSON_FIELDS = [
   'suspicious_activity_types', 'transaction_types', 'subject_data',

@@ -1,10 +1,11 @@
 const express = require('express');
 const pool = require('../database/db');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
+const { requireManager, requireL2OrManager, requireAnyAnalyst } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireL2OrManager, async (req, res, next) => {
   try {
     const { source_alert_id, customer_id, customer_name, scenario, assigned_to, case_status, case_id } = req.body;
     if (!customer_name) return res.status(400).json({ error: 'customer_name required' });
@@ -115,7 +116,7 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/assign', async (req, res, next) => {
+router.patch('/:id/assign', requireManager, async (req, res, next) => {
   try {
     const { assigned_to } = req.body;
     if (!assigned_to) return res.status(400).json({ error: 'assigned_to required' });
@@ -136,7 +137,7 @@ router.patch('/:id/assign', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/status', async (req, res, next) => {
+router.patch('/:id/status', requireAnyAnalyst, async (req, res, next) => {
   try {
     const { case_status } = req.body;
     if (!case_status) return res.status(400).json({ error: 'case_status required' });

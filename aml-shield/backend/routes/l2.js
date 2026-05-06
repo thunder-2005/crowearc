@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const pool = require('../database/db');
+const { requireL2OrManager } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -90,7 +91,7 @@ router.get('/:id', async (req, res, next) => {
 
 // ─────────────────────────────────────────────── Create L2 case
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireL2OrManager, async (req, res, next) => {
   try {
     const { alert_id, escalated_by, escalation_reason, assigned_to } = req.body || {};
     if (!alert_id || !escalated_by) {
@@ -164,7 +165,7 @@ router.post('/', async (req, res, next) => {
 
 // ─────────────────────────────────────────────── Accept
 
-router.patch('/:id/accept', async (req, res, next) => {
+router.patch('/:id/accept', requireL2OrManager, async (req, res, next) => {
   try {
     const { analyst_id } = req.body || {};
     if (!analyst_id) return res.status(400).json({ error: 'analyst_id required' });
@@ -195,7 +196,7 @@ router.patch('/:id/accept', async (req, res, next) => {
 
 // ─────────────────────────────────────────────── Reassign
 
-router.patch('/:id/reassign', async (req, res, next) => {
+router.patch('/:id/reassign', requireL2OrManager, async (req, res, next) => {
   try {
     const { analyst_id, performed_by } = req.body || {};
     if (!analyst_id) return res.status(400).json({ error: 'analyst_id required' });
@@ -223,7 +224,7 @@ router.patch('/:id/reassign', async (req, res, next) => {
 
 // ─────────────────────────────────────────────── Risk score / counterparty analysis
 
-router.patch('/:id/risk-score', async (req, res, next) => {
+router.patch('/:id/risk-score', requireL2OrManager, async (req, res, next) => {
   try {
     const { risk_score, risk_factors, counterparty_analysis, l2_narrative } = req.body || {};
     const lc = (await pool.query('SELECT * FROM l2_cases WHERE l2_case_id = $1', [req.params.id])).rows[0];
@@ -259,7 +260,7 @@ router.get('/:id/notes', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/notes', async (req, res, next) => {
+router.post('/:id/notes', requireL2OrManager, async (req, res, next) => {
   try {
     const { note_text, analyst_id } = req.body || {};
     if (!note_text?.trim()) return res.status(400).json({ error: 'note_text required' });
@@ -287,7 +288,7 @@ router.get('/:id/documents', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/documents', upload.single('file'), async (req, res, next) => {
+router.post('/:id/documents', requireL2OrManager, upload.single('file'), async (req, res, next) => {
   try {
     const { document_type, uploaded_by } = req.body || {};
     if (!req.file) return res.status(400).json({ error: 'file required' });
@@ -309,7 +310,7 @@ router.post('/:id/documents', upload.single('file'), async (req, res, next) => {
 
 // ─────────────────────────────────────────────── Decision: Return to L1
 
-router.patch('/:id/return', async (req, res, next) => {
+router.patch('/:id/return', requireL2OrManager, async (req, res, next) => {
   try {
     const { reason, instructions, performed_by } = req.body || {};
     if (!reason || !instructions) return res.status(400).json({ error: 'reason and instructions required' });
@@ -364,7 +365,7 @@ router.patch('/:id/return', async (req, res, next) => {
 
 // ─────────────────────────────────────────────── Decision: Close
 
-router.patch('/:id/close', async (req, res, next) => {
+router.patch('/:id/close', requireL2OrManager, async (req, res, next) => {
   try {
     const { narrative, performed_by } = req.body || {};
     if (!narrative || narrative.trim().length < 150) {
@@ -443,7 +444,7 @@ async function nextSarCaseId() {
   throw new Error('Could not generate unique L2 SAR case_id after 10000 attempts');
 }
 
-router.patch('/:id/escalate-sar', async (req, res, next) => {
+router.patch('/:id/escalate-sar', requireL2OrManager, async (req, res, next) => {
   try {
     const { sar_priority, summary, performed_by } = req.body || {};
     if (!summary?.trim()) return res.status(400).json({ error: 'summary required' });

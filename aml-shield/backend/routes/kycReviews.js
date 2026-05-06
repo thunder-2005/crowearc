@@ -5,6 +5,7 @@ const pool = require('../database/db');
 const { upload } = require('../middleware/upload');
 const { intervalDaysForRating } = require('../jobs/kycReviewMonitor');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
+const { requireManager, requireAnyAnalyst } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -173,7 +174,7 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireManager, async (req, res, next) => {
   try {
     const { customer_id, review_type, due_date, priority, assigned_to, assigned_by, assigned_note } = req.body;
     if (!customer_id) return res.status(400).json({ error: 'customer_id required' });
@@ -221,7 +222,7 @@ router.post('/', async (req, res, next) => {
 
 // Bulk-assign N reviews to one analyst, in a single transaction. Audit-logs
 // each row separately so the activity log on each review shows who assigned it.
-router.patch('/bulk-assign', async (req, res, next) => {
+router.patch('/bulk-assign', requireManager, async (req, res, next) => {
   const { review_ids, assigned_to, assigned_by } = req.body || {};
   if (!Array.isArray(review_ids) || review_ids.length === 0) {
     return res.status(400).json({ error: 'review_ids array required' });
@@ -295,7 +296,7 @@ router.patch('/bulk-assign', async (req, res, next) => {
   }
 });
 
-router.patch('/:id/assign', async (req, res, next) => {
+router.patch('/:id/assign', requireManager, async (req, res, next) => {
   try {
     const { assigned_to, assigned_by, assigned_note, due_date, priority } = req.body;
     if (!assigned_to) return res.status(400).json({ error: 'assigned_to required' });
@@ -331,7 +332,7 @@ router.patch('/:id/assign', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/start', async (req, res, next) => {
+router.patch('/:id/start', requireAnyAnalyst, async (req, res, next) => {
   try {
     const existing = (await pool.query('SELECT * FROM kyc_reviews WHERE id = $1', [req.params.id])).rows[0];
     if (!existing) return res.status(404).json({ error: 'Review not found' });
@@ -349,7 +350,7 @@ router.patch('/:id/start', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/save', async (req, res, next) => {
+router.patch('/:id/save', requireAnyAnalyst, async (req, res, next) => {
   try {
     const existing = (await pool.query('SELECT * FROM kyc_reviews WHERE id = $1', [req.params.id])).rows[0];
     if (!existing) return res.status(404).json({ error: 'Review not found' });
@@ -371,7 +372,7 @@ router.patch('/:id/save', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/complete', async (req, res, next) => {
+router.patch('/:id/complete', requireAnyAnalyst, async (req, res, next) => {
   try {
     const existing = (await pool.query(`
       SELECT r.*, c.customer_name FROM kyc_reviews r LEFT JOIN customers c ON c.customer_id = r.customer_id WHERE r.id = $1
@@ -459,7 +460,7 @@ router.patch('/:id/complete', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/approve', async (req, res, next) => {
+router.patch('/:id/approve', requireManager, async (req, res, next) => {
   try {
     const existing = (await pool.query(`
       SELECT r.*, c.customer_name FROM kyc_reviews r LEFT JOIN customers c ON c.customer_id = r.customer_id WHERE r.id = $1
@@ -549,7 +550,7 @@ router.patch('/:id/approve', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id/reject', async (req, res, next) => {
+router.patch('/:id/reject', requireManager, async (req, res, next) => {
   try {
     const existing = (await pool.query(`
       SELECT r.*, c.customer_name FROM kyc_reviews r LEFT JOIN customers c ON c.customer_id = r.customer_id WHERE r.id = $1
@@ -586,7 +587,7 @@ router.patch('/:id/reject', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/documents', upload.single('file'), async (req, res, next) => {
+router.post('/:id/documents', requireAnyAnalyst, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const review = (await pool.query(
@@ -614,7 +615,7 @@ router.post('/:id/documents', upload.single('file'), async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id/documents/:docId', async (req, res, next) => {
+router.delete('/:id/documents/:docId', requireAnyAnalyst, async (req, res, next) => {
   try {
     const doc = (await pool.query(
       'SELECT * FROM kyc_review_documents WHERE id = $1 AND review_id = $2',

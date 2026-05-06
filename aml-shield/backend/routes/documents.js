@@ -3,10 +3,11 @@ const path = require('path');
 const fs = require('fs');
 const pool = require('../database/db');
 const { upload } = require('../middleware/upload');
+const { requireAnyAnalyst } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
-router.post('/upload', upload.single('file'), async (req, res, next) => {
+router.post('/upload', requireAnyAnalyst, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const { sar_id, document_type, uploaded_by } = req.body;
@@ -62,11 +63,18 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', requireAnyAnalyst, async (req, res, next) => {
   try {
     const result = await pool.query('SELECT * FROM documents WHERE id = $1', [req.params.id]);
     const doc = result.rows[0];
     if (!doc) return res.status(404).json({ error: 'Document not found' });
+
+    // Only the original uploader or a manager can delete.
+    const requesterRole = req.headers['x-user-role'];
+    const requesterName = req.headers['x-user-name'];
+    if (requesterRole !== 'compliance_manager' && doc.uploaded_by && requesterName !== doc.uploaded_by) {
+      return res.status(403).json({ error: 'Only the uploader or a manager can delete this document' });
+    }
 
     const abs = path.isAbsolute(doc.file_path)
       ? doc.file_path
