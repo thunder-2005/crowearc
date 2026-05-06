@@ -218,8 +218,20 @@ export default function ManagerAlertsTable({ onSelect }) {
     if (ids.length === 0 || !analyst) return;
     setSubmitting(true);
     try {
-      await Promise.all(ids.map(id => api.patch(`/alerts/${id}/assign`, { assigned_to: analyst })));
-      push(`${ids.length} alert${ids.length === 1 ? '' : 's'} assigned to ${analyst}`, 'success');
+      // Single transactional call → backend writes ONE consolidated
+      // notification for the assignee instead of N (one per alert).
+      const { data } = await api.patch('/alerts/bulk-assign', {
+        alert_ids: ids,
+        assigned_to: analyst,
+        assigned_by: 'Compliance Manager'
+      });
+      const a = data?.assigned ?? 0;
+      const s = data?.skipped ?? 0;
+      const f = data?.failed ?? 0;
+      const parts = [`${a} alert${a === 1 ? '' : 's'} assigned to ${analyst}`];
+      if (s > 0) parts.push(`${s} skipped (already assigned)`);
+      if (f > 0) parts.push(`${f} failed`);
+      push(parts.join(' · '), f > 0 ? 'warning' : 'success');
       setBulkConfirm(null);
       clearSelection();
       await load();

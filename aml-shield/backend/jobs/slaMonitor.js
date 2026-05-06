@@ -33,6 +33,21 @@ async function alreadyNotifiedRecently(col, alertId) {
   return (Date.now() - last.getTime()) < 24 * 3600000;
 }
 
+// 48hr warnings use query-based dedup so we don't have to add a new column
+// to alerts. We look back 48 hours in the notifications table for a row
+// matching this alert + type. Returns true if one already exists.
+async function notification48hrAlreadyExists(alertId) {
+  const r = await pool.query(
+    `SELECT 1 FROM notifications
+      WHERE type IN ('sla_warning_48hr', 'sla_warning_48hr_manager')
+        AND related_id = $1
+        AND created_at::timestamp >= (NOW() - INTERVAL '48 hours')
+      LIMIT 1`,
+    [alertId]
+  );
+  return r.rows.length > 0;
+}
+
 async function tick() {
   try {
     const alerts = (await pool.query(`
@@ -49,7 +64,7 @@ async function tick() {
       VALUES ($1, $2, $3, $4, $5, $6, 'alert', $7)
     `, params);
 
-    let warnings = 0, breaches = 0;
+    let warnings = 0, breaches = 0, warnings48 = 0;
     for (const a of alerts) {
       if (TERMINAL_STATUSES.has(a.alert_status)) continue;
       const deadline = deadlineFor(a);
@@ -90,10 +105,27 @@ async function tick() {
           [nowIso(), a.alert_id]
         );
         warnings++;
+      } else if (remainingHours <= 48 && remainingHours > 24) {
+        // Earliest warning tier — fires once per alert per 48-hour window.
+        // De-dup is done by querying the notifications table (no new column
+        // on alerts). The 24hr branch above is left untouched.
+        if (await notification48hrAlreadyExists(a.alert_id)) continue;
+        const hrsLabel = `${Math.floor(remainingHours)}h remaining`;
+        if (a.assigned_to) {
+          await insertNotif([a.assigned_to, 'employee', 'sla_warning_48hr',
+            'SLA Warning — 48 Hours',
+            `${a.alert_id} — ${a.scenario} — ${a.customer_name} — ${hrsLabel}`,
+            a.alert_id, 'warning']);
+        }
+        await insertNotif([null, 'manager', 'sla_warning_48hr_manager',
+          'Team SLA Warning — 48 Hours',
+          `${a.assigned_to || 'Unassigned'} — ${a.alert_id} — ${a.scenario} — ${hrsLabel}`,
+          a.alert_id, 'warning']);
+        warnings48++;
       }
     }
-    if (warnings || breaches) {
-      console.log(`[slaMonitor] ${warnings} warning(s) · ${breaches} breach(es) at ${nowIso()}`);
+    if (warnings || breaches || warnings48) {
+      console.log(`[slaMonitor] ${warnings48} 48h · ${warnings} 24h · ${breaches} breach(es) at ${nowIso()}`);
     }
   } catch (e) {
     console.error('[slaMonitor] error:', e.message);

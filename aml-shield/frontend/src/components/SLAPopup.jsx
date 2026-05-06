@@ -10,10 +10,18 @@ const POLL_MS = 60_000;
 const AUTO_DISMISS_WARNING_MS = 30_000;
 const VISIBLE_MAX = 3;
 
-const SLA_TYPES = new Set(['sla_warning', 'sla_breached', 'sla_warning_manager', 'sla_breached_manager']);
+const SLA_TYPES = new Set([
+  'sla_warning', 'sla_breached',
+  'sla_warning_manager', 'sla_breached_manager',
+  // 48hr early-warning tier added by slaMonitor.js
+  'sla_warning_48hr', 'sla_warning_48hr_manager'
+]);
 
 function isBreach(t) { return t === 'sla_breached' || t === 'sla_breached_manager'; }
-function isManagerType(t) { return t === 'sla_warning_manager' || t === 'sla_breached_manager'; }
+function isManagerType(t) {
+  return t === 'sla_warning_manager' || t === 'sla_breached_manager' || t === 'sla_warning_48hr_manager';
+}
+function is48Hr(t) { return t === 'sla_warning_48hr' || t === 'sla_warning_48hr_manager'; }
 
 function fmtRemaining(ms) {
   if (ms == null) return '—';
@@ -100,6 +108,7 @@ export default function SLAPopup() {
         message: n.message,
         related_id: n.related_id,
         is_breach: isBreach(n.type),
+        is_48hr: is48Hr(n.type),
         is_manager: isManagerType(n.type),
         alert,
         deadline,
@@ -185,13 +194,17 @@ function PopupCard({ popup, tick, onDismiss, onOpen }) {
   const pct = pctRemaining(popup.deadline, popup.sla_days);
 
   const tone = popup.is_breach
-    ? { border: 'border-l-red-500', bg: 'bg-red-50', dot: 'text-red-600', titleColor: 'text-red-700' }
-    : { border: 'border-l-orange-500', bg: 'bg-white', dot: 'text-orange-600', titleColor: 'text-orange-700' };
+    ? { border: 'border-l-red-500',    bg: 'bg-red-50',   dot: 'text-red-600',    titleColor: 'text-red-700' }
+    : popup.is_48hr
+      ? { border: 'border-l-amber-400', bg: 'bg-amber-50', dot: 'text-amber-600',  titleColor: 'text-amber-700' }
+      : { border: 'border-l-orange-500',bg: 'bg-white',    dot: 'text-orange-600', titleColor: 'text-orange-700' };
 
   const Icon = popup.is_breach ? ShieldAlert : AlertTriangle;
   const headerLabel = popup.is_breach
     ? (popup.is_manager ? 'Team SLA Breached' : 'SLA Breached')
-    : (popup.is_manager ? 'Team SLA Warning'  : 'SLA Warning');
+    : popup.is_48hr
+      ? (popup.is_manager ? 'Team SLA Warning — 48 Hours' : '⚠️ SLA Warning — 48 Hours')
+      : (popup.is_manager ? 'Team SLA Warning'  : 'SLA Warning');
 
   return (
     <div className={`rounded-lg border ${tone.border} border-l-4 border-slate-200 ${tone.bg} shadow-xl overflow-hidden`} role="alert">
@@ -215,7 +228,16 @@ function PopupCard({ popup, tick, onDismiss, onOpen }) {
             Assigned to: <span className="font-medium">{popup.alert.assigned_to}</span>
           </div>
         )}
-        <div className={`text-xs mt-2 ${popup.is_breach ? 'text-red-600 font-semibold' : 'text-orange-700'}`} key={tick}>
+        <div
+          className={`text-xs mt-2 ${
+            popup.is_breach
+              ? 'text-red-600 font-semibold'
+              : popup.is_48hr
+                ? 'text-amber-700'
+                : 'text-orange-700'
+          }`}
+          key={tick}
+        >
           {popup.is_breach ? 'Breached by:' : 'Time Remaining:'} {fmtRemaining(remainingMs)}
         </div>
       </div>

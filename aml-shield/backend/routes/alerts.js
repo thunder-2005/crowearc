@@ -240,9 +240,91 @@ router.patch('/:id/assign', async (req, res, next) => {
       performed_by: performed_by || (assigned_to === existing.assigned_to ? assigned_to : 'system'),
       details: existing.assigned_to ? `Reassigned from ${existing.assigned_to}` : null
     });
+
+    // Notify the assignee. Skip on no-op self-reassign (where assigned_to
+    // didn't change) so a status PATCH doesn't double-fire. Manager is not
+    // notified — they're the one assigning, they already know.
+    if (assigned_to !== existing.assigned_to) {
+      const slaLabel = existing.sla_days != null ? `${existing.sla_days} days` : 'set by priority';
+      await pool.query(`
+        INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_id, related_type, tone)
+        VALUES ($1, 'employee', 'alert_assigned', $2, $3, $4, 'alert', 'info')
+      `, [
+        assigned_to,
+        'New Alert Assigned',
+        `${existing.alert_id} — ${existing.scenario} — ${existing.priority} priority — SLA: ${slaLabel}`,
+        existing.alert_id
+      ]);
+    }
+
     const sel = await pool.query('SELECT * FROM alerts WHERE alert_id = $1', [existing.alert_id]);
     res.json(sel.rows[0]);
   } catch (err) { next(err); }
+});
+
+// Bulk-assign N alerts to one analyst in a single transaction. Audit-logs
+// each row separately, but inserts ONE consolidated notification for the
+// assignee at the end so the analyst's bell doesn't get spammed when a
+// manager hands them 50 alerts at once.
+//
+// Body: { alert_ids: string[], assigned_to: string, assigned_by?: string }
+// Response: { assigned, skipped, failed }
+router.patch('/bulk-assign', async (req, res, next) => {
+  const { alert_ids, assigned_to, assigned_by } = req.body || {};
+  if (!Array.isArray(alert_ids) || alert_ids.length === 0) {
+    return res.status(400).json({ error: 'alert_ids array required' });
+  }
+  if (!assigned_to) return res.status(400).json({ error: 'assigned_to required' });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const performedBy = (assigned_by && String(assigned_by).trim()) || 'Compliance Manager';
+  let assigned = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const id of alert_ids) {
+      const sel = await client.query('SELECT * FROM alerts WHERE alert_id = $1', [id]);
+      const row = sel.rows[0];
+      if (!row) { failed++; continue; }
+      if (row.assigned_to === assigned_to) { skipped++; continue; }
+      const nextStatus = row.alert_status === 'Unassigned' ? 'Not Started' : row.alert_status;
+      await client.query(
+        'UPDATE alerts SET assigned_to = $1, alert_status = $2, last_activity_date = $3 WHERE alert_id = $4',
+        [assigned_to, nextStatus, today, row.alert_id]
+      );
+      await logAudit({
+        entity_type: ENTITY_TYPES.ALERT, entity_id: row.alert_id,
+        action: `Alert assigned to ${assigned_to}`,
+        performed_by: performedBy,
+        details: row.assigned_to ? `Reassigned from ${row.assigned_to} (bulk)` : 'Bulk assignment',
+        client
+      });
+      assigned++;
+    }
+
+    // ONE consolidated notification, regardless of count. Manager not notified.
+    if (assigned > 0) {
+      await client.query(`
+        INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_id, related_type, tone)
+        VALUES ($1, 'employee', 'alert_assigned', $2, $3, NULL, 'alert', 'info')
+      `, [
+        assigned_to,
+        `${assigned} new alert${assigned === 1 ? '' : 's'} assigned to you`,
+        `${performedBy} assigned ${assigned} alert${assigned === 1 ? '' : 's'} to you. Open My Alerts to begin.`
+      ]);
+    }
+
+    await client.query('COMMIT');
+    res.json({ assigned, skipped, failed });
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_e) { /* ignore */ }
+    next(err);
+  } finally {
+    client.release();
+  }
 });
 
 const CLOSED_ALERT_STATUSES = new Set([
