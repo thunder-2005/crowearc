@@ -314,7 +314,7 @@ export default function SARFiling() {
               <StepActivity form={form} setForm={dirtyForm} errors={errors} />
             )}
             {STEPS[stepIdx].k === 'narrative' && (
-              <StepNarrative form={form} setForm={dirtyForm} errors={errors} notesText={notesText} />
+              <StepNarrative form={form} setForm={dirtyForm} errors={errors} sarId={filing?.sar_id} />
             )}
             {STEPS[stepIdx].k === 'attachments' && (
               <StepAttachments
@@ -968,16 +968,36 @@ function StepActivity({ form, setForm, errors }) {
 }
 
 /* --- Step 4: Narrative --- */
-function StepNarrative({ form, setForm, errors, notesText }) {
+function StepNarrative({ form, setForm, errors, sarId }) {
   const len = (form.narrative || '').length;
+  const [generating, setGenerating] = useState(false);
+  const [genResult, setGenResult] = useState(null);
+  const [genError, setGenError] = useState(null);
 
-  const generate = () => {
-    if (!notesText) {
-      setForm({ narrative: form.narrative || 'No prior case notes available — write the narrative manually.' });
+  const generate = async () => {
+    if (!sarId) {
+      setGenError('SAR draft is still loading — try again in a moment.');
       return;
     }
-    const seed = `Drafted from investigation case notes (review and edit before submission):\n\n${notesText}`;
-    setForm({ narrative: seed });
+    const existing = (form.narrative || '').trim();
+    if (existing.length > 0) {
+      const ok = window.confirm(
+        'Replace existing narrative? This will overwrite your current draft.'
+      );
+      if (!ok) return;
+    }
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const { data } = await api.get(`/sar-filings/${encodeURIComponent(sarId)}/generate-narrative`);
+      setForm({ narrative: data.narrative });
+      setGenResult(data.data_used);
+    } catch (e) {
+      setGenError(e.response?.data?.error || e.message || 'Generation failed');
+      setGenResult(null);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   return (
@@ -991,18 +1011,36 @@ function StepNarrative({ form, setForm, errors, notesText }) {
               Narrative <span className="text-red-500">*</span>
               <span className="text-slate-400 font-normal ml-1">(min 100 characters)</span>
             </label>
-            <button type="button" onClick={generate}
-              className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-300 hover:bg-slate-50">
-              <Sparkles size={12} /> Generate from Case Notes
+            <button type="button" onClick={generate} disabled={generating}
+              className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed">
+              {generating
+                ? <><Loader2 size={12} className="animate-spin" /> Generating…</>
+                : <><Sparkles size={12} /> Generate Draft from Case Data</>}
             </button>
           </div>
+          {genResult && !genError && (
+            <div className="text-[11px] text-slate-500">
+              Generated using: {genResult.case_notes_count} case note{genResult.case_notes_count === 1 ? '' : 's'}, {genResult.alerted_transactions_count} alerted transaction{genResult.alerted_transactions_count === 1 ? '' : 's'}, {genResult.template_used} template
+            </div>
+          )}
+          {genResult && !genError && (
+            <div className="bg-yellow-50 border border-yellow-300 rounded-md px-3 py-2 text-xs text-yellow-900">
+              📝 Draft generated from case data — Review carefully and edit as needed before submitting. This is a starting point, not a final document.
+            </div>
+          )}
+          {genError && (
+            <div className="bg-red-50 border border-red-300 rounded-md px-3 py-2 text-xs text-red-700">
+              Could not generate draft. Please write the narrative manually. ({genError})
+            </div>
+          )}
           <textarea
             spellCheck="true"
             value={form.narrative || ''}
             onChange={e => setForm({ narrative: e.target.value })}
             rows={16}
+            disabled={generating}
             placeholder="Describe who is involved, what happened, when, where, why it is suspicious, and how the activity was conducted…"
-            className={`w-full text-sm border rounded-md p-3 focus:outline-none ${
+            className={`w-full text-sm border rounded-md p-3 focus:outline-none disabled:bg-slate-50 ${
               errors.narrative ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-blue-500'
             }`}
           />

@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../database/db');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 const { requireL2OrManager } = require('../middleware/roleGuard');
+const { generateNarrative } = require('../utils/narrativeTemplates');
 
 const router = express.Router();
 
@@ -337,6 +338,99 @@ router.post('/:id/approve', requireL2OrManager, async (req, res, next) => {
 
     const row = (await pool.query('SELECT * FROM sar_filings WHERE sar_id = $1', [existing.sar_id])).rows[0];
     res.json(deserialize(row));
+  } catch (err) { next(err); }
+});
+
+// Assemble a draft SAR narrative from the case data using a scenario-specific
+// regulatory template. Returns the assembled text plus a small `data_used`
+// summary so the UI can show what fed into the draft. The analyst still
+// has to review and edit before submission — this is a starting point, not
+// a final document.
+router.get('/:id/generate-narrative', async (req, res, next) => {
+  try {
+    const idParam = req.params.id;
+    const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
+    const sar = (await pool.query(
+      'SELECT * FROM sar_filings WHERE sar_id = $1 OR id = $2', [idParam, idAsInt]
+    )).rows[0];
+    if (!sar) return res.status(404).json({ error: 'SAR not found' });
+
+    const alert = sar.source_alert_id
+      ? (await pool.query('SELECT * FROM alerts WHERE alert_id = $1', [sar.source_alert_id])).rows[0] || null
+      : null;
+
+    const customer = sar.customer_id
+      ? (await pool.query('SELECT * FROM customers WHERE customer_id = $1', [sar.customer_id])).rows[0] || null
+      : null;
+
+    let alertedTxns = [];
+    if (alert) {
+      alertedTxns = (await pool.query(`
+        SELECT transaction_id, txn_date, txn_type, channel, amount,
+               counterparty, counterparty_country, description
+          FROM transactions
+         WHERE customer_id = $1 AND is_alerted = 1
+         ORDER BY txn_date ASC, txn_time ASC
+      `, [alert.customer_id])).rows.map(t => ({ ...t, amount: Number(t.amount) }));
+    }
+
+    const ts = (() => {
+      if (alertedTxns.length === 0) {
+        return {
+          total_alerted_amount: 0, alerted_count: 0,
+          date_range_start: null, date_range_end: null,
+          min_amount: 0, max_amount: 0,
+          unique_counterparties: 0, countries_involved: []
+        };
+      }
+      const amounts = alertedTxns.map(t => t.amount);
+      const dates = alertedTxns.map(t => t.txn_date).filter(Boolean).sort();
+      const cps = new Set(alertedTxns.map(t => t.counterparty).filter(Boolean));
+      const countries = new Set(alertedTxns.map(t => t.counterparty_country).filter(Boolean));
+      return {
+        total_alerted_amount: amounts.reduce((s, a) => s + a, 0),
+        alerted_count: alertedTxns.length,
+        date_range_start: dates[0],
+        date_range_end: dates[dates.length - 1],
+        min_amount: Math.min(...amounts),
+        max_amount: Math.max(...amounts),
+        unique_counterparties: cps.size,
+        countries_involved: [...countries]
+      };
+    })();
+
+    const caseNotes = alert
+      ? (await pool.query(
+          'SELECT note_text, analyst, timestamp FROM case_notes WHERE alert_id = $1 ORDER BY timestamp ASC',
+          [alert.alert_id]
+        )).rows
+      : [];
+
+    const l2 = alert
+      ? (await pool.query(
+          'SELECT risk_score, risk_factors, l2_narrative FROM l2_cases WHERE alert_id = $1 ORDER BY id DESC LIMIT 1',
+          [alert.alert_id]
+        )).rows[0] || null
+      : null;
+
+    const result = generateNarrative({
+      alert, customer, sar,
+      alerted_transactions: alertedTxns,
+      transaction_summary: ts,
+      case_notes: caseNotes,
+      l2
+    });
+
+    res.json({
+      narrative: result.text,
+      data_used: {
+        case_notes_count: caseNotes.length,
+        alerted_transactions_count: alertedTxns.length,
+        template_used: result.template,
+        scenario: alert?.scenario || null,
+        generated_at: new Date().toISOString()
+      }
+    });
   } catch (err) { next(err); }
 });
 
