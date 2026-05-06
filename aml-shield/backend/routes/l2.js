@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const pool = require('../database/db');
-const { requireL2OrManager } = require('../middleware/roleGuard');
+const { requireL2OrManager, requireAnyAnalyst } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -91,7 +91,12 @@ router.get('/:id', async (req, res, next) => {
 
 // ─────────────────────────────────────────────── Create L2 case
 
-router.post('/', requireL2OrManager, async (req, res, next) => {
+// POST /api/l2 — creates an L2 case. L1 analysts must be able to call this
+// when they click "Escalate to L2" on their alert workspace, so the guard
+// is requireAnyAnalyst (not requireL2OrManager). Only L1/L2/manager roles
+// can create. All downstream L2 lifecycle routes (accept, return, close,
+// escalate-sar, etc.) remain L2-or-manager-only.
+router.post('/', requireAnyAnalyst, async (req, res, next) => {
   try {
     const { alert_id, escalated_by, escalation_reason, assigned_to } = req.body || {};
     if (!alert_id || !escalated_by) {
