@@ -69,7 +69,14 @@ const FILING_FIELDS = [
   'reporting_jurisdiction', 'regulator_reference', 'access_classification',
   'current_owner', 'draft_data', 'included_documents', 'updated_at',
   'filed_date', 'retention_status', 'retention_expiry_date',
-  'documents_count', 'linked_alert_count', 'latest_activity_date'
+  'documents_count', 'linked_alert_count', 'latest_activity_date',
+  // Joint SAR — co-filer details (single co-filer per SAR)
+  'joint_filer_name', 'joint_filer_address', 'joint_filer_city',
+  'joint_filer_state', 'joint_filer_zip', 'joint_filer_fein',
+  'joint_filer_contact_name', 'joint_filer_contact_phone', 'joint_filer_role',
+  // Continuing SAR — link to prior SAR + activity range + change summary
+  'prior_sar_id', 'prior_sar_filing_date', 'changes_since_prior_sar',
+  'continuing_activity_from', 'continuing_activity_to'
 ];
 
 async function applyUpdate(sarRow, body) {

@@ -273,6 +273,40 @@ function DetailsView({ sar }) {
         ['Prior SARs', sar.prior_sars ? `Yes (${sar.prior_sar_count || '?'})` : 'No'],
         ['Date of Recent SAR', sar.date_of_recent_sar]
       ]} />
+
+      {sar.filing_type === 'Joint SAR' && (
+        <div className="border-l-4 border-blue-400 bg-blue-50/30 rounded-r-md p-3">
+          <SectionTitle title="Co-Filing Institution" />
+          <Grid items={[
+            ['Institution', sar.joint_filer_name],
+            ['FEIN', sar.joint_filer_fein],
+            ['Address', [sar.joint_filer_address, sar.joint_filer_city, sar.joint_filer_state, sar.joint_filer_zip].filter(Boolean).join(', ')],
+            ['Contact', sar.joint_filer_contact_name],
+            ['Phone', sar.joint_filer_contact_phone],
+            ['Role', sar.joint_filer_role]
+          ]} />
+        </div>
+      )}
+
+      {sar.filing_type === 'Continuing SAR' && (
+        <div className="border-l-4 border-orange-400 bg-orange-50/30 rounded-r-md p-3">
+          <SectionTitle title="Prior SAR Reference" />
+          <Grid items={[
+            ['Prior SAR ID', sar.prior_sar_id ? <a href={`/sars/${sar.prior_sar_id}`} className="text-blue-600 hover:underline font-mono">{sar.prior_sar_id}</a> : '—'],
+            ['Prior Filing Date', sar.prior_sar_filing_date],
+            ['Activity From', sar.continuing_activity_from],
+            ['Activity To', sar.continuing_activity_to]
+          ]} />
+          {sar.changes_since_prior_sar && (
+            <div className="mt-2">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Changes Since Prior SAR</div>
+              <div className="text-xs text-slate-700 whitespace-pre-wrap bg-white border border-slate-200 rounded p-2">
+                {sar.changes_since_prior_sar}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

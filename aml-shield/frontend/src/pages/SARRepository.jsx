@@ -15,6 +15,19 @@ import { useInvestigationTabs } from '../state/InvestigationTabsContext.jsx';
 const STATUSES = ['', 'Draft', 'Under Review', 'Filed', 'Acknowledged'];
 const RETENTION = ['', 'Pending Filing', 'Active', 'Legal Hold'];
 
+// Color-coded filing-type pill — same wording the wizard uses verbatim.
+function FilingTypeBadge({ type }) {
+  if (!type) return null;
+  const tone = type === 'Joint SAR'      ? 'bg-purple-100 text-purple-700'
+             : type === 'Continuing SAR' ? 'bg-orange-100 text-orange-700'
+             : /* Initial SAR */           'bg-blue-100 text-blue-700';
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${tone}`}>
+      {type}
+    </span>
+  );
+}
+
 function retentionUrgency(expiry) {
   if (!expiry) return { label: 'Pending filing', tone: 'bg-slate-100 text-slate-600' };
   const days = Math.round((new Date(expiry) - new Date()) / 86400000);
@@ -134,7 +147,13 @@ function ManagerSarRepository() {
           <Table
             onRowClick={openSar}
             columns={[
-              { key: 'sar_id', label: 'SAR ID', cellClass: 'font-mono text-xs text-navy-900 font-medium' },
+              { key: 'sar_id', label: 'SAR ID', cellClass: 'font-mono text-xs text-navy-900 font-medium',
+                render: r => (
+                  <div className="flex items-center gap-2">
+                    <span>{r.sar_id}</span>
+                    <FilingTypeBadge type={r.filing_type} />
+                  </div>
+                ) },
               { key: 'filed_date', label: 'Filed', render: r => r.filed_date || <span className="italic text-slate-400">{r.draft_created_date}</span> },
               { key: 'customer_name', label: 'Customer', cellClass: 'font-medium' },
               { key: 'case_id', label: 'Case ID', render: r => r.case_id || '—' },
@@ -221,7 +240,10 @@ function SarDetail({ sar, onClose, onRefresh, readOnly, requester }) {
     <aside className="w-[480px] shrink-0 bg-white rounded-lg border border-slate-200 shadow-lg h-[calc(100vh-96px)] sticky top-20 flex flex-col">
       <div className="flex items-start justify-between px-5 pt-4 pb-3 border-b border-slate-100">
         <div className="min-w-0">
-          <div className="text-xs font-mono text-slate-500">{sar.sar_id}</div>
+          <div className="text-xs font-mono text-slate-500 flex items-center gap-2">
+            <span>{sar.sar_id}</span>
+            <FilingTypeBadge type={sar.filing_type} />
+          </div>
           <div className="text-base font-semibold text-navy-900 truncate">{sar.customer_name}</div>
           <div className="text-xs text-slate-500 mt-0.5">Case {sar.case_id || '—'} · Alert {sar.source_alert_id || '—'}</div>
         </div>
@@ -260,6 +282,42 @@ function SarDetail({ sar, onClose, onRefresh, readOnly, requester }) {
             <div className="text-slate-500">QA Score</div><div>{sar.qa_score}</div>
             <div className="text-slate-500">Exports</div><div>{sar.export_count} (last {sar.last_exported_at || '—'})</div>
           </div>
+          {sar.filing_type === 'Joint SAR' && (
+            <div className="mt-3 border-l-4 border-blue-400 bg-blue-50/40 rounded-r-md p-3">
+              <div className="text-xs font-semibold text-navy-900 mb-2">Co-Filer</div>
+              <div className="grid grid-cols-2 gap-y-1.5 gap-x-4 text-xs">
+                <div className="text-slate-500">Institution</div><div>{sar.joint_filer_name || '—'}</div>
+                <div className="text-slate-500">FEIN</div><div>{sar.joint_filer_fein || '—'}</div>
+                <div className="text-slate-500">Address</div><div>{[sar.joint_filer_address, sar.joint_filer_city, sar.joint_filer_state, sar.joint_filer_zip].filter(Boolean).join(', ') || '—'}</div>
+                <div className="text-slate-500">Contact</div><div>{sar.joint_filer_contact_name || '—'}</div>
+                <div className="text-slate-500">Phone</div><div>{sar.joint_filer_contact_phone || '—'}</div>
+                <div className="text-slate-500">Role</div><div>{sar.joint_filer_role || '—'}</div>
+              </div>
+            </div>
+          )}
+          {sar.filing_type === 'Continuing SAR' && (
+            <div className="mt-3 border-l-4 border-orange-400 bg-orange-50/40 rounded-r-md p-3">
+              <div className="text-xs font-semibold text-navy-900 mb-2">Prior SAR</div>
+              <div className="grid grid-cols-2 gap-y-1.5 gap-x-4 text-xs">
+                <div className="text-slate-500">Continuing from</div>
+                <div>
+                  {sar.prior_sar_id ? (
+                    <a href={`?sar_id=${encodeURIComponent(sar.prior_sar_id)}`}
+                       className="text-blue-600 hover:underline font-mono">{sar.prior_sar_id}</a>
+                  ) : '—'}
+                </div>
+                <div className="text-slate-500">Filed on</div><div>{sar.prior_sar_filing_date || '—'}</div>
+                <div className="text-slate-500">Activity From</div><div>{sar.continuing_activity_from || '—'}</div>
+                <div className="text-slate-500">Activity To</div><div>{sar.continuing_activity_to || '—'}</div>
+              </div>
+              {sar.changes_since_prior_sar && (
+                <div className="mt-2">
+                  <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Changes Since Prior SAR</div>
+                  <div className="text-xs text-slate-700 whitespace-pre-wrap bg-white border border-slate-200 rounded p-2">{sar.changes_since_prior_sar}</div>
+                </div>
+              )}
+            </div>
+          )}
           {sar.narrative_summary && (
             <div className="mt-3 p-3 rounded bg-slate-50 text-xs text-slate-700 leading-relaxed">
               <div className="font-semibold text-slate-900 mb-1">Narrative</div>

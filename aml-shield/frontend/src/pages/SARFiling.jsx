@@ -314,7 +314,12 @@ export default function SARFiling() {
               <StepActivity form={form} setForm={dirtyForm} errors={errors} />
             )}
             {STEPS[stepIdx].k === 'narrative' && (
-              <StepNarrative form={form} setForm={dirtyForm} errors={errors} sarId={filing?.sar_id} />
+              <StepNarrative form={form} setForm={dirtyForm} errors={errors} sarId={filing?.sar_id} priorSarRef={form.filing_type === 'Continuing SAR' ? {
+                priorSarId: form.prior_sar_id,
+                priorFilingDate: form.prior_sar_filing_date,
+                from: form.continuing_activity_from,
+                to: form.continuing_activity_to
+              } : null} />
             )}
             {STEPS[stepIdx].k === 'attachments' && (
               <StepAttachments
@@ -430,11 +435,41 @@ function buildInitialForm(c, cust, f) {
     narrative:          fromFiling('narrative', f?.narrative_summary || ''),
     certification_signed: fromFiling('certification_signed', 0) ? true : false,
 
+    // Joint SAR — co-filer details (only used when filing_type === 'Joint SAR')
+    joint_filer_name:           fromFiling('joint_filer_name', ''),
+    joint_filer_address:        fromFiling('joint_filer_address', ''),
+    joint_filer_city:           fromFiling('joint_filer_city', ''),
+    joint_filer_state:          fromFiling('joint_filer_state', ''),
+    joint_filer_zip:            fromFiling('joint_filer_zip', ''),
+    joint_filer_fein:           fromFiling('joint_filer_fein', ''),
+    joint_filer_contact_name:   fromFiling('joint_filer_contact_name', ''),
+    joint_filer_contact_phone:  fromFiling('joint_filer_contact_phone', ''),
+    joint_filer_role:           fromFiling('joint_filer_role', ''),
+
+    // Continuing SAR — link to prior SAR + activity range + change summary
+    prior_sar_id:             fromFiling('prior_sar_id', ''),
+    prior_sar_filing_date:    fromFiling('prior_sar_filing_date', ''),
+    changes_since_prior_sar:  fromFiling('changes_since_prior_sar', ''),
+    continuing_activity_from: fromFiling('continuing_activity_from', ''),
+    continuing_activity_to:   fromFiling('continuing_activity_to', ''),
+
     prepared_by: f?.prepared_by || ''
   };
 }
 
 function serializeForm(form, includeDocIds) {
+  const isContinuing = form.filing_type === 'Continuing SAR';
+  const isJoint = form.filing_type === 'Joint SAR';
+  // Q2: when this SAR continues a prior one, the legacy "prior SARs filed
+  // on subject" answer is implied — coerce to Yes / count=1 so analysts
+  // don't have to fill the redundant radio. The radio is also hidden in
+  // the UI for Continuing SAR. Saved values are still honoured when the
+  // analyst flips back to Initial.
+  const priorSars = isContinuing ? 1 : (form.prior_sars ? 1 : 0);
+  const priorSarCount = isContinuing
+    ? Math.max(1, Number(form.prior_sar_count) || 1)
+    : (form.prior_sar_count === '' ? null : Number(form.prior_sar_count));
+
   return {
     filing_type: form.filing_type,
     filing_method: form.filing_method,
@@ -447,8 +482,8 @@ function serializeForm(form, includeDocIds) {
     total_amount: form.total_amount === '' ? null : Number(form.total_amount),
     currency: form.currency,
     structuring_indicator: form.structuring_indicator ? 1 : 0,
-    prior_sars: form.prior_sars ? 1 : 0,
-    prior_sar_count: form.prior_sar_count === '' ? null : Number(form.prior_sar_count),
+    prior_sars: priorSars,
+    prior_sar_count: priorSarCount,
     date_of_recent_sar: form.date_of_recent_sar || null,
     activity_date_from: form.activity_date_from || null,
     activity_date_to: form.activity_date_to || null,
@@ -464,14 +499,57 @@ function serializeForm(form, includeDocIds) {
     certification_signed: form.certification_signed ? 1 : 0,
     included_documents: includeDocIds || [],
     documents_count: (includeDocIds || []).length,
+
+    // Joint SAR fields — only sent when relevant; backend ignores extras
+    joint_filer_name:          isJoint ? (form.joint_filer_name || null) : null,
+    joint_filer_address:       isJoint ? (form.joint_filer_address || null) : null,
+    joint_filer_city:          isJoint ? (form.joint_filer_city || null) : null,
+    joint_filer_state:         isJoint ? (form.joint_filer_state || null) : null,
+    joint_filer_zip:           isJoint ? (form.joint_filer_zip || null) : null,
+    joint_filer_fein:          isJoint ? (form.joint_filer_fein || null) : null,
+    joint_filer_contact_name:  isJoint ? (form.joint_filer_contact_name || null) : null,
+    joint_filer_contact_phone: isJoint ? (form.joint_filer_contact_phone || null) : null,
+    joint_filer_role:          isJoint ? (form.joint_filer_role || null) : null,
+
+    // Continuing SAR fields
+    prior_sar_id:             isContinuing ? (form.prior_sar_id || null) : null,
+    prior_sar_filing_date:    isContinuing ? (form.prior_sar_filing_date || null) : null,
+    changes_since_prior_sar:  isContinuing ? (form.changes_since_prior_sar || null) : null,
+    continuing_activity_from: isContinuing ? (form.continuing_activity_from || null) : null,
+    continuing_activity_to:   isContinuing ? (form.continuing_activity_to || null) : null,
+
     draft_data: { ...form, included_documents: includeDocIds }
   };
+}
+
+// Step 1 base required fields plus the type-specific requirements:
+//  - Joint SAR: every joint_filer_* field
+//  - Continuing SAR: prior SAR ID, filing date, both continuing activity
+//    dates, and a changes summary >= 50 chars
+function isDetailsStepComplete(form) {
+  if (!form) return false;
+  const baseOk = !!(form.filing_type && form.filing_method && form.regulatory_agency &&
+                    form.sar_type && form.detection_date);
+  if (!baseOk) return false;
+  if (form.filing_type === 'Joint SAR') {
+    return !!(form.joint_filer_name && form.joint_filer_address && form.joint_filer_city &&
+              form.joint_filer_state && form.joint_filer_zip && form.joint_filer_fein &&
+              form.joint_filer_contact_name && form.joint_filer_contact_phone &&
+              form.joint_filer_role);
+  }
+  if (form.filing_type === 'Continuing SAR') {
+    return !!(form.prior_sar_id && form.prior_sar_filing_date &&
+              form.continuing_activity_from && form.continuing_activity_to &&
+              form.changes_since_prior_sar &&
+              String(form.changes_since_prior_sar).trim().length >= 50);
+  }
+  return true;
 }
 
 function buildValidation(form, includeDocIds) {
   if (!form) return [];
   const v = [];
-  v.push({ ok: !!(form.filing_type && form.filing_method && form.regulatory_agency && form.sar_type && form.detection_date),
+  v.push({ ok: isDetailsStepComplete(form),
            label: 'SAR details required fields completed' });
   const subj = form.subject || {};
   const subjOk = subj.type === 'Individual'
@@ -496,7 +574,7 @@ function stepCompletion(form, validation) {
     ? !!(subj.first_name && subj.last_name && subj.address)
     : !!(subj.legal_name && subj.address);
   return [
-    !!(form.filing_type && form.filing_method && form.regulatory_agency && form.sar_type && form.detection_date),
+    isDetailsStepComplete(form),
     subjOk,
     (form.suspicious_activity_types || []).length > 0 && (form.transaction_types || []).length > 0,
     (form.narrative || '').length >= 100,
@@ -515,6 +593,35 @@ function validateStep(stepKey, form, validation, includeDocIds) {
     if (!form.detection_date) errs.detection_date = 'Required';
     if (!form.bsa_filing_institution) errs.bsa_filing_institution = 'Required';
     if (!form.tin) errs.tin = 'Required';
+
+    if (form.filing_type === 'Joint SAR') {
+      const fields = [
+        ['joint_filer_name', 'Institution name required'],
+        ['joint_filer_fein', 'FEIN required'],
+        ['joint_filer_address', 'Address required'],
+        ['joint_filer_city', 'City required'],
+        ['joint_filer_state', 'State required'],
+        ['joint_filer_zip', 'ZIP required'],
+        ['joint_filer_contact_name', 'Contact name required'],
+        ['joint_filer_contact_phone', 'Contact phone required'],
+        ['joint_filer_role', 'Co-filer role required']
+      ];
+      let anyMissing = false;
+      for (const [k, msg] of fields) {
+        if (!form[k] || !String(form[k]).trim()) { errs[k] = msg; anyMissing = true; }
+      }
+      if (anyMissing) errs._joint_filer = 'Co-filer institution details are required for Joint SAR';
+    }
+
+    if (form.filing_type === 'Continuing SAR') {
+      if (!form.prior_sar_id) errs.prior_sar_id = 'Prior SAR ID required';
+      if (!form.prior_sar_filing_date) errs.prior_sar_filing_date = 'Prior SAR filing date required';
+      if (!form.continuing_activity_from) errs.continuing_activity_from = 'Activity start date required';
+      if (!form.continuing_activity_to) errs.continuing_activity_to = 'Activity end date required';
+      const changes = String(form.changes_since_prior_sar || '').trim();
+      if (!changes) errs.changes_since_prior_sar = 'Changes since prior SAR required';
+      else if (changes.length < 50) errs.changes_since_prior_sar = 'Minimum 50 characters';
+    }
   }
   if (stepKey === 'subject') {
     const s = form.subject || {};
@@ -720,6 +827,188 @@ function Donut({ pct }) {
   );
 }
 
+/* --- Joint SAR co-filer details (conditional sub-section) --- */
+const JOINT_FILER_ROLES = ['Lead Filer', 'Supporting Filer', 'Equal Co-Filer'];
+
+function JointFilerSection({ form, setForm, errors }) {
+  return (
+    <div className="border-l-4 border-blue-400 bg-blue-50/30 rounded-r-md p-4 space-y-4">
+      <div>
+        <div className="text-sm font-semibold text-navy-900">Co-Filing Institution Details</div>
+        <div className="text-xs text-slate-600">Required for Joint SAR filings</div>
+        {errors._joint_filer && (
+          <div className="text-xs text-red-600 mt-1">{errors._joint_filer}</div>
+        )}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Text label="Institution Name *" value={form.joint_filer_name}
+          onChange={v => setForm({ joint_filer_name: v })}
+          placeholder="Name of co-filing institution" error={errors.joint_filer_name} />
+        <Text label="Institution FEIN *" value={form.joint_filer_fein}
+          onChange={v => setForm({ joint_filer_fein: v })}
+          placeholder="12-3456789" error={errors.joint_filer_fein} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Text label="Street Address *" value={form.joint_filer_address}
+          onChange={v => setForm({ joint_filer_address: v })} error={errors.joint_filer_address} />
+        <Text label="City *" value={form.joint_filer_city}
+          onChange={v => setForm({ joint_filer_city: v })} error={errors.joint_filer_city} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Text label="State *" value={form.joint_filer_state}
+          onChange={v => setForm({ joint_filer_state: v })}
+          placeholder="2-letter (e.g. CA)" error={errors.joint_filer_state} />
+        <Text label="ZIP Code *" value={form.joint_filer_zip}
+          onChange={v => setForm({ joint_filer_zip: v })} error={errors.joint_filer_zip} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Text label="Contact Name *" value={form.joint_filer_contact_name}
+          onChange={v => setForm({ joint_filer_contact_name: v })}
+          placeholder="Compliance Department contact" error={errors.joint_filer_contact_name} />
+        <Text label="Contact Phone *" value={form.joint_filer_contact_phone}
+          onChange={v => setForm({ joint_filer_contact_phone: v })}
+          placeholder="555-555-5555" error={errors.joint_filer_contact_phone} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Select label="Co-Filer Role *" value={form.joint_filer_role}
+          onChange={v => setForm({ joint_filer_role: v })}
+          options={JOINT_FILER_ROLES} error={errors.joint_filer_role} />
+      </div>
+    </div>
+  );
+}
+
+/* --- Continuing SAR prior-SAR reference (conditional sub-section) --- */
+function ContinuingSarSection({ form, setForm, errors }) {
+  const changesLen = String(form.changes_since_prior_sar || '').length;
+  return (
+    <div className="border-l-4 border-orange-400 bg-orange-50/30 rounded-r-md p-4 space-y-4">
+      <div>
+        <div className="text-sm font-semibold text-navy-900">Prior SAR Reference</div>
+        <div className="text-xs text-slate-600">Link this filing to the original SAR it continues</div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <PriorSarSearch
+          value={form.prior_sar_id}
+          onPick={(picked) => setForm({
+            prior_sar_id: picked.sar_id,
+            prior_sar_filing_date: picked.filed_date || form.prior_sar_filing_date || ''
+          })}
+          onChange={v => setForm({ prior_sar_id: v })}
+          error={errors.prior_sar_id}
+        />
+        <DateInput label="Prior SAR Filing Date *" value={form.prior_sar_filing_date}
+          onChange={v => setForm({ prior_sar_filing_date: v })}
+          error={errors.prior_sar_filing_date} />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <DateInput label="Continuing Activity From *" value={form.continuing_activity_from}
+          onChange={v => setForm({ continuing_activity_from: v })}
+          error={errors.continuing_activity_from} />
+        <DateInput label="Continuing Activity To *" value={form.continuing_activity_to}
+          onChange={v => setForm({ continuing_activity_to: v })}
+          error={errors.continuing_activity_to} />
+      </div>
+      <div>
+        <label className="text-xs font-semibold text-slate-700">
+          Changes Since Prior SAR <span className="text-red-500">*</span>
+          <span className="text-slate-400 font-normal ml-1">(min 50 characters)</span>
+        </label>
+        <textarea
+          rows={4}
+          value={form.changes_since_prior_sar || ''}
+          onChange={e => setForm({ changes_since_prior_sar: e.target.value })}
+          placeholder="Describe any new activity, new counterparties, changes in amount or frequency, or new information obtained since the prior SAR was filed…"
+          className={`mt-1 w-full text-sm border rounded-md p-3 focus:outline-none ${
+            errors.changes_since_prior_sar ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-blue-500'
+          }`}
+        />
+        <div className="flex items-center justify-between text-xs mt-1">
+          <span className={changesLen >= 50 ? 'text-green-600' : 'text-slate-500'}>{changesLen} characters</span>
+          {errors.changes_since_prior_sar && <FieldError msg={errors.changes_since_prior_sar} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* --- Inline debounced search dropdown for the prior SAR ID field --- */
+function PriorSarSearch({ value, onChange, onPick, error }) {
+  const [results, setResults] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const q = String(value || '').trim();
+    if (q.length < 2) { setResults([]); setLoading(false); return; }
+    let cancelled = false;
+    setLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await api.get('/sars', { params: { q, pageSize: 10 } });
+        if (!cancelled) {
+          setResults(Array.isArray(data?.items) ? data.items : []);
+          setOpen(true);
+        }
+      } catch (_e) {
+        if (!cancelled) setResults([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [value]);
+
+  // Close the dropdown on outside click.
+  useEffect(() => {
+    function onDocClick(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label className="text-xs font-semibold text-slate-700">
+        Prior SAR ID <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="text"
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => results.length > 0 && setOpen(true)}
+        placeholder="Start typing… e.g. SAR-2025-00001"
+        className={`mt-1 w-full text-sm border rounded-md px-3 py-2 focus:outline-none ${
+          error ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-blue-500'
+        }`}
+      />
+      {error && <div className="text-[11px] text-red-600 mt-1">{error}</div>}
+      {open && (results.length > 0 || loading) && (
+        <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg z-20 max-h-64 overflow-auto">
+          {loading && <div className="px-3 py-2 text-xs text-slate-400">Searching…</div>}
+          {!loading && results.map(r => (
+            <button
+              type="button"
+              key={r.sar_id}
+              onClick={() => { onPick(r); setOpen(false); }}
+              className="block w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-slate-100 last:border-b-0"
+            >
+              <span className="font-mono text-blue-700">{r.sar_id}</span>
+              {r.customer_name && <span className="text-slate-700"> — {r.customer_name}</span>}
+              {r.filed_date && <span className="text-slate-400"> · Filed {r.filed_date}</span>}
+            </button>
+          ))}
+          {!loading && results.length === 0 && (
+            <div className="px-3 py-2 text-xs text-slate-400">No matching SARs</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* --- Step 1: SAR Details --- */
 function StepDetails({ form, setForm, errors, customer, caseInfo, jumpToSubject }) {
   return (
@@ -736,6 +1025,13 @@ function StepDetails({ form, setForm, errors, customer, caseInfo, jumpToSubject 
         <Select label="SAR Type *" value={form.sar_type} onChange={v => setForm({ sar_type: v })}
           options={SAR_TYPES} error={errors.sar_type} />
       </div>
+
+      {form.filing_type === 'Joint SAR' && (
+        <JointFilerSection form={form} setForm={setForm} errors={errors} />
+      )}
+      {form.filing_type === 'Continuing SAR' && (
+        <ContinuingSarSection form={form} setForm={setForm} errors={errors} />
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <DateInput label="Date of Initial Detection *" value={form.detection_date}
@@ -758,18 +1054,20 @@ function StepDetails({ form, setForm, errors, customer, caseInfo, jumpToSubject 
           options={['Yes', 'No']} onChange={v => setForm({ structuring_indicator: v === 'Yes' })} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <Radio label="Prior SAR(s) Filed on Subject" value={form.prior_sars ? 'Yes' : 'No'}
-          options={['Yes', 'No']} onChange={v => setForm({ prior_sars: v === 'Yes' })} />
-        {form.prior_sars && (
-          <>
-            <NumberInput label="If yes, how many?" value={form.prior_sar_count}
-              onChange={v => setForm({ prior_sar_count: v })} />
-            <DateInput label="Date of Most Recent SAR" value={form.date_of_recent_sar}
-              onChange={v => setForm({ date_of_recent_sar: v })} />
-          </>
-        )}
-      </div>
+      {form.filing_type !== 'Continuing SAR' && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <Radio label="Prior SAR(s) Filed on Subject" value={form.prior_sars ? 'Yes' : 'No'}
+            options={['Yes', 'No']} onChange={v => setForm({ prior_sars: v === 'Yes' })} />
+          {form.prior_sars && (
+            <>
+              <NumberInput label="If yes, how many?" value={form.prior_sar_count}
+                onChange={v => setForm({ prior_sar_count: v })} />
+              <DateInput label="Date of Most Recent SAR" value={form.date_of_recent_sar}
+                onChange={v => setForm({ date_of_recent_sar: v })} />
+            </>
+          )}
+        </div>
+      )}
 
       <div className="border-t border-slate-100 pt-4">
         <SectionTitle title="Subject Information Summary" />
@@ -968,7 +1266,7 @@ function StepActivity({ form, setForm, errors }) {
 }
 
 /* --- Step 4: Narrative --- */
-function StepNarrative({ form, setForm, errors, sarId }) {
+function StepNarrative({ form, setForm, errors, sarId, priorSarRef }) {
   const len = (form.narrative || '').length;
   const [generating, setGenerating] = useState(false);
   const [genResult, setGenResult] = useState(null);
@@ -1003,6 +1301,15 @@ function StepNarrative({ form, setForm, errors, sarId }) {
   return (
     <div className="space-y-4">
       <SectionTitle title="Narrative" />
+
+      {priorSarRef && priorSarRef.priorSarId && (
+        <div className="border-l-4 border-orange-400 bg-orange-50/40 rounded-r-md p-3 text-xs text-slate-700">
+          <div><span className="font-semibold">Prior SAR:</span> <span className="font-mono">{priorSarRef.priorSarId}</span>{priorSarRef.priorFilingDate ? <> filed on <span className="font-medium">{priorSarRef.priorFilingDate}</span></> : null}</div>
+          {(priorSarRef.from || priorSarRef.to) && (
+            <div className="mt-0.5"><span className="font-semibold">New activity period:</span> {priorSarRef.from || '—'} to {priorSarRef.to || '—'}</div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 space-y-2">
@@ -1220,6 +1527,36 @@ function StepReview({ form, setForm, errors, docs, includeDocIds, caseInfo, cust
           ['Structuring', form.structuring_indicator ? 'Yes' : 'No'],
           ['Prior SARs', form.prior_sars ? `Yes (${form.prior_sar_count || '?'})` : 'No']
         ]} />
+        {form.filing_type === 'Joint SAR' && (
+          <div className="mt-4 border-l-4 border-blue-400 bg-blue-50/30 rounded-r-md p-3">
+            <div className="text-xs font-semibold text-navy-900 mb-2">Co-Filing Institution</div>
+            <ReviewGrid items={[
+              ['Institution', form.joint_filer_name || '—'],
+              ['FEIN', form.joint_filer_fein || '—'],
+              ['Address', [form.joint_filer_address, form.joint_filer_city, form.joint_filer_state, form.joint_filer_zip].filter(Boolean).join(', ') || '—'],
+              ['Contact', form.joint_filer_contact_name || '—'],
+              ['Phone', form.joint_filer_contact_phone || '—'],
+              ['Role', form.joint_filer_role || '—']
+            ]} />
+          </div>
+        )}
+        {form.filing_type === 'Continuing SAR' && (
+          <div className="mt-4 border-l-4 border-orange-400 bg-orange-50/30 rounded-r-md p-3">
+            <div className="text-xs font-semibold text-navy-900 mb-2">Prior SAR Reference</div>
+            <ReviewGrid items={[
+              ['Prior SAR ID', form.prior_sar_id || '—'],
+              ['Prior Filing Date', form.prior_sar_filing_date || '—'],
+              ['Activity From', form.continuing_activity_from || '—'],
+              ['Activity To', form.continuing_activity_to || '—']
+            ]} />
+            {form.changes_since_prior_sar && (
+              <div className="mt-2">
+                <div className="text-[11px] font-semibold text-slate-600 mb-1">Changes Since Prior SAR</div>
+                <div className="text-xs text-slate-700 whitespace-pre-wrap bg-white border border-slate-200 rounded p-2">{form.changes_since_prior_sar}</div>
+              </div>
+            )}
+          </div>
+        )}
       </Collapsible>
 
       <Collapsible title="Subject Information" open={open.subject} onToggle={() => setOpen(o => ({ ...o, subject: !o.subject }))}>
