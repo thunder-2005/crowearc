@@ -1,16 +1,59 @@
 // Fuzzy-matches an entity name (customer or counterparty) against the
 // OFAC SDN list and persists results in ofac_screening_results.
 //
-// Matching uses Jaro-Winkler distance from the `natural` package; default
-// threshold is 0.85 (i.e. 85% similarity). Anything below that is filtered
-// out per spec — analysts only see high-confidence matches. Both the
-// primary sdn_name and any aka_names are tested.
+// Matching uses an inline Jaro-Winkler implementation (no `natural`
+// dependency — that package ships ESM-only modules that crash on
+// require() under CommonJS / Node 18). Default threshold is 0.85
+// (85% similarity). Anything below that is filtered out per spec —
+// analysts only see high-confidence matches. Both the primary
+// sdn_name and any aka_names are tested.
 
-const natural = require('natural');
 const pool = require('../database/db');
 
-const JaroWinklerDistance = natural.JaroWinklerDistance;
 const DEFAULT_THRESHOLD = 0.85;
+
+// Jaro-Winkler similarity in the range [0, 1]. Inputs are uppercased
+// internally so callers don't need to normalize first.
+function jaroWinkler(s1, s2) {
+  s1 = String(s1 || '').toUpperCase();
+  s2 = String(s2 || '').toUpperCase();
+  if (s1 === s2) return 1.0;
+  const len1 = s1.length;
+  const len2 = s2.length;
+  if (len1 === 0 || len2 === 0) return 0.0;
+  const matchDist = Math.max(Math.floor(Math.max(len1, len2) / 2) - 1, 0);
+  const s1Matches = new Array(len1).fill(false);
+  const s2Matches = new Array(len2).fill(false);
+  let matches = 0;
+  let transpositions = 0;
+  for (let i = 0; i < len1; i++) {
+    const start = Math.max(0, i - matchDist);
+    const end = Math.min(i + matchDist + 1, len2);
+    for (let j = start; j < end; j++) {
+      if (s2Matches[j] || s1[i] !== s2[j]) continue;
+      s1Matches[i] = true;
+      s2Matches[j] = true;
+      matches++;
+      break;
+    }
+  }
+  if (matches === 0) return 0.0;
+  let k = 0;
+  for (let i = 0; i < len1; i++) {
+    if (!s1Matches[i]) continue;
+    while (!s2Matches[k]) k++;
+    if (s1[i] !== s2[k]) transpositions++;
+    k++;
+  }
+  const jaro = (matches / len1 + matches / len2 +
+    (matches - transpositions / 2) / matches) / 3;
+  let prefix = 0;
+  for (let i = 0; i < Math.min(4, Math.min(len1, len2)); i++) {
+    if (s1[i] === s2[i]) prefix++;
+    else break;
+  }
+  return jaro + prefix * 0.1 * (1 - jaro);
+}
 
 function normalize(s) {
   return String(s || '').toUpperCase().trim();
@@ -21,7 +64,7 @@ function normalize(s) {
 function scoreEntry(nameUpper, entry, threshold) {
   let best = null;
 
-  const primaryScore = JaroWinklerDistance(nameUpper, normalize(entry.sdn_name), { ignoreCase: true });
+  const primaryScore = jaroWinkler(nameUpper, normalize(entry.sdn_name));
   if (primaryScore >= threshold) {
     best = {
       sdn_entry_id: entry.id,
@@ -33,7 +76,7 @@ function scoreEntry(nameUpper, entry, threshold) {
   }
 
   for (const aka of (entry.aka_names || [])) {
-    const akaScore = JaroWinklerDistance(nameUpper, normalize(aka), { ignoreCase: true });
+    const akaScore = jaroWinkler(nameUpper, normalize(aka));
     if (akaScore >= threshold) {
       const candidate = {
         sdn_entry_id: entry.id,
@@ -116,4 +159,4 @@ async function getScreeningResults(entityId, entityType) {
   return r.rows;
 }
 
-module.exports = { screenName, getScreeningResults, scoreEntry, DEFAULT_THRESHOLD };
+module.exports = { screenName, getScreeningResults, scoreEntry, jaroWinkler, DEFAULT_THRESHOLD };
