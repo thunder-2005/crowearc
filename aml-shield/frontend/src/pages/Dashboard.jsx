@@ -139,6 +139,8 @@ export default function Dashboard() {
         </div>
       )}
 
+      {isManager && <OfacStatusWidget />}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card title="Alert Volume Trend" subtitle={isEmployee ? `${currentAnalyst}'s alerts over time` : 'Last 30 days'} className="lg:col-span-2">
           <div style={{ width: '100%', height: 260 }}>
@@ -1248,6 +1250,83 @@ function SlaWatch() {
           }
         ]}
       />
+    </Card>
+  );
+}
+
+// Manager-only status card. Calls /api/ofac/status on mount and gives the
+// manager a one-click "Force Sync" trigger. Failures don't break the rest
+// of the dashboard — the widget just shows a dash.
+function OfacStatusWidget() {
+  const [s, setS] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const load = async () => {
+    try {
+      const { data } = await api.get('/ofac/status');
+      setS(data);
+    } catch (e) {
+      setErr(e.response?.data?.error || e.message);
+    }
+  };
+  useEffect(() => { load(); }, []);
+
+  const forceSync = async () => {
+    if (!confirm('Force a fresh download of the OFAC SDN list? This may take a moment.')) return;
+    setSyncing(true);
+    setErr(null);
+    try {
+      await api.post('/ofac/sync');
+      await load();
+    } catch (e) {
+      setErr(e.response?.data?.error || e.message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <Card title="OFAC Screening Status" bodyClassName="p-4"
+      action={
+        <button onClick={forceSync} disabled={syncing}
+          className="text-xs px-3 py-1.5 rounded border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+          {syncing ? 'Syncing…' : 'Force Sync'}
+        </button>
+      }>
+      {err && <div className="text-xs text-red-700 mb-2">{err}</div>}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500">SDN List</div>
+          <div className="mt-0.5 text-2xl font-bold text-navy-900">
+            {s ? Number(s.entry_count || 0).toLocaleString() : '—'}
+          </div>
+          <div className="text-[10px] text-slate-500">entries</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500">Last Updated</div>
+          <div className="mt-0.5 text-sm text-navy-900">
+            {s?.last_updated ? new Date(s.last_updated).toLocaleString() : '—'}
+          </div>
+          <div className="text-[10px] text-slate-500">
+            {s?.last_download?.status === 'failed' ? <span className="text-red-600">last download failed</span> : 'auto-syncs daily'}
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500">Pending Reviews</div>
+          <div className="mt-0.5 text-2xl font-bold text-orange-600">
+            {s ? s.pending_count : '—'}
+          </div>
+          <div className="text-[10px] text-slate-500">awaiting decision</div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500">Confirmed Matches</div>
+          <div className="mt-0.5 text-2xl font-bold text-red-600">
+            {s ? s.confirmed_count : '—'}
+          </div>
+          <div className="text-[10px] text-slate-500">sanctions hits</div>
+        </div>
+      </div>
     </Card>
   );
 }

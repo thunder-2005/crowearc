@@ -15,6 +15,18 @@ import {
 
 const usd = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// Reduce an /ofac/results response into a small summary the counterparty
+// table can render inline: { status, top_score, top_sdn }.
+function summarizeOfac(data) {
+  if (!data) return { status: 'not_screened' };
+  const top = (data.results || []).find(r => r.status === 'pending' || r.status === 'confirmed');
+  return {
+    status: data.status,
+    top_score: top?.match_score || null,
+    top_sdn: top?.sdn_name || null
+  };
+}
+
 // Each ticked factor adds exactly +10 to the score. With 10 factors, the
 // score lands on a 0..100 grid (multiples of 10) — checkboxes are the only
 // driver of the score; there is no manual slider.
@@ -469,11 +481,50 @@ function DeepAnalysisTab({ l2, l2CaseId, riskScore, riskFactors, setRiskFactors,
   const [counterparties, setCounterparties] = useState([]);
   const [linked, setLinked] = useState([]);
   const [counterFlags, setCounterFlags] = useState({});
+  const [ofacByCp, setOfacByCp] = useState({});      // name → { status, top_score, top_sdn }
+  const [screeningCp, setScreeningCp] = useState(null); // counterparty name currently screening
 
   useEffect(() => {
     api.get(`/l2/${l2CaseId}/counterparties`).then(r => setCounterparties(r.data));
     api.get(`/l2/${l2CaseId}/linked-entities`).then(r => setLinked(r.data));
   }, [l2CaseId]);
+
+  // After counterparties load, fetch any cached OFAC results for them.
+  useEffect(() => {
+    if (counterparties.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const map = {};
+      await Promise.all(counterparties.slice(0, 25).map(async (c) => {
+        if (!c.name) return;
+        try {
+          const { data } = await api.get(`/ofac/results/counterparty/${encodeURIComponent(c.name)}`);
+          map[c.name] = summarizeOfac(data);
+        } catch (_e) { /* ignore */ }
+      }));
+      if (!cancelled) setOfacByCp(prev => ({ ...prev, ...map }));
+    })();
+    return () => { cancelled = true; };
+  }, [counterparties]);
+
+  const screenCounterparty = async (name) => {
+    if (!name) return;
+    setScreeningCp(name);
+    try {
+      const { data } = await api.post(
+        `/ofac/screen/counterparty/${encodeURIComponent(name)}`,
+        { name }
+      );
+      const { data: results } = await api.get(`/ofac/results/counterparty/${encodeURIComponent(name)}`);
+      setOfacByCp(prev => ({ ...prev, [name]: summarizeOfac(results) }));
+      // If matches found, also auto-set the manual flag to "Watchlist Match"
+      if (data.match_count > 0) {
+        const cp = counterparties.find(c => c.name === name);
+        if (cp) setCounterFlags(prev => ({ ...prev, [`${name}__${cp.country}`]: 'Watchlist Match' }));
+      }
+    } catch (_e) { /* swallow — cell will keep prior state */ }
+    finally { setScreeningCp(null); }
+  };
 
   const band = riskBand(riskScore);
 
@@ -532,14 +583,17 @@ function DeepAnalysisTab({ l2, l2CaseId, riskScore, riskFactors, setRiskFactors,
                 <th className="text-right py-1.5 px-2">Total</th>
                 <th className="text-left py-1.5 px-2">First / Last seen</th>
                 <th className="text-left py-1.5 px-2">Risk Flag</th>
+                <th className="text-left py-1.5 px-2">OFAC</th>
               </tr>
             </thead>
             <tbody>
               {counterparties.slice(0, 25).map((c, i) => {
                 const key = `${c.name}__${c.country}`;
                 const flag = counterFlags[key] || (c.alerted_count > 0 ? 'Suspicious' : 'Clear');
+                const ofac = ofacByCp[c.name] || { status: 'not_screened' };
+                const isMatch = ofac.status === 'pending' || ofac.status === 'confirmed';
                 return (
-                  <tr key={i} className="border-b border-slate-100">
+                  <tr key={i} className={`border-b border-slate-100 ${isMatch ? 'bg-orange-50/40' : ''}`}>
                     <td className="py-1.5 px-2 font-medium text-navy-900 truncate max-w-[220px]">{c.name}</td>
                     <td className="py-1.5 px-2">{c.country || '—'}</td>
                     <td className="py-1.5 px-2 text-right">{c.total_transactions}</td>
@@ -564,11 +618,19 @@ function DeepAnalysisTab({ l2, l2CaseId, riskScore, riskFactors, setRiskFactors,
                         <option>Watchlist Match</option>
                       </select>
                     </td>
+                    <td className="py-1.5 px-2">
+                      <CounterpartyOfacCell
+                        ofac={ofac}
+                        isScreening={screeningCp === c.name}
+                        onScreen={() => screenCounterparty(c.name)}
+                        disabled={readOnly}
+                      />
+                    </td>
                   </tr>
                 );
               })}
               {counterparties.length === 0 && (
-                <tr><td colSpan={6} className="py-6 text-center text-slate-400">No counterparty activity</td></tr>
+                <tr><td colSpan={7} className="py-6 text-center text-slate-400">No counterparty activity</td></tr>
               )}
             </tbody>
           </table>
@@ -1189,5 +1251,46 @@ function Section({ title, icon: Icon, children }) {
       </div>
       {children}
     </div>
+  );
+}
+
+// Inline OFAC cell for the counterparty table — shows the cached status
+// (or a Screen button if never screened) plus a "rescreen" affordance
+// once a result exists. Heavy review/confirm UX lives in the customer
+// KYC panel; counterparty-level decisions are escalated there.
+function CounterpartyOfacCell({ ofac, isScreening, onScreen, disabled }) {
+  if (isScreening) {
+    return <span className="inline-flex items-center gap-1 text-[10px] text-slate-500"><Loader2 size={10} className="animate-spin" /> Screening…</span>;
+  }
+  if (ofac.status === 'not_screened') {
+    return (
+      <button type="button" disabled={disabled} onClick={onScreen}
+        className="text-[10px] px-2 py-0.5 rounded border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+        Screen
+      </button>
+    );
+  }
+  if (ofac.status === 'confirmed') {
+    return (
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">
+        🚨 Confirmed{ofac.top_score ? ` ${ofac.top_score}%` : ''}
+      </span>
+    );
+  }
+  if (ofac.status === 'pending') {
+    return (
+      <button type="button" disabled={disabled} onClick={onScreen}
+        title={ofac.top_sdn ? `Top match: ${ofac.top_sdn}` : ''}
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 hover:bg-orange-200">
+        ⚠️ {ofac.top_score || ''}% Match
+      </button>
+    );
+  }
+  // status === 'clear' | 'dismissed'
+  return (
+    <button type="button" disabled={disabled} onClick={onScreen}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700 hover:bg-green-200">
+      ✅ Clear
+    </button>
   );
 }

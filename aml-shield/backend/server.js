@@ -28,8 +28,10 @@ const reportsRouter = require('./routes/reports');
 const l2Router = require('./routes/l2');
 const searchRouter = require('./routes/search');
 const authRouter = require('./routes/auth');
+const ofacRouter = require('./routes/ofac');
 const slaMonitor = require('./jobs/slaMonitor');
 const kycReviewMonitor = require('./jobs/kycReviewMonitor');
+const ofacSync = require('./jobs/ofacSync');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -77,6 +79,7 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/l2', l2Router);
 app.use('/api/search', searchRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/ofac', ofacRouter);
 
 app.use((err, _req, res, _next) => {
   console.error('[error]', err);
@@ -87,4 +90,5 @@ app.listen(PORT, () => {
   console.log(`[aml-shield] backend listening on http://localhost:${PORT}`);
   slaMonitor.start();
   kycReviewMonitor.start();
+  ofacSync.start();
 });

@@ -10,6 +10,7 @@ import {
   Send, ArrowRight, Loader2, Clock, ArrowUpRight, AlertTriangle, Lock
 } from 'lucide-react';
 import OutcomeCard from '../shared/OutcomeCard.jsx';
+import OfacScreeningPanel from './OfacScreeningPanel.jsx';
 import { isAlertClosed, slaSnapshot } from '../../utils/alertStatus.js';
 
 const usd = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -705,6 +706,14 @@ export function KycProfileBlock({ c }) {
         <Row k="Status" v={<span className={c.kyc_review_status === 'Overdue' ? 'text-red-600 font-semibold' : ''}>{c.kyc_review_status}</span>} />
         <Row k="CDD Level" v={c.cdd_level} />
       </Section>
+
+      <div className="border-t border-slate-100 pt-3">
+        <OfacScreeningPanel
+          entityType="customer"
+          entityId={c.customer_id}
+          entityName={c.customer_name}
+        />
+      </div>
     </div>
   );
 }
