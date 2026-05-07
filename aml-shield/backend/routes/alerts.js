@@ -107,8 +107,18 @@ router.get('/:id/transactions', async (req, res, next) => {
     const alert = alertResult.rows[0];
     if (!alert) return res.status(404).json({ error: 'Alert not found' });
     const { from, to, txn_type, min_amount, max_amount, alerted_only } = req.query;
+    // Cast BIGINT money columns to float so they arrive as JS numbers,
+    // not strings. The pg driver returns BIGINT as a string by default
+    // to preserve precision; without the cast the frontend's reduce()
+    // would do string concatenation and produce astronomical totals.
     let sql = `
-      SELECT *, (is_alerted = 1 AND alert_id = $1) AS is_this_alert
+      SELECT id, transaction_id, account_number, customer_id,
+             txn_date, txn_time, txn_type, channel, description,
+             counterparty, counterparty_country,
+             amount::float AS amount,
+             running_balance::float AS running_balance,
+             is_alerted, alert_id, scenario_triggered, rule_breached, risk_score,
+             (is_alerted = 1 AND alert_id = $1) AS is_this_alert
         FROM transactions
        WHERE customer_id = $2
     `;

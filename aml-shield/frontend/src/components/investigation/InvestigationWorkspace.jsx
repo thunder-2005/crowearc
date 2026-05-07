@@ -173,8 +173,12 @@ function TransactionsTab({ alert }) {
 
   const allTxns = data.transactions;
   const alertedTxns = allTxns.filter(t => t.is_alerted);
-  const totalSum = allTxns.reduce((s, t) => s + (t.amount || 0), 0);
-  const alertedSum = alertedTxns.reduce((s, t) => s + (t.amount || 0), 0);
+  // parseFloat defends against the BIGINT-as-string serialization that pg
+  // does by default — without it, the reducer was concatenating strings
+  // and producing astronomical totals. Backend now casts ::float too, so
+  // this is belt-and-suspenders.
+  const totalSum = allTxns.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+  const alertedSum = alertedTxns.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
   const alertedPct = totalSum > 0 ? ((alertedSum / totalSum) * 100).toFixed(1) : '0.0';
   const displayTxns = filters.alerted_only ? alertedTxns : allTxns;
 
