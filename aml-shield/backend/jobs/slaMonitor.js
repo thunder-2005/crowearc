@@ -2,7 +2,15 @@ const pool = require('../database/db');
 const { getManagerSetting } = require('../utils/getManagerSetting');
 
 const TICK_MS = 5 * 60 * 1000;
-const TERMINAL_STATUSES = new Set(['Completed', 'Closed', 'Filed', 'Escalated - L2', 'Escalated - SAR']);
+// Statuses for which the SLA monitor should not produce notifications.
+// 'Closed — False Positive' (em dash) is the seed-data convention; without
+// it the monitor would keep nagging about FP-closed alerts that already
+// have a closed_date.
+const TERMINAL_STATUSES = new Set([
+  'Completed', 'Closed', 'Filed',
+  'Closed — False Positive',
+  'Escalated - L2', 'Escalated - SAR'
+]);
 
 function nowIso() {
   return new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -62,7 +70,7 @@ async function tick() {
              assigned_to, alert_status, created_date, sla_days, sla_deadline,
              sla_breached, due_status, sla_warning_notified_at, sla_breach_notified_at
         FROM alerts
-       WHERE alert_status NOT IN ('Completed', 'Closed', 'Filed', 'Escalated - L2', 'Escalated - SAR')
+       WHERE alert_status NOT IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive', 'Escalated - L2', 'Escalated - SAR')
     `)).rows;
 
     const now = new Date();

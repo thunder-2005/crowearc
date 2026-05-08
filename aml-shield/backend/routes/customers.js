@@ -21,7 +21,7 @@ router.get('/', async (req, res, next) => {
       SELECT c.*, (
         SELECT COUNT(*) FROM alerts a
          WHERE a.customer_id = c.customer_id
-           AND a.alert_status <> 'Completed'
+           AND a.alert_status NOT IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')
       ) AS open_alerts
       FROM customers c WHERE 1=1
     `;

@@ -3,6 +3,22 @@ const pool = require('../database/db');
 
 const router = express.Router();
 
+// ─── Canonical alert_status taxonomy ──────────────────────────────────
+// The DB carries multiple variants for the same conceptual state — most
+// notably 'In Progress' (seeded) vs 'Work in Progress' (live transitions),
+// and 'Completed' (resolved-OK) vs 'Closed — False Positive' (em dash,
+// FP-closed). These constants are inlined into SQL fragments below so
+// every KPI counts every relevant row.
+const STATUS_IN_PROGRESS = "alert_status IN ('In Progress', 'Work in Progress')";
+// Closed-state set: includes everything that's "no longer active" so KPIs
+// like "Completed/Closed" and the FP-rate denominator capture the full
+// set. Bulk-close writes 'Closed — False Positive'; the legacy path used
+// 'Completed'; SAR submissions use 'Filed'.
+const STATUS_CLOSED      = "alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')";
+// "Open" = anything not closed. Used by the analyst-load and unassigned
+// queries that need to ignore historical FP-closed rows.
+const STATUS_NOT_CLOSED  = "alert_status NOT IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')";
+
 // PG SQL fragments for date math (text-comparable YYYY-MM-DD).
 const TODAY            = "to_char(CURRENT_DATE, 'YYYY-MM-DD')";
 const THIS_MONTH_START = "to_char(date_trunc('month', CURRENT_DATE)::date, 'YYYY-MM-DD')";
@@ -70,14 +86,14 @@ router.get('/stats', async (req, res, next) => {
     const totalAlerts = await num(`SELECT COUNT(*) AS c FROM alerts${whereSql}`);
     const unassigned  = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} alert_status = 'Unassigned'`);
     const notStarted  = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} alert_status = 'Not Started'`);
-    const inProgress  = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} alert_status = 'Work in Progress'`);
-    const completed   = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} alert_status = 'Completed'`);
+    const inProgress  = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} ${STATUS_IN_PROGRESS}`);
+    const completed   = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} ${STATUS_CLOSED}`);
     const slaBreaches = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} sla_breached = 1`);
     const avgAging    = Number((await pool.query(`SELECT AVG(age_days) AS a FROM alerts${whereSql}`, params)).rows[0].a) || 0;
     const casesConverted = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} case_converted = 1`);
 
     const closedFalsePositives = await num(
-      `SELECT COUNT(*) AS c FROM alerts${withAnd} alert_status = 'Completed' AND case_converted = 0`
+      `SELECT COUNT(*) AS c FROM alerts${withAnd} ${STATUS_CLOSED} AND case_converted = 0`
     );
     const falsePositiveRate = completed > 0
       ? Math.round((closedFalsePositives / completed) * 100)
@@ -124,9 +140,9 @@ router.get('/stats', async (req, res, next) => {
     const workload = (await pool.query(`
       SELECT assigned_to AS analyst,
              COUNT(*) AS total,
-             SUM(CASE WHEN alert_status = 'Work in Progress' THEN 1 ELSE 0 END) AS in_progress,
+             SUM(CASE WHEN ${STATUS_IN_PROGRESS} THEN 1 ELSE 0 END) AS in_progress,
              SUM(CASE WHEN sla_breached = 1 THEN 1 ELSE 0 END) AS breached,
-             SUM(CASE WHEN alert_status = 'Completed' THEN 1 ELSE 0 END) AS completed
+             SUM(CASE WHEN ${STATUS_CLOSED} THEN 1 ELSE 0 END) AS completed
         FROM alerts
        WHERE assigned_to IS NOT NULL AND TRIM(assigned_to) <> ''
          AND created_date BETWEEN $1 AND $2
@@ -204,12 +220,12 @@ router.get('/drawer/total-alerts', async (req, res, next) => {
     if (escalated > 0) breakdown.push({ name: 'Escalated', value: escalated });
 
     const high_priority = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE priority = 'High' AND alert_status NOT IN ('Completed','Closed') AND created_date BETWEEN $1 AND $2",
+      "SELECT COUNT(*) AS c FROM alerts WHERE priority = 'High' AND alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive') AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
     const breaching_today = await num(`
       SELECT COUNT(*) AS c FROM alerts
-       WHERE alert_status NOT IN ('Completed','Closed')
+       WHERE alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')
          AND sla_deadline IS NOT NULL
          AND substr(sla_deadline, 1, 10) = ${TODAY}
          AND created_date BETWEEN $1 AND $2
@@ -244,13 +260,13 @@ router.get('/drawer/in-progress', async (req, res, next) => {
     const { from, to } = parseRange(req);
     const num = async (sql, p) => Number((await pool.query(sql, p)).rows[0].c);
     const total = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Work in Progress' AND created_date BETWEEN $1 AND $2",
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('In Progress', 'Work in Progress') AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
     const ipByAnalyst = (await pool.query(`
       SELECT assigned_to AS analyst, COUNT(*) AS in_progress
         FROM alerts
-       WHERE alert_status = 'Work in Progress'
+       WHERE alert_status IN ('In Progress', 'Work in Progress')
          AND assigned_to IS NOT NULL AND TRIM(assigned_to) <> ''
          AND created_date BETWEEN $1 AND $2
        GROUP BY assigned_to
@@ -261,7 +277,7 @@ router.get('/drawer/in-progress', async (req, res, next) => {
     const by_analyst = [];
     for (const r of ipByAnalyst) {
       const total_open = await num(
-        "SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = $1 AND alert_status NOT IN ('Completed','Closed') AND created_date BETWEEN $2 AND $3",
+        "SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = $1 AND alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive') AND created_date BETWEEN $2 AND $3",
         [r.analyst, from, to]
       );
       const pct = Math.min(100, Math.round((total_open / ANALYST_CAPACITY) * 100));
@@ -277,13 +293,13 @@ router.get('/drawer/in-progress', async (req, res, next) => {
     const oldest = (await pool.query(`
       SELECT alert_id, customer_name, age_days, priority
         FROM alerts
-       WHERE alert_status = 'Work in Progress'
+       WHERE alert_status IN ('In Progress', 'Work in Progress')
          AND created_date BETWEEN $1 AND $2
        ORDER BY age_days DESC
        LIMIT 3
     `, [from, to])).rows;
 
-    const trend = await compareThisVsLast('alerts', 'last_activity_date', "alert_status = 'Work in Progress'");
+    const trend = await compareThisVsLast('alerts', 'last_activity_date', "alert_status IN ('In Progress', 'Work in Progress')");
     res.json({ total, by_analyst, oldest, trend });
   } catch (err) { next(err); }
 });
@@ -294,19 +310,19 @@ router.get('/drawer/completed', async (req, res, next) => {
     const { from, to } = parseRange(req);
     const num = async (sql, p) => Number((await pool.query(sql, p)).rows[0].c);
     const total = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND created_date BETWEEN $1 AND $2",
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
     const fp = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND case_converted = 0 AND created_date BETWEEN $1 AND $2",
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 0 AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
     const l2 = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND case_converted = 1 AND linked_sar_id IS NULL AND created_date BETWEEN $1 AND $2",
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 1 AND linked_sar_id IS NULL AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
     const sar = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND linked_sar_id IS NOT NULL AND created_date BETWEEN $1 AND $2",
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND linked_sar_id IS NOT NULL AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
 
@@ -327,14 +343,14 @@ router.get('/drawer/completed', async (req, res, next) => {
       SELECT alert_id, assigned_to AS analyst,
              CAST(closed_date::date - created_date::date AS INTEGER) AS days
         FROM alerts
-       WHERE alert_status = 'Completed'
+       WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')
          AND closed_date IS NOT NULL
          AND created_date BETWEEN $1 AND $2
        ORDER BY days ASC
        LIMIT 3
     `, [from, to])).rows;
 
-    const trend = await compareThisVsLast('alerts', 'closed_date', "alert_status = 'Completed'");
+    const trend = await compareThisVsLast('alerts', 'closed_date', "alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')");
     res.json({ total, fp, l2, sar, by_week, fastest, trend });
   } catch (err) { next(err); }
 });
@@ -355,7 +371,7 @@ router.get('/drawer/sla-breaches', async (req, res, next) => {
         FROM alerts
        WHERE sla_breached = 1
          AND sla_deadline IS NOT NULL
-         AND alert_status NOT IN ('Completed','Closed')
+         AND alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')
          AND created_date BETWEEN $1 AND $2
     `, [from, to])).rows.map(r => ({ ...r, days_overdue: Number(r.days_overdue) }));
 
@@ -404,7 +420,7 @@ router.get('/drawer/avg-aging', async (req, res, next) => {
     const open = (await pool.query(`
       SELECT alert_id, customer_name, age_days, assigned_to
         FROM alerts
-       WHERE alert_status NOT IN ('Completed','Closed')
+       WHERE alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')
          AND created_date BETWEEN $1 AND $2
     `, [from, to])).rows;
     const total_open = open.length;
@@ -496,7 +512,7 @@ router.get('/drawer/team-capacity', async (req, res, next) => {
     const enriched = [];
     for (const a of analysts) {
       const open = await num(
-        "SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = $1 AND alert_status NOT IN ('Completed','Closed') AND created_date BETWEEN $2 AND $3",
+        "SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = $1 AND alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive') AND created_date BETWEEN $2 AND $3",
         [a.name, from, to]
       );
       const pct = Math.min(100, Math.round((open / ANALYST_CAPACITY) * 100));
@@ -527,17 +543,17 @@ router.get('/drawer/false-positive', async (req, res, next) => {
     const { from, to } = parseRange(req);
     const num = async (sql, p) => Number((await pool.query(sql, p)).rows[0].c);
     const closed = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND created_date BETWEEN $1 AND $2", [from, to]
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND created_date BETWEEN $1 AND $2", [from, to]
     );
     const fp = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'Completed' AND case_converted = 0 AND created_date BETWEEN $1 AND $2", [from, to]
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 0 AND created_date BETWEEN $1 AND $2", [from, to]
     );
     const rate_pct = closed > 0 ? Math.round((fp / closed) * 1000) / 10 : 0;
 
     const monthRate = async (sinceExpr, untilExpr) => {
       const sql = `SELECT
-        SUM(CASE WHEN alert_status = 'Completed' AND case_converted = 0 THEN 1 ELSE 0 END) AS fp,
-        SUM(CASE WHEN alert_status = 'Completed' THEN 1 ELSE 0 END) AS closed
+        SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 0 THEN 1 ELSE 0 END) AS fp,
+        SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') THEN 1 ELSE 0 END) AS closed
         FROM alerts
        WHERE closed_date IS NOT NULL
          AND closed_date >= ${sinceExpr}
@@ -553,12 +569,12 @@ router.get('/drawer/false-positive', async (req, res, next) => {
     const by_scenario = (await pool.query(`
       SELECT scenario,
              COUNT(*) AS total,
-             SUM(CASE WHEN alert_status = 'Completed' AND case_converted = 0 THEN 1 ELSE 0 END) AS fp_count
+             SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 0 THEN 1 ELSE 0 END) AS fp_count
         FROM alerts
-       WHERE alert_status = 'Completed' AND scenario IS NOT NULL
+       WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND scenario IS NOT NULL
          AND created_date BETWEEN $1 AND $2
        GROUP BY scenario
-       ORDER BY (CAST(SUM(CASE WHEN alert_status = 'Completed' AND case_converted = 0 THEN 1.0 ELSE 0 END) AS DOUBLE PRECISION) / NULLIF(COUNT(*), 0)) DESC
+       ORDER BY (CAST(SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 0 THEN 1.0 ELSE 0 END) AS DOUBLE PRECISION) / NULLIF(COUNT(*), 0)) DESC
        LIMIT 4
     `, [from, to])).rows.map(r => {
       const total = Number(r.total);
@@ -596,7 +612,7 @@ router.get('/drawer/unassigned', async (req, res, next) => {
     const enriched = [];
     for (const a of analysts) {
       const open = await num(
-        "SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = $1 AND alert_status NOT IN ('Completed','Closed') AND created_date BETWEEN $2 AND $3",
+        "SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = $1 AND alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive') AND created_date BETWEEN $2 AND $3",
         [a.name, from, to]
       );
       const pct = Math.min(100, Math.round((open / ANALYST_CAPACITY) * 100));

@@ -248,7 +248,10 @@ router.patch('/:id/status', requireAnyAnalyst, async (req, res, next) => {
     // Progress when the L1 opens the workspace) from a generic status change.
     if (before.alert_status !== alert_status) {
       const wasNotStarted = (before.alert_status || '').toLowerCase() === 'not started';
-      const nowInProgress = (alert_status || '').toLowerCase() === 'work in progress';
+      // The DB has both 'In Progress' (seeded) and 'Work in Progress' (set by
+      // L2 return + the auto-transition path). Accept either form.
+      const incoming = (alert_status || '').toLowerCase();
+      const nowInProgress = incoming === 'work in progress' || incoming === 'in progress';
       const action = (wasNotStarted && nowInProgress)
         ? 'Investigation started'
         : `Status changed from ${before.alert_status} to ${alert_status}`;
@@ -412,6 +415,10 @@ router.patch('/bulk-assign', requireManager, async (req, res, next) => {
 
 const CLOSED_ALERT_STATUSES = new Set([
   'Completed', 'Closed', 'Filed', 'False Positive',
+  // The seed data uses an em dash for the FP-closed status. Without this
+  // entry the bulk-close handler would happily re-close already-closed FP
+  // alerts because the membership check below would never match.
+  'Closed — False Positive',
   'Closed - L2 Review', 'Closed by L2',
   'Escalated - L2', 'Escalated - SAR'
 ]);
@@ -455,7 +462,11 @@ router.patch('/bulk-close', requireManager, async (req, res, next) => {
                closed_date = $3,
                last_activity_date = $4
          WHERE alert_id = $5
-      `, ['Completed', 'False Positive — Closed', today, today, row.alert_id]);
+      // Match the canonical seed-data status string (em dash, "Closed" first).
+      // Bulk-close was previously writing 'Completed' here which made KPI
+      // queries that look for 'Closed — False Positive' miss every row.
+      // Disposition stays as 'False Positive' to match seed convention.
+      `, ['Closed — False Positive', 'False Positive', today, today, row.alert_id]);
       await logAudit({
         entity_type: ENTITY_TYPES.ALERT, entity_id: row.alert_id,
         action: `Alert closed as False Positive — Reason: ${reasonText}`,

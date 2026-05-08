@@ -12,6 +12,10 @@ const CLOSED_STATUSES = new Set([
   'Closed',
   'Filed',
   'False Positive',
+  // Em dash — matches the seed-data convention. Without this entry the
+  // FP-closed rows fall through to the closed_date check below; that
+  // works in practice but the explicit listing is clearer.
+  'Closed — False Positive',
   'Closed - L2 Review',
   'Closed by L2',
   'Escalated - L2',

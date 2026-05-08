@@ -103,7 +103,7 @@ router.get('/alert-trends', async (req, res, next) => {
              SUM(CASE WHEN case_converted = 0 THEN 1 ELSE 0 END) AS fp
         FROM alerts
        WHERE closed_date IS NOT NULL
-         AND alert_status = 'Completed'
+         AND alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')
          AND closed_date BETWEEN $1 AND $2
        GROUP BY pk
     `, [fromStr, toStr])).rows;
@@ -138,7 +138,7 @@ router.get('/alert-trends', async (req, res, next) => {
              CASE
                WHEN linked_sar_id IS NOT NULL                 THEN 'escalated_sar'
                WHEN case_converted = 1                        THEN 'escalated_l2'
-               WHEN alert_status = 'Completed' AND case_converted = 0
+               WHEN alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 0
                                                               THEN 'false_positive'
                ELSE 'other_closed'
              END AS bucket,
@@ -466,7 +466,7 @@ router.get('/rule-effectiveness', async (req, res, next) => {
       SELECT scenario,
              COUNT(*) AS total,
              SUM(CASE WHEN case_converted = 1 THEN 1 ELSE 0 END) AS true_positive,
-             SUM(CASE WHEN alert_status = 'Completed' AND case_converted = 0 THEN 1 ELSE 0 END) AS false_positive,
+             SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 0 THEN 1 ELSE 0 END) AS false_positive,
              SUM(CASE WHEN linked_sar_id IS NOT NULL THEN 1 ELSE 0 END) AS sar_count,
              AVG(CASE WHEN closed_date IS NOT NULL
                       THEN closed_date::date - created_date::date

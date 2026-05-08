@@ -52,7 +52,12 @@ export default function Alerts() {
     for (const a of alerts) {
       // Spec: SAR Filed → card DISAPPEARS from Kanban (lives in SAR Repo).
       if (a.linked_sar_status === 'Filed') continue;
-      const target = ESCALATED_STATUSES.has(a.alert_status) ? 'Escalated' : a.alert_status;
+      // The DB has both 'In Progress' (seeded) and 'Work in Progress' (live
+      // transitions). Bucket both under the single Kanban column.
+      let target = a.alert_status;
+      if (ESCALATED_STATUSES.has(target)) target = 'Escalated';
+      else if (target === 'In Progress') target = 'Work in Progress';
+      else if (target === 'Closed — False Positive') target = 'Completed';
       const col = g[target];
       if (col) col.push(a);
     }

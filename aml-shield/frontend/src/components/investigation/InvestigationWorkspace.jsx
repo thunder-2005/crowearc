@@ -593,7 +593,7 @@ function ActivityLogTab({ alert }) {
       ev.push({ ts: `${alert.created_date} 00:05:00`, kind: 'Alert assigned',
         who: alert.assigned_to, detail: `Routed to ${alert.assigned_to}` });
     }
-    if (alert.alert_status === 'Work in Progress') {
+    if (alert.alert_status === 'Work in Progress' || alert.alert_status === 'In Progress') {
       ev.push({ ts: `${alert.last_activity_date} 09:00:00`, kind: 'Investigation started',
         who: alert.assigned_to, detail: 'Analyst opened the investigation workspace' });
     }
@@ -806,10 +806,13 @@ function CaseInfoTab({ alert, onAlertChange }) {
   const finishFalsePositive = async (reason) => {
     setSubmitting(true);
     try {
+      // Match the seed-data canonical strings: disposition is just
+      // 'False Positive', alert_status uses the em-dash variant. KPIs
+      // and the Closed kanban column both filter on these exact values.
       await api.patch(`/alerts/${alert.alert_id}/disposition`, {
-        disposition: 'False Positive — Closed', performed_by: analyst
+        disposition: 'False Positive', performed_by: analyst
       });
-      const { data } = await api.patch(`/alerts/${alert.alert_id}/status`, { alert_status: 'Completed' });
+      const { data } = await api.patch(`/alerts/${alert.alert_id}/status`, { alert_status: 'Closed — False Positive' });
       onAlertChange({ ...alert, ...data });
       await api.post('/case-notes', {
         alert_id: alert.alert_id,

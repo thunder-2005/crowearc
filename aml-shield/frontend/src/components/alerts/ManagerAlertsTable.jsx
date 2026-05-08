@@ -13,8 +13,12 @@ import { isAlertClosed, slaSnapshot } from '../../utils/alertStatus.js';
 const PAGE_SIZE = 25;
 const ESCALATED_STATUSES = new Set(['Escalated - L2', 'Escalated - SAR']);
 
+// Status filter dropdown options. Includes both 'In Progress' (seeded
+// rows) and 'Work in Progress' (live transitions), plus the FP-closed
+// label so the manager can filter to it explicitly.
 const STATUS_OPTIONS = [
-  'Unassigned', 'Not Started', 'Work in Progress', 'Completed', 'Escalated - L2', 'Escalated - SAR'
+  'Unassigned', 'Not Started', 'In Progress', 'Work in Progress',
+  'Completed', 'Closed — False Positive', 'Escalated - L2', 'Escalated - SAR'
 ];
 const PRIORITY_OPTIONS = ['High', 'Medium', 'Low'];
 const SLA_STATUSES = ['On Time', 'At Risk', 'Breached'];
