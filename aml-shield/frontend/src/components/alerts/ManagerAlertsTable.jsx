@@ -56,6 +56,15 @@ export default function ManagerAlertsTable({ onSelect }) {
   // (L2 cases are self-assigned from the L2 queue).
   const [l1Analysts, setL1Analysts] = useState([]); // [{ name, role, team, ... }]
   const [loading, setLoading] = useState(true);
+  // Manager-tunable: alerts older than this number of days are highlighted
+  // in the table. 2× this value flips the styling to "critical".
+  const [agingThreshold, setAgingThreshold] = useState(30);
+  useEffect(() => {
+    api.get('/settings/manager').then(r => {
+      const t = Number(r.data?.['alert_aging_highlight_days']);
+      if (Number.isFinite(t) && t > 0) setAgingThreshold(t);
+    }).catch(() => { /* keep default */ });
+  }, []);
   const [filters, setFilters] = useState({
     scenarios: [], priority: '', statuses: [], assigned_to: '',
     team: '', sla_status: '', from: '', to: '', q: ''
@@ -228,10 +237,16 @@ export default function ManagerAlertsTable({ onSelect }) {
       const a = data?.assigned ?? 0;
       const s = data?.skipped ?? 0;
       const f = data?.failed ?? 0;
+      // Detect at-capacity skips so the toast names the analyst instead
+      // of saying "skipped (already assigned)" — those mean the manager's
+      // max_alerts_per_analyst setting blocked further assignment.
+      const skippedDetails = data?.skipped_details || [];
+      const atCapacity = skippedDetails.find(x => /capacity/i.test(x.reason));
       const parts = [`${a} alert${a === 1 ? '' : 's'} assigned to ${analyst}`];
-      if (s > 0) parts.push(`${s} skipped (already assigned)`);
+      if (atCapacity) parts.push(`${s} skipped — ${atCapacity.reason}`);
+      else if (s > 0) parts.push(`${s} skipped (already assigned)`);
       if (f > 0) parts.push(`${f} failed`);
-      push(parts.join(' · '), f > 0 ? 'warning' : 'success');
+      push(parts.join(' · '), atCapacity || f > 0 ? 'warning' : 'success');
       setBulkConfirm(null);
       clearSelection();
       await load();
@@ -443,7 +458,32 @@ export default function ManagerAlertsTable({ onSelect }) {
                       <td className="py-2 px-3">{a.team}</td>
                       <td className="py-2 px-3 text-right font-mono">{usd(a.amount_flagged_inr)}</td>
                       <td className="py-2 px-3 text-right">
-                        {!closed && a.sla_breached ? <span className="text-red-600 font-semibold">{a.age_days}d</span> : `${a.age_days}d`}
+                        {(() => {
+                          const ageVal = Number(a.age_days) || 0;
+                          // Highlight tiers driven by alert_aging_highlight_days:
+                          // > threshold → red bold + "Aging"; > 2× threshold →
+                          // dark red + "Critical Age". sla_breached always wins.
+                          if (!closed && a.sla_breached) {
+                            return <span className="text-red-600 font-semibold">{ageVal}d</span>;
+                          }
+                          if (!closed && ageVal > agingThreshold * 2) {
+                            return (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="text-red-800 font-bold">{ageVal}d</span>
+                                <span className="px-1 py-0 rounded text-[9px] uppercase tracking-wider bg-red-100 text-red-800 font-semibold">Critical Age</span>
+                              </span>
+                            );
+                          }
+                          if (!closed && ageVal > agingThreshold) {
+                            return (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="text-red-600 font-semibold">{ageVal}d</span>
+                                <span className="px-1 py-0 rounded text-[9px] uppercase tracking-wider bg-red-50 text-red-700">Aging</span>
+                              </span>
+                            );
+                          }
+                          return `${ageVal}d`;
+                        })()}
                       </td>
                       <td className="py-2 px-3 text-[11px] text-slate-500">{a.sla_deadline || '—'}</td>
                       <td className="py-2 px-3">

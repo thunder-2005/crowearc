@@ -2,8 +2,27 @@ const express = require('express');
 const pool = require('../database/db');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 const { requireManager, requireAnyAnalyst } = require('../middleware/roleGuard');
+const { getManagerSetting } = require('../utils/getManagerSetting');
 
 const router = express.Router();
+
+// Statuses that count against an analyst's open-alert quota. Anything
+// terminal (closed / completed / filed / handed off to L2 or SAR) is
+// excluded so capacity reflects active work in front of the analyst.
+const OPEN_FOR_QUOTA_STATUSES = [
+  'Unassigned', 'Not Started', 'In Progress', 'Work in Progress'
+];
+
+async function countOpenAlertsFor(analyst, client) {
+  const q = client || pool;
+  const r = await q.query(
+    `SELECT COUNT(*)::int AS c FROM alerts
+       WHERE assigned_to = $1
+         AND alert_status = ANY($2::text[])`,
+    [analyst, OPEN_FOR_QUOTA_STATUSES]
+  );
+  return r.rows[0].c;
+}
 
 router.get('/analysts', async (_req, res, next) => {
   try {
@@ -194,8 +213,22 @@ router.patch('/:id/disposition', requireAnyAnalyst, async (req, res, next) => {
 
 router.patch('/:id/status', requireAnyAnalyst, async (req, res, next) => {
   try {
-    const { alert_status, assigned_to, performed_by } = req.body;
+    const { alert_status, assigned_to, performed_by, note } = req.body;
     if (!alert_status) return res.status(400).json({ error: 'alert_status required' });
+
+    // Manager-tunable: require an explanatory note on every status change.
+    // Auto-transitions from the workspace pass a default note ("Investigation
+    // opened") so this gate doesn't block normal flow when toggled on.
+    const requireNote = !!(await getManagerSetting('audit.require_note_on_status_change', false));
+    if (requireNote) {
+      const trimmed = String(note || '').trim();
+      if (!trimmed) {
+        return res.status(400).json({
+          error: 'A note is required when changing alert status'
+        });
+      }
+    }
+
     const idParam = req.params.id;
     const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
 
@@ -221,7 +254,8 @@ router.patch('/:id/status', requireAnyAnalyst, async (req, res, next) => {
         : `Status changed from ${before.alert_status} to ${alert_status}`;
       await logAudit({
         entity_type: ENTITY_TYPES.ALERT, entity_id: before.alert_id,
-        action, performed_by: performed_by || 'system'
+        action, performed_by: performed_by || 'system',
+        details: note ? String(note).trim().slice(0, 500) : null
       });
     }
 
@@ -240,6 +274,22 @@ router.patch('/:id/assign', requireManager, async (req, res, next) => {
       'SELECT * FROM alerts WHERE alert_id = $1 OR id = $2', [idParam, idAsInt]
     )).rows[0];
     if (!existing) return res.status(404).json({ error: 'Alert not found' });
+
+    // Quota check — only when handing off to a different analyst.
+    // The current alert's row counts against the new analyst's load
+    // only AFTER the assignment, so compare against (max-1) for new
+    // assignments to avoid an off-by-one.
+    if (assigned_to !== existing.assigned_to) {
+      const maxAlerts = Number(await getManagerSetting('max_alerts_per_analyst', 35)) || 35;
+      const current = await countOpenAlertsFor(assigned_to);
+      if (current >= maxAlerts) {
+        return res.status(403).json({
+          error: `${assigned_to} already has ${current} open alerts. Maximum is ${maxAlerts}.`,
+          current, max: maxAlerts
+        });
+      }
+    }
+
     const nextStatus = existing.alert_status === 'Unassigned' ? 'Not Started' : existing.alert_status;
     await pool.query(
       'UPDATE alerts SET assigned_to = $1, alert_status = $2, last_activity_date = $3 WHERE alert_id = $4',
@@ -292,15 +342,36 @@ router.patch('/bulk-assign', requireManager, async (req, res, next) => {
   let assigned = 0;
   let skipped = 0;
   let failed = 0;
+  const skippedDetails = [];   // { alert_id, reason }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    // Quota awareness: load the current open count for the target analyst
+    // once, then track how many we plan to add inside this transaction.
+    const maxAlerts = Number(await getManagerSetting('max_alerts_per_analyst', 35)) || 35;
+    const startingCount = await countOpenAlertsFor(assigned_to, client);
+    let plannedAdds = 0;
+
     for (const id of alert_ids) {
       const sel = await client.query('SELECT * FROM alerts WHERE alert_id = $1', [id]);
       const row = sel.rows[0];
-      if (!row) { failed++; continue; }
+      if (!row) { failed++; skippedDetails.push({ alert_id: id, reason: 'Not found' }); continue; }
       if (row.assigned_to === assigned_to) { skipped++; continue; }
+
+      // Stop adding once we'd exceed the analyst's quota. Any remaining
+      // alert_ids in this batch land in skippedDetails so the manager
+      // can see exactly what didn't go through.
+      if (startingCount + plannedAdds >= maxAlerts) {
+        skipped++;
+        skippedDetails.push({
+          alert_id: row.alert_id,
+          reason: `${assigned_to} at capacity (${startingCount + plannedAdds}/${maxAlerts})`
+        });
+        continue;
+      }
+
       const nextStatus = row.alert_status === 'Unassigned' ? 'Not Started' : row.alert_status;
       await client.query(
         'UPDATE alerts SET assigned_to = $1, alert_status = $2, last_activity_date = $3 WHERE alert_id = $4',
@@ -314,6 +385,7 @@ router.patch('/bulk-assign', requireManager, async (req, res, next) => {
         client
       });
       assigned++;
+      plannedAdds++;
     }
 
     // ONE consolidated notification, regardless of count. Manager not notified.
@@ -329,7 +401,7 @@ router.patch('/bulk-assign', requireManager, async (req, res, next) => {
     }
 
     await client.query('COMMIT');
-    res.json({ assigned, skipped, failed });
+    res.json({ assigned, skipped, failed, skipped_details: skippedDetails });
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (_e) { /* ignore */ }
     next(err);

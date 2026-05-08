@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../database/db');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 const { requireL2OrManager } = require('../middleware/roleGuard');
+const { getManagerSetting } = require('../utils/getManagerSetting');
 const { generateNarrative } = require('../utils/narrativeTemplates');
 
 const router = express.Router();
@@ -242,6 +243,9 @@ router.post('/:id/submit', requireL2OrManager, async (req, res, next) => {
     let dual = false;
     try { dual = dualRow ? JSON.parse(dualRow.setting_value) === true : false; } catch (_e) { dual = false; }
 
+    // Manager-tunable retention period; defaults to 5 years (FIU-IND minimum).
+    const retentionYears = Number(await getManagerSetting('sar.retention_years', 5)) || 5;
+
     const today = new Date().toISOString().slice(0, 10);
     const stamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const status = dual ? 'Pending Approval' : 'Filed';
@@ -254,7 +258,7 @@ router.post('/:id/submit', requireL2OrManager, async (req, res, next) => {
              filed_date = CASE WHEN $4 = 'Filed' THEN $5 ELSE filed_date END,
              retention_status = CASE WHEN $6 = 'Filed' THEN 'Active' ELSE COALESCE(retention_status, 'Pending Filing') END,
              retention_expiry_date = CASE
-               WHEN $7 = 'Filed' THEN ($8::date + INTERVAL '5 years')::date::text
+               WHEN $7 = 'Filed' THEN ($8::date + ($12 || ' years')::INTERVAL)::date::text
                ELSE retention_expiry_date
              END,
              certification_signed = 1,
@@ -266,7 +270,7 @@ router.post('/:id/submit', requireL2OrManager, async (req, res, next) => {
         status,
         status, today,
         stamp, today,
-        existing.sar_id]);
+        existing.sar_id, String(retentionYears)]);
 
     const action = dual
       ? (isResubmission ? 'Resubmitted for manager approval' : 'Submitted for manager approval')
@@ -319,15 +323,16 @@ router.post('/:id/approve', requireL2OrManager, async (req, res, next) => {
     const today = new Date().toISOString().slice(0, 10);
     const stamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const approvedBy = req.body.approved_by || 'Compliance Manager';
+    const retentionYears = Number(await getManagerSetting('sar.retention_years', 5)) || 5;
 
     await pool.query(`
       UPDATE sar_filings
          SET sar_status = 'Filed', approved_by = $1, approved_at = $2,
              filed_date = $3, retention_status = 'Active',
-             retention_expiry_date = ($4::date + INTERVAL '5 years')::date::text,
+             retention_expiry_date = ($4::date + ($8 || ' years')::INTERVAL)::date::text,
              updated_at = $5, latest_activity_date = $6
        WHERE sar_id = $7
-    `, [approvedBy, stamp, today, today, stamp, today, existing.sar_id]);
+    `, [approvedBy, stamp, today, today, stamp, today, existing.sar_id, String(retentionYears)]);
 
     await logAudit({
       entity_type: ENTITY_TYPES.SAR, entity_id: existing.sar_id,

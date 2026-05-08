@@ -28,12 +28,16 @@ function FilingTypeBadge({ type }) {
   );
 }
 
-function retentionUrgency(expiry) {
+// `warnDays` (defaults to 90) controls the orange "expiring soon" band;
+// the red "critical" band is `warnDays / 3` (defaults to 30). Pass the
+// value loaded from sar.retention_warn_days when rendering.
+function retentionUrgency(expiry, warnDays = 90) {
   if (!expiry) return { label: 'Pending filing', tone: 'bg-slate-100 text-slate-600' };
   const days = Math.round((new Date(expiry) - new Date()) / 86400000);
+  const verySoonDays = Math.max(1, Math.round(warnDays / 3));
   if (days < 0) return { label: `${Math.abs(days)}d overdue`, tone: 'bg-red-100 text-red-700' };
-  if (days <= 30) return { label: `${days}d to expire`, tone: 'bg-red-100 text-red-700' };
-  if (days <= 90) return { label: `${days}d to expire`, tone: 'bg-orange-100 text-orange-700' };
+  if (days <= verySoonDays) return { label: `${days}d to expire`, tone: 'bg-red-100 text-red-700' };
+  if (days <= warnDays) return { label: `${days}d to expire`, tone: 'bg-orange-100 text-orange-700' };
   return { label: `${days}d`, tone: 'bg-green-100 text-green-700' };
 }
 
@@ -59,6 +63,14 @@ function ManagerSarRepository() {
   const [sar_status, setSarStatus] = useState('');
   const [retention_status, setRetentionStatus] = useState('');
   const [selected, setSelected] = useState(null);
+  // Manager-tunable retention-warning threshold; loaded once on mount.
+  const [warnDays, setWarnDays] = useState(90);
+  useEffect(() => {
+    api.get('/settings/manager').then(r => {
+      const w = Number(r.data?.['sar.retention_warn_days']);
+      if (Number.isFinite(w) && w > 0) setWarnDays(w);
+    }).catch(() => { /* keep default */ });
+  }, []);
 
   const load = () => {
     const params = {};
@@ -163,7 +175,7 @@ function ManagerSarRepository() {
               {
                 key: 'retention_expiry_date', label: 'Retention',
                 render: r => {
-                  const s = retentionUrgency(r.retention_expiry_date);
+                  const s = retentionUrgency(r.retention_expiry_date, warnDays);
                   return (
                     <div className="flex items-center gap-2">
                       <span className={`px-2 py-0.5 rounded-full text-xs ${s.tone}`}>{s.label}</span>
@@ -201,16 +213,17 @@ function ManagerSarRepository() {
           onRefresh={refreshSelected}
           readOnly={readOnly}
           requester={requester}
+          warnDays={warnDays}
         />
       )}
     </div>
   );
 }
 
-function SarDetail({ sar, onClose, onRefresh, readOnly, requester }) {
+function SarDetail({ sar, onClose, onRefresh, readOnly, requester, warnDays = 90 }) {
   const fileInput = useRef();
   const [uploading, setUploading] = useState(false);
-  const retention = retentionUrgency(sar.retention_expiry_date);
+  const retention = retentionUrgency(sar.retention_expiry_date, warnDays);
 
   const doUpload = async (e) => {
     const f = e.target.files?.[0];

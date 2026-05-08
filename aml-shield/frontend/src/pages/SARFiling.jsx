@@ -87,6 +87,18 @@ export default function SARFiling() {
   const [submittingFinal, setSubmittingFinal] = useState(false);
   const [success, setSuccess] = useState(null);
   const [errors, setErrors] = useState({});
+  const [mandatoryFields, setMandatoryFields] = useState({
+    narrative: true, supporting_document: true, transaction_evidence: true, supervisor_approval: false
+  });
+
+  // Pull the manager's mandatory-field configuration once on mount.
+  // Falls back to the legacy hardcoded set if the request fails.
+  useEffect(() => {
+    api.get('/settings/manager').then(r => {
+      const mf = r.data?.['sar.mandatory_fields'];
+      if (mf && typeof mf === 'object') setMandatoryFields(prev => ({ ...prev, ...mf }));
+    }).catch(() => { /* keep defaults */ });
+  }, []);
 
   const formRef = useRef(form);
   formRef.current = form;
@@ -190,7 +202,7 @@ export default function SARFiling() {
 
   const goStep = (i) => { setStepIdx(Math.max(0, Math.min(STEPS.length - 1, i))); };
   const next = () => {
-    const errs = validateStep(STEPS[stepIdx].k, form, validation, includeDocIds);
+    const errs = validateStep(STEPS[stepIdx].k, form, validation, includeDocIds, mandatoryFields);
     setErrors(errs);
     if (Object.keys(errs).length > 0) {
       pushToast('Fix the highlighted fields before continuing', 'warning');
@@ -206,7 +218,7 @@ export default function SARFiling() {
   const submitFinal = async () => {
     if (isViewOnly || !filing) return;
     const allErrs = {};
-    for (const s of STEPS) Object.assign(allErrs, validateStep(s.k, form, validation, includeDocIds));
+    for (const s of STEPS) Object.assign(allErrs, validateStep(s.k, form, validation, includeDocIds, mandatoryFields));
     if (!form.certification_signed) allErrs.certification_signed = 'Certification required';
     setErrors(allErrs);
     if (Object.keys(allErrs).length > 0) {
@@ -583,8 +595,11 @@ function stepCompletion(form, validation) {
   ];
 }
 
-function validateStep(stepKey, form, validation, includeDocIds) {
+function validateStep(stepKey, form, validation, includeDocIds, mandatoryFields) {
   const errs = {};
+  // Manager-tunable: which fields are required for SAR filing.
+  // Defaults match the legacy hardcoded list (narrative + supporting doc).
+  const required = mandatoryFields || { narrative: true, supporting_document: true, transaction_evidence: true, supervisor_approval: false };
   if (stepKey === 'details') {
     if (!form.filing_type) errs.filing_type = 'Required';
     if (!form.filing_method) errs.filing_method = 'Required';
@@ -642,7 +657,12 @@ function validateStep(stepKey, form, validation, includeDocIds) {
     if ((form.narrative || '').length < 100) errs.narrative = 'Narrative must be at least 100 characters';
   }
   if (stepKey === 'attachments') {
-    if ((includeDocIds || []).length === 0) errs.attachments = 'At least one attachment required';
+    // Only enforce when the manager has marked supporting docs or transaction
+    // evidence as mandatory. Both off = optional attachments per org policy.
+    const attachmentRequired = !!(required.supporting_document || required.transaction_evidence);
+    if (attachmentRequired && (includeDocIds || []).length === 0) {
+      errs.attachments = 'A supporting document is required by your organization';
+    }
   }
   return errs;
 }

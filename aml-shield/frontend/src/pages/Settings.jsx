@@ -11,12 +11,23 @@ import {
 
 const MANAGER_SECTIONS = [
   { k: 'alerts',     label: 'Alert & SLA Configuration',    icon: SlidersHorizontal },
-  { k: 'scenarios',  label: 'Scenario & Rule Thresholds',   icon: Shield },
+  { k: 'scenarios',  label: 'Scenario Configuration',       icon: Shield },
   { k: 'team',       label: 'Team & Workload Management',   icon: UsersIcon },
   { k: 'sar',        label: 'SAR & Retention',              icon: FileText },
   { k: 'report',     label: 'Reporting & Notifications',    icon: Bell },
   { k: 'audit',      label: 'Audit & Compliance',           icon: Lock }
 ];
+
+const SCENARIO_LIST = [
+  { name: 'Structuring',       desc: 'Multiple transactions below the $10,000 CTR threshold' },
+  { name: 'High Risk Country', desc: 'Transactions involving FATF high-risk jurisdictions' },
+  { name: 'Watchlist Hit',     desc: 'Counterparty matches OFAC or internal watchlist' },
+  { name: 'Cash Intensive',    desc: 'Cash activity inconsistent with customer profile' },
+  { name: 'Rapid Movement',    desc: 'Large funds received and disbursed within 48 hours' },
+  { name: 'Trade Based ML',    desc: 'Trade transactions with anomalous patterns' }
+];
+
+const SCENARIO_PRIORITIES = ['High', 'Medium', 'Low'];
 
 const EMPLOYEE_SECTIONS = [
   { k: 'workspace',     label: 'My Workspace',             icon: Layout },
@@ -60,6 +71,12 @@ export default function Settings() {
             : 'These preferences apply only to your account.'}
         </div>
       </div>
+
+      {isManager && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md px-3 py-2 text-xs text-slate-700">
+          Settings are managed by the Compliance Manager. Changes take effect immediately.
+        </div>
+      )}
 
       {isManager ? <ManagerSettingsPane /> : <EmployeeSettingsPane />}
     </div>
@@ -285,36 +302,64 @@ function ManagerSectionContent({ sectionK, values, setValue }) {
 
   if (sectionK === 'scenarios') return (
     <div className="space-y-4">
-      <div className="text-xs text-slate-500">
-        Toggle scenarios on/off, set risk weight, team routing, and priority overrides.
+      <div className="text-xs text-slate-600">
+        Configure monitoring scenarios and alert thresholds.
       </div>
-      {Object.keys(values['scenarios.active'] || {}).map(name => {
-        const active = values['scenarios.active'][name];
-        const cfg = values['scenarios.config']?.[name] || {};
+      <div className="text-[11px] text-slate-400 italic">
+        Changes take effect on the next monitoring cycle.
+      </div>
+      {SCENARIO_LIST.map(s => {
+        const active = values['scenarios.active']?.[s.name] !== false;
+        const cfg = values['scenarios.config']?.[s.name] || {};
+        const priority = cfg.priority || 'Medium';
+        const fpWarn = cfg.fp_warn_pct != null ? cfg.fp_warn_pct : 40;
         const updateActive = (checked) =>
-          setValue('scenarios.active', { ...values['scenarios.active'], [name]: checked });
+          setValue('scenarios.active', { ...(values['scenarios.active'] || {}), [s.name]: checked });
         const updateCfg = (patch) =>
           setValue('scenarios.config', {
-            ...values['scenarios.config'],
-            [name]: { ...cfg, ...patch }
+            ...(values['scenarios.config'] || {}),
+            [s.name]: { ...cfg, ...patch }
           });
         return (
-          <div key={name} className="border border-slate-200 rounded-md p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="font-medium text-sm text-navy-900">{name}</div>
-              <Toggle checked={active} onChange={updateActive} />
+          <div key={s.name} className={`border rounded-md p-3 ${active ? 'border-slate-200 bg-white' : 'border-slate-200 bg-slate-50/60'}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <div className="font-semibold text-sm text-navy-900">{s.name}</div>
+                  {!active && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider bg-slate-200 text-slate-600">Inactive</span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-500 mt-0.5">{s.desc}</div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[11px] text-slate-500">Active</span>
+                <Toggle checked={active} onChange={updateActive} />
+              </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <LabeledSelect label="Risk weight" value={cfg.risk_weight || 'Medium'}
-                onChange={v => updateCfg({ risk_weight: v })}
-                options={['Low', 'Medium', 'High', 'Critical']} />
-              <LabeledSelect label="Auto-assign to team" value={cfg.auto_assign_team || 'T1 Monitoring'}
-                onChange={v => updateCfg({ auto_assign_team: v })}
-                options={['T1 Monitoring', 'T2 Investigations']} />
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <LabeledSelect label="Default priority" value={priority}
+                onChange={v => updateCfg({ priority: v })} options={SCENARIO_PRIORITIES} />
               <div>
-                <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-1">Priority override</div>
-                <Toggle checked={!!cfg.auto_priority_override}
-                  onChange={v => updateCfg({ auto_priority_override: v })} />
+                <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-1">
+                  Alert if FP rate exceeds
+                </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={1} max={100}
+                    value={fpWarn}
+                    onChange={e => {
+                      const n = parseInt(e.target.value, 10);
+                      if (Number.isFinite(n)) updateCfg({ fp_warn_pct: Math.min(100, Math.max(1, n)) });
+                    }}
+                    className="w-20 text-xs border border-slate-200 rounded px-2 py-1 text-right"
+                  />
+                  <span className="text-[11px] text-slate-500">%</span>
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  % of alerts closed as false positive
+                </div>
               </div>
             </div>
           </div>

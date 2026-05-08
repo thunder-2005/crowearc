@@ -670,6 +670,16 @@ function RuleEffectivenessTab({ range }) {
   const { data, loading, err } = useAnalytics('rule-effectiveness', range, 'month');
   const [sortKey, setSortKey] = useState('total');
   const [sortDir, setSortDir] = useState('desc');
+  // Per-scenario FP-rate ceiling pulled from manager settings. When the
+  // actual FP rate (in `data.scenarios[i].fp_rate_pct`) exceeds the
+  // configured ceiling, a warning row appears under the scenario name.
+  const [scenarioCfg, setScenarioCfg] = useState({});
+  useEffect(() => {
+    api.get('/settings/manager').then(r => {
+      const cfg = r.data?.['scenarios.config'];
+      if (cfg && typeof cfg === 'object') setScenarioCfg(cfg);
+    }).catch(() => { /* ignore */ });
+  }, []);
 
   const scenarios = data?.scenarios || [];
   const sorted = useMemo(() => {
@@ -722,25 +732,38 @@ function RuleEffectivenessTab({ range }) {
                 </tr>
               </thead>
               <tbody>
-                {sorted.map(s => (
-                  <tr key={s.scenario} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="py-2 px-3 font-medium text-navy-900">{s.scenario}</td>
-                    <td className="py-2 px-3 text-right">{s.total}</td>
-                    <td className="py-2 px-3 text-right text-green-700">{s.true_positive}</td>
-                    <td className="py-2 px-3 text-right text-slate-700">{s.false_positive}</td>
-                    <td className="py-2 px-3 text-right">{s.sar_conversion_pct}%</td>
-                    <td className="py-2 px-3 text-right">
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                        s.fp_rate_pct < 20 ? 'bg-green-50 text-green-700'
-                          : s.fp_rate_pct <= 40 ? 'bg-orange-50 text-orange-700'
-                          : 'bg-red-50 text-red-700'
-                      }`}>{s.fp_rate_pct}%</span>
-                    </td>
-                    <td className="py-2 px-3 text-right text-slate-600">
-                      {s.avg_resolution_days != null ? `${s.avg_resolution_days}d` : '—'}
-                    </td>
-                  </tr>
-                ))}
+                {sorted.map(s => {
+                  // Compare each scenario's actual FP rate against the
+                  // manager's configured fp_warn_pct (default 40%).
+                  const fpThreshold = Number(scenarioCfg?.[s.scenario]?.fp_warn_pct);
+                  const exceedsFp = Number.isFinite(fpThreshold) && s.fp_rate_pct > fpThreshold;
+                  return (
+                    <tr key={s.scenario} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="py-2 px-3 font-medium text-navy-900">
+                        {s.scenario}
+                        {exceedsFp && (
+                          <div className="mt-1 inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-800">
+                            FP rate ({s.fp_rate_pct}%) exceeds your configured threshold ({fpThreshold}%)
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-right">{s.total}</td>
+                      <td className="py-2 px-3 text-right text-green-700">{s.true_positive}</td>
+                      <td className="py-2 px-3 text-right text-slate-700">{s.false_positive}</td>
+                      <td className="py-2 px-3 text-right">{s.sar_conversion_pct}%</td>
+                      <td className="py-2 px-3 text-right">
+                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                          s.fp_rate_pct < 20 ? 'bg-green-50 text-green-700'
+                            : s.fp_rate_pct <= 40 ? 'bg-orange-50 text-orange-700'
+                            : 'bg-red-50 text-red-700'
+                        }`}>{s.fp_rate_pct}%</span>
+                      </td>
+                      <td className="py-2 px-3 text-right text-slate-600">
+                        {s.avg_resolution_days != null ? `${s.avg_resolution_days}d` : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

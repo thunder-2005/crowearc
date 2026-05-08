@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../database/db');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
+const { getManagerSetting } = require('../utils/getManagerSetting');
 
 const router = express.Router();
 
@@ -213,15 +214,16 @@ router.post('/:id/approve', async (req, res, next) => {
       );
     }
 
+    const retentionYears = Number(await getManagerSetting('sar.retention_years', 5)) || 5;
     await pool.query(`
       UPDATE sar_filings
          SET sar_status = 'Filed', approved_by = $1, approved_at = $2,
              filed_date = $3, retention_status = 'Active',
-             retention_expiry_date = ($4::date + INTERVAL '5 years')::date::text,
+             retention_expiry_date = ($4::date + ($8 || ' years')::INTERVAL)::date::text,
              updated_at = $5, latest_activity_date = $6,
              returned_to_analyst = 0
        WHERE sar_id = $7
-    `, [approvedBy, stamp, today, today, stamp, today, existing.sar_id]);
+    `, [approvedBy, stamp, today, today, stamp, today, existing.sar_id, String(retentionYears)]);
 
     await pool.query(`
       INSERT INTO sar_approval_log (sar_id, action, actioned_by, comments, checklist_items_completed)

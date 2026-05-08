@@ -7,19 +7,26 @@ const MANAGER_DEFAULTS = {
   'max_alerts_per_analyst': 35,
   'alert_aging_highlight_days': 30,
 
+  // Scenario Configuration — extended in the new "Scenario Configuration"
+  // settings section. Each scenario carries: active flag, default priority,
+  // and FP-rate warning threshold. The FP threshold is functional — the
+  // Analytics Rule Effectiveness tab compares the actual FP rate against
+  // it and surfaces a warning when the configured ceiling is exceeded.
   'scenarios.active': {
     'Structuring': true,
     'High Risk Country': true,
     'Watchlist Hit': true,
     'Cash Intensive': true,
+    'Rapid Movement': true,
     'Trade Based ML': true
   },
   'scenarios.config': {
-    'Structuring':       { risk_weight: 'Medium',   auto_assign_team: 'T1 Monitoring',     auto_priority_override: false },
-    'High Risk Country': { risk_weight: 'High',     auto_assign_team: 'T2 Investigations', auto_priority_override: false },
-    'Watchlist Hit':     { risk_weight: 'High',     auto_assign_team: 'T1 Monitoring',     auto_priority_override: true  },
-    'Cash Intensive':    { risk_weight: 'Medium',   auto_assign_team: 'T1 Monitoring',     auto_priority_override: false },
-    'Trade Based ML':    { risk_weight: 'Critical', auto_assign_team: 'T2 Investigations', auto_priority_override: true  }
+    'Structuring':       { priority: 'Medium', fp_warn_pct: 40 },
+    'High Risk Country': { priority: 'High',   fp_warn_pct: 40 },
+    'Watchlist Hit':     { priority: 'High',   fp_warn_pct: 40 },
+    'Cash Intensive':    { priority: 'Low',    fp_warn_pct: 40 },
+    'Rapid Movement':    { priority: 'Medium', fp_warn_pct: 40 },
+    'Trade Based ML':    { priority: 'Low',    fp_warn_pct: 40 }
   },
 
   'team.capacity_warn_pct': 85,

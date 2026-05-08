@@ -1,4 +1,5 @@
 const pool = require('../database/db');
+const { getManagerSetting } = require('../utils/getManagerSetting');
 
 const TICK_MS = 5 * 60 * 1000;
 const TERMINAL_STATUSES = new Set(['Completed', 'Closed', 'Filed', 'Escalated - L2', 'Escalated - SAR']);
@@ -50,6 +51,12 @@ async function notification48hrAlreadyExists(alertId) {
 
 async function tick() {
   try {
+    // Manager-tunable: how much of the SLA window must elapse before the
+    // early warning fires. Default 80% (matches the legacy 48hr-on-7-day
+    // ratio close enough). Setting it higher delays the early warning;
+    // lower brings it forward.
+    const warnPct = Number(await getManagerSetting('sla.warning_threshold_pct', 80)) || 80;
+
     const alerts = (await pool.query(`
       SELECT alert_id, customer_id, customer_name, scenario, priority,
              assigned_to, alert_status, created_date, sla_days, sla_deadline,
@@ -70,6 +77,14 @@ async function tick() {
       const deadline = deadlineFor(a);
       if (!deadline) continue;
       const remainingHours = hoursBetween(deadline, now);
+
+      // Per-alert early-warning band: fires when more than `warnPct`% of
+      // the SLA has elapsed but at least a day still remains. For a 7-day
+      // SLA at 80%: warns when ≤ 33.6 hrs remain. At 50%: warns at ≤ 84 hrs.
+      const totalSlaHours = Number(a.sla_days || 0) * 24;
+      const earlyWarningHours = totalSlaHours > 0
+        ? Math.max(0, totalSlaHours * (100 - warnPct) / 100)
+        : 0;
 
       if (remainingHours <= 0) {
         if (await alreadyNotifiedRecently('sla_breach_notified_at', a.alert_id)) continue;
@@ -105,10 +120,12 @@ async function tick() {
           [nowIso(), a.alert_id]
         );
         warnings++;
-      } else if (remainingHours <= 48 && remainingHours > 24) {
-        // Earliest warning tier — fires once per alert per 48-hour window.
-        // De-dup is done by querying the notifications table (no new column
-        // on alerts). The 24hr branch above is left untouched.
+      } else if (earlyWarningHours > 24 && remainingHours <= earlyWarningHours && remainingHours > 24) {
+        // Earliest warning tier — fires once per alert per 48-hour dedup
+        // window. The trigger band is now manager-tunable via the
+        // sla.warning_threshold_pct setting (see top of tick()). When the
+        // chosen threshold puts the early window inside the 24hr final
+        // tier, this branch is silently skipped.
         if (await notification48hrAlreadyExists(a.alert_id)) continue;
         const hrsLabel = `${Math.floor(remainingHours)}h remaining`;
         if (a.assigned_to) {
