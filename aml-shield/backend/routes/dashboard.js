@@ -43,9 +43,18 @@ async function compareThisVsLast(table, column, where = '') {
   return { curr, prev, pct: trendPct(curr, prev) };
 }
 
+// Date-range parser for every /api/dashboard/* route.
+//   - No params at all → return a span wide enough to include every row
+//     ('2000-01-01' to today). Keeps the existing BETWEEN-clause SQL
+//     working without any per-route rewrite.
+//   - Either param supplied → fill the missing side with a 30-day default,
+//     matching the historical "Last 30 days" behaviour.
 function parseRange(req) {
   const q = req.query || {};
   const today = new Date();
+  if (!q.from && !q.to) {
+    return { from: '2000-01-01', to: today.toISOString().slice(0, 10) };
+  }
   const to = q.to || today.toISOString().slice(0, 10);
   const from = q.from || new Date(today.getTime() - 30 * 86400000).toISOString().slice(0, 10);
   return { from, to };

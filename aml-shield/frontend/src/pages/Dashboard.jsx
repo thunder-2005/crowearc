@@ -22,14 +22,19 @@ const DONUT_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#8
 //   '30d' → today − 30 days
 //   '90d' → today − 90 days
 //   'ytd' → Jan 1 of current year
+// 'all' returns null/null so the caller can OMIT the from/to query params,
+// which signals the backend to span every date. Every other option emits
+// concrete YYYY-MM-DD strings.
 function dateRangeFor(range) {
   const today = new Date();
   const to = today.toISOString().slice(0, 10);
+  if (range === 'all') return { from: null, to: null };
   let from;
   if (range === '7d')       from = new Date(today.getTime() -  7 * 86400000);
+  else if (range === '30d') from = new Date(today.getTime() - 30 * 86400000);
   else if (range === '90d') from = new Date(today.getTime() - 90 * 86400000);
   else if (range === 'ytd') from = new Date(today.getFullYear(), 0, 1);
-  else                      from = new Date(today.getTime() - 30 * 86400000); // '30d' default
+  else                      from = new Date(today.getTime() - 30 * 86400000);
   return { from: from.toISOString().slice(0, 10), to };
 }
 
@@ -38,13 +43,17 @@ export default function Dashboard() {
   const { makePath } = useRoleNavigate();
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
-  const [range, setRange] = useState('30d');
+  const [range, setRange] = useState('all');
   const [refetching, setRefetching] = useState(false);
   const [drawerKind, setDrawerKind] = useState(null);
   const { from, to } = dateRangeFor(range);
 
   useEffect(() => {
-    const params = { from, to };
+    // Build params lazily so the 'All Time' selection sends no from/to —
+    // the backend treats absent params as "span every date".
+    const params = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
     if (isEmployee && currentAnalyst) params.assigned_to = currentAnalyst;
     setRefetching(true);
     api.get('/dashboard/stats', { params })
@@ -80,6 +89,7 @@ export default function Dashboard() {
           onChange={e => setRange(e.target.value)}
           className="bg-white border border-slate-200 rounded-md text-sm px-3 py-2"
         >
+          <option value="all">All Time</option>
           <option value="7d">Last 7 days</option>
           <option value="30d">Last 30 days</option>
           <option value="90d">Last 90 days</option>
@@ -390,7 +400,12 @@ function DrawerBody({ kind, onClose, makePath, from, to }) {
   useEffect(() => {
     let cancelled = false;
     setData(null); setError(null);
-    api.get(`/dashboard/drawer/${kind}`, { params: { from, to } })
+    // Same lazy-params pattern as the main /stats call: omit from/to when
+    // the parent has selected "All Time".
+    const params = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    api.get(`/dashboard/drawer/${kind}`, { params })
       .then(r => { if (!cancelled) setData(r.data); })
       .catch(e => { if (!cancelled) setError(e?.response?.data?.error || e.message || 'Failed to load'); });
     return () => { cancelled = true; };
