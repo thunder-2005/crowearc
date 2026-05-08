@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import api from '../api/client.js';
 import Badge from '../components/shared/Badge.jsx';
-import { X, Clock, UserPlus, Flag, PlayCircle, AlertTriangle, ShieldCheck, ArrowUpRight, RotateCcw, FolderOpen } from 'lucide-react';
+import { X, Clock, UserPlus, PlayCircle, AlertTriangle, ShieldCheck, ArrowUpRight, RotateCcw, FolderOpen } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
 import { useInvestigationTabs } from '../state/InvestigationTabsContext.jsx';
 import InvestigationWorkspace from '../components/investigation/InvestigationWorkspace.jsx';
@@ -414,14 +414,6 @@ function SelectedDetail({ selected, setSelected, tab, setTab, isEmployee, isMana
               <div className="flex-1 text-xs text-slate-500 italic text-center px-3 py-2">
                 Read-only · alert is with L2
               </div>
-            )}
-            {isEmployee && !isEscalated && (
-              <button
-                className="text-sm border border-red-200 text-red-600 hover:bg-red-50 rounded-md px-3 py-2 inline-flex items-center gap-1"
-                title="Flag for manager"
-              >
-                <Flag size={14} />
-              </button>
             )}
           </>
         )}

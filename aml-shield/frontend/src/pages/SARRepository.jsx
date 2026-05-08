@@ -103,7 +103,7 @@ function ManagerSarRepository() {
     setSelected(data);
   };
 
-  const requester = encodeURIComponent(isManager ? 'Compliance Manager' : (currentAnalyst || 'rakshit.sapra@crowe.com'));
+  const requester = encodeURIComponent(isManager ? 'Compliance Manager' : (currentAnalyst || 'Compliance Officer'));
 
   return (
     <div className="flex gap-4 min-w-0">
@@ -412,9 +412,6 @@ function SarDetail({ sar, onClose, onRefresh, readOnly, requester, warnDays = 90
         >
           <Package size={14} /> Export Package
         </a>
-        <button className="text-sm border border-slate-300 hover:border-slate-400 rounded-md px-3 py-2 inline-flex items-center gap-1">
-          <AlertCircle size={14} /> Flag
-        </button>
       </div>
     </aside>
   );

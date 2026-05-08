@@ -19,6 +19,14 @@ const STATUS_CLOSED      = "alert_status IN ('Completed', 'Closed', 'Filed', 'Cl
 // queries that need to ignore historical FP-closed rows.
 const STATUS_NOT_CLOSED  = "alert_status NOT IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')";
 
+// Real-time "is this alert currently breached?" criterion. Replaces the
+// stale `sla_breached = 1` column flag — the latter was being set by an
+// older slaMonitor run that didn't exclude FP-closed rows, and stays
+// sticky even when the alert no longer needs attention. The new check
+// recomputes from sla_deadline + alert_status on every query so the KPI
+// always reflects the current state of the queue.
+const SLA_BREACHED_CONDITION = "sla_deadline IS NOT NULL AND sla_deadline::date < NOW()::date AND alert_status NOT IN ('Completed', 'Closed', 'Closed — False Positive', 'False Positive', 'Escalated - SAR', 'Filed', 'Work in Progress')";
+
 // PG SQL fragments for date math (text-comparable YYYY-MM-DD).
 const TODAY            = "to_char(CURRENT_DATE, 'YYYY-MM-DD')";
 const THIS_MONTH_START = "to_char(date_trunc('month', CURRENT_DATE)::date, 'YYYY-MM-DD')";
@@ -97,7 +105,7 @@ router.get('/stats', async (req, res, next) => {
     const notStarted  = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} alert_status = 'Not Started'`);
     const inProgress  = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} ${STATUS_IN_PROGRESS}`);
     const completed   = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} ${STATUS_CLOSED}`);
-    const slaBreaches = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} sla_breached = 1`);
+    const slaBreaches = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} (${SLA_BREACHED_CONDITION})`);
     const avgAging    = Number((await pool.query(`SELECT AVG(age_days) AS a FROM alerts${whereSql}`, params)).rows[0].a) || 0;
     const casesConverted = await num(`SELECT COUNT(*) AS c FROM alerts${withAnd} case_converted = 1`);
 
@@ -125,7 +133,7 @@ router.get('/stats', async (req, res, next) => {
     `, params)).rows.map(r => ({ ...r, value: Number(r.value) }));
 
     const breachedRows = (await pool.query(
-      `SELECT age_days FROM alerts${withAnd} sla_breached = 1`, params
+      `SELECT age_days FROM alerts${withAnd} (${SLA_BREACHED_CONDITION})`, params
     )).rows;
     const buckets = { '0-7': 0, '8-14': 0, '15-21': 0, '22-30': 0, '30+': 0 };
     for (const r of breachedRows) {
@@ -141,7 +149,7 @@ router.get('/stats', async (req, res, next) => {
     const topBreaches = (await pool.query(`
       SELECT alert_id, customer_name, scenario, priority, assigned_to, age_days, sla_days, due_status
         FROM alerts
-       ${withAnd} sla_breached = 1
+       ${withAnd} (${SLA_BREACHED_CONDITION})
        ORDER BY age_days DESC
        LIMIT 10
     `, params)).rows;
@@ -150,7 +158,7 @@ router.get('/stats', async (req, res, next) => {
       SELECT assigned_to AS analyst,
              COUNT(*) AS total,
              SUM(CASE WHEN ${STATUS_IN_PROGRESS} THEN 1 ELSE 0 END) AS in_progress,
-             SUM(CASE WHEN sla_breached = 1 THEN 1 ELSE 0 END) AS breached,
+             SUM(CASE WHEN (${SLA_BREACHED_CONDITION}) THEN 1 ELSE 0 END) AS breached,
              SUM(CASE WHEN ${STATUS_CLOSED} THEN 1 ELSE 0 END) AS completed
         FROM alerts
        WHERE assigned_to IS NOT NULL AND TRIM(assigned_to) <> ''
@@ -370,7 +378,7 @@ router.get('/drawer/sla-breaches', async (req, res, next) => {
     const { from, to } = parseRange(req);
     const num = async (sql, p) => Number((await pool.query(sql, p)).rows[0].c);
     const total = await num(
-      'SELECT COUNT(*) AS c FROM alerts WHERE sla_breached = 1 AND created_date BETWEEN $1 AND $2',
+      `SELECT COUNT(*) AS c FROM alerts WHERE (${SLA_BREACHED_CONDITION}) AND created_date BETWEEN $1 AND $2`,
       [from, to]
     );
 
@@ -378,7 +386,7 @@ router.get('/drawer/sla-breaches', async (req, res, next) => {
       SELECT alert_id, customer_name, scenario, assigned_to, priority, created_date,
              CAST(GREATEST(0, EXTRACT(EPOCH FROM (NOW() - sla_deadline::timestamp))/86400) AS INTEGER) AS days_overdue
         FROM alerts
-       WHERE sla_breached = 1
+       WHERE (${SLA_BREACHED_CONDITION})
          AND sla_deadline IS NOT NULL
          AND alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')
          AND created_date BETWEEN $1 AND $2
@@ -394,7 +402,7 @@ router.get('/drawer/sla-breaches', async (req, res, next) => {
     const by_analyst = (await pool.query(`
       SELECT assigned_to AS analyst, COUNT(*) AS breaches
         FROM alerts
-       WHERE sla_breached = 1
+       WHERE (${SLA_BREACHED_CONDITION})
          AND assigned_to IS NOT NULL AND TRIM(assigned_to) <> ''
          AND created_date BETWEEN $1 AND $2
        GROUP BY assigned_to
@@ -410,7 +418,7 @@ router.get('/drawer/sla-breaches', async (req, res, next) => {
       .sort((a, b) => b.days_overdue - a.days_overdue)
       .slice(0, 3);
 
-    const trendBreached = await compareThisVsLast('alerts', 'created_date', 'sla_breached = 1');
+    const trendBreached = await compareThisVsLast('alerts', 'created_date', `(${SLA_BREACHED_CONDITION})`);
 
     res.json({
       total,
