@@ -297,8 +297,7 @@ export default function Dashboard() {
 function Clickable({ enabled, onClick, children }) {
   if (!enabled) return children;
   return (
-    <div onClick={onClick}
-         className="cursor-pointer transition hover:shadow-md hover:-translate-y-0.5 active:translate-y-0">
+    <div onClick={onClick} className="cursor-pointer">
       {children}
     </div>
   );
