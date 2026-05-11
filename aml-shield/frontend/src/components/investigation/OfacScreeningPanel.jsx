@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { ShieldCheck, ShieldAlert, ShieldOff, Clock, Loader2, X } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import api from '../../api/client.js';
 import { useRole } from '../../state/RoleContext.jsx';
 
@@ -15,22 +15,42 @@ import { useRole } from '../../state/RoleContext.jsx';
 //   onConfirmed?: callback fired after a match is confirmed (so the
 //                 surrounding KYC block can refresh sanctions_match)
 
-const TONE = {
-  clear:        { label: 'Clear',           cls: 'bg-green-100 text-green-700 border-green-300',   icon: ShieldCheck },
-  pending:      { label: 'Potential Match', cls: 'bg-orange-100 text-orange-700 border-orange-300',  icon: ShieldAlert },
-  confirmed:    { label: 'Confirmed Match', cls: 'bg-red-100 text-red-700 border-red-300',         icon: ShieldOff },
-  dismissed:    { label: 'Dismissed',       cls: 'bg-slate-100 text-slate-600 border-slate-300',     icon: ShieldCheck },
-  not_screened: { label: 'Not Screened',    cls: 'bg-slate-100 text-slate-500 border-slate-200',    icon: Clock }
-};
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function formatDate(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = MONTHS[d.getMonth()];
+  const year = d.getFullYear();
+  let h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${day} ${month} ${year} at ${String(h).padStart(2, '0')}:${m} ${ampm}`;
+}
+
+function confidenceLabel(score) {
+  if (score >= 95) return 'High Confidence';
+  if (score >= 85) return 'Probable Match';
+  return 'Possible Match';
+}
+
+function decisionLabel(status) {
+  if (status === 'confirmed') return 'Confirmed Match';
+  if (status === 'dismissed') return 'Dismissed — Not a Match';
+  return 'Pending Analyst Review';
+}
 
 export default function OfacScreeningPanel({ entityType, entityId, entityName, onConfirmed }) {
   const { currentAnalyst, isManager } = useRole();
   const performer = currentAnalyst || (isManager ? 'Compliance Manager' : 'system');
 
-  const [data, setData] = useState({ status: 'not_screened', last_screened: null, results: [] });
+  const [data, setData] = useState({ status: 'not_screened', last_screened: null, list_version: null, results: [] });
   const [screening, setScreening] = useState(false);
   const [err, setErr] = useState(null);
-  const [reviewing, setReviewing] = useState(null); // { result, action: 'confirm'|'dismiss' }
+  const [reviewing, setReviewing] = useState(null);
 
   const load = useCallback(async () => {
     if (!entityType || !entityId) return;
@@ -78,89 +98,54 @@ export default function OfacScreeningPanel({ entityType, entityId, entityName, o
     }
   };
 
-  const tone = TONE[data.status] || TONE.not_screened;
-  const Icon = tone.icon;
-  const visibleResults = (data.results || []).filter(
+  const matchResults = (data.results || []).filter(
     r => r.status === 'pending' || r.status === 'confirmed' || r.status === 'dismissed'
   );
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">OFAC / Sanctions Screening</div>
+        <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+          OFAC / Sanctions Screening
+        </div>
         <button
           type="button"
           onClick={screen}
           disabled={screening}
           className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {screening ? <><Loader2 size={11} className="animate-spin" /> Screening…</> : <>Screen Now</>}
+          {screening
+            ? <><Loader2 size={11} className="animate-spin" /> Screening…</>
+            : <>Screen Now</>}
         </button>
       </div>
 
-      <div className={`flex items-center gap-2 px-3 py-2 rounded-md border ${tone.cls}`}>
-        <Icon size={16} />
-        <span className="text-sm font-semibold">{tone.label}</span>
-        {data.last_screened && (
-          <span className="text-[11px] text-slate-600 ml-auto">
-            Last screened {new Date(data.last_screened).toLocaleString()}
-          </span>
-        )}
-      </div>
-
       {err && (
-        <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">{err}</div>
-      )}
-
-      {visibleResults.length > 0 && (
-        <div className="overflow-x-auto -mx-2">
-          <table className="min-w-full text-xs">
-            <thead className="border-b border-slate-200 text-[10px] text-slate-500 uppercase tracking-wider">
-              <tr>
-                <th className="text-left py-1.5 px-2">SDN Name</th>
-                <th className="text-left py-1.5 px-2">Match</th>
-                <th className="text-left py-1.5 px-2">Program</th>
-                <th className="text-left py-1.5 px-2">Type</th>
-                <th className="text-left py-1.5 px-2">Status</th>
-                <th className="text-right py-1.5 px-2">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleResults.map(r => (
-                <tr key={r.id} className="border-b border-slate-100">
-                  <td className="py-1.5 px-2 font-medium text-navy-900 truncate max-w-[220px]">{r.sdn_name}</td>
-                  <td className="py-1.5 px-2"><MatchBar score={r.match_score} /></td>
-                  <td className="py-1.5 px-2 text-slate-600">{r.program || '—'}</td>
-                  <td className="py-1.5 px-2 text-slate-600">{r.match_type}</td>
-                  <td className="py-1.5 px-2">
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                      r.status === 'confirmed' ? 'bg-red-100 text-red-700'
-                      : r.status === 'dismissed' ? 'bg-slate-100 text-slate-600'
-                      : 'bg-orange-100 text-orange-700'
-                    }`}>{r.status}</span>
-                  </td>
-                  <td className="py-1.5 px-2 text-right">
-                    {r.status === 'pending' ? (
-                      <div className="inline-flex items-center gap-1">
-                        <button
-                          onClick={() => setReviewing({ result: r, action: 'confirm' })}
-                          className="text-[10px] px-2 py-0.5 rounded border border-red-300 text-red-700 hover:bg-red-50"
-                        >Confirm</button>
-                        <button
-                          onClick={() => setReviewing({ result: r, action: 'dismiss' })}
-                          className="text-[10px] px-2 py-0.5 rounded border border-slate-300 text-slate-700 hover:bg-slate-50"
-                        >Dismiss</button>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-slate-400">{r.reviewed_by ? `by ${r.reviewed_by}` : ''}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+          {err}
         </div>
       )}
+
+      {data.status === 'not_screened' && <NotScreenedCard entityName={entityName} />}
+
+      {data.status === 'clear' && (
+        <ClearCard
+          entityName={entityName}
+          listVersion={data.list_version}
+          screenedAt={data.last_screened}
+        />
+      )}
+
+      {matchResults.length > 0 && matchResults.map(r => (
+        <MatchCard
+          key={r.id}
+          result={r}
+          entityName={entityName}
+          listVersion={data.list_version}
+          onConfirm={() => setReviewing({ result: r, action: 'confirm' })}
+          onDismiss={() => setReviewing({ result: r, action: 'dismiss' })}
+        />
+      ))}
 
       {reviewing && (
         <ReviewModal
@@ -174,15 +159,118 @@ export default function OfacScreeningPanel({ entityType, entityId, entityName, o
   );
 }
 
-function MatchBar({ score }) {
-  const tone = score >= 95 ? 'bg-red-500' : score >= 85 ? 'bg-orange-500' : 'bg-slate-400';
+function FindingCard({ borderColor, label, labelColor, children }) {
   return (
-    <div className="flex items-center gap-1.5 min-w-[80px]">
-      <div className="flex-1 h-1.5 bg-slate-100 rounded">
-        <div className={`h-full rounded ${tone}`} style={{ width: `${Math.min(100, score)}%` }} />
+    <div
+      className="bg-white rounded-md border border-slate-200 text-xs"
+      style={{ borderLeft: `4px solid ${borderColor}` }}
+    >
+      <div className="px-3 py-2 border-b border-slate-100">
+        <div className={`text-[11px] font-semibold uppercase tracking-wider ${labelColor}`}>
+          {label}
+        </div>
       </div>
-      <span className="text-[10px] font-mono text-slate-600 tabular-nums">{score}%</span>
+      <div className="px-3 py-2">{children}</div>
     </div>
+  );
+}
+
+function LabelRow({ label, value, valueClass = '' }) {
+  return (
+    <div className="grid grid-cols-[140px_1fr] gap-x-2 py-1 border-b border-slate-50 last:border-b-0">
+      <div className="text-slate-500">{label}</div>
+      <div className={`text-slate-800 ${valueClass}`}>{value || '—'}</div>
+    </div>
+  );
+}
+
+function NotScreenedCard({ entityName }) {
+  return (
+    <FindingCard borderColor="#94A3B8" label="Not Yet Screened" labelColor="text-slate-600">
+      <p className="text-slate-700">
+        {entityName ? <><span className="font-medium">{entityName}</span> has</> : 'This customer has'} not been screened against the OFAC SDN list. Click <span className="font-medium">Screen Now</span> to run screening.
+      </p>
+    </FindingCard>
+  );
+}
+
+function ClearCard({ entityName, listVersion, screenedAt }) {
+  return (
+    <FindingCard borderColor="#16A34A" label="Screening Clear" labelColor="text-green-700">
+      <p className="text-slate-700 mb-2">
+        No sanctions match identified for <span className="font-medium">{entityName || 'this entity'}</span>.
+      </p>
+      <div className="mt-1">
+        <LabelRow label="List Checked" value="OFAC SDN List" />
+        <LabelRow label="List Version" value={listVersion ? `Downloaded ${formatDate(listVersion)}` : 'Unknown'} />
+        <LabelRow label="Screened On" value={formatDate(screenedAt)} />
+        <LabelRow label="Result" value={`No matches identified for ${entityName || 'this entity'}`} />
+      </div>
+    </FindingCard>
+  );
+}
+
+function MatchCard({ result, entityName, listVersion, onConfirm, onDismiss }) {
+  const status = result.status;
+  let border = '#F59E0B';
+  let labelText = 'Screening Finding — Review Required';
+  let labelColor = 'text-orange-700';
+  if (status === 'confirmed') {
+    border = '#DC2626';
+    labelText = 'Confirmed Sanctions Match';
+    labelColor = 'text-red-700';
+  } else if (status === 'dismissed') {
+    border = '#94A3B8';
+    labelText = 'Match Dismissed';
+    labelColor = 'text-slate-600';
+  }
+
+  const isAka = result.match_type && result.match_type.toLowerCase().includes('aka');
+  const matchFound = isAka
+    ? `${result.sdn_name} — AKA Match`
+    : `${result.sdn_name} — Primary Name`;
+  const reviewedBy = result.reviewed_by || 'Pending Review';
+  const reviewNotes = result.review_notes && String(result.review_notes).trim()
+    ? result.review_notes
+    : '—';
+
+  return (
+    <FindingCard borderColor={border} label={labelText} labelColor={labelColor}>
+      <p className="text-slate-700 mb-2">
+        A potential sanctions match has been identified for <span className="font-medium">{entityName || result.entity_name}</span>.
+      </p>
+      <div>
+        <LabelRow label="List Checked" value="OFAC Specially Designated Nationals (SDN) List" />
+        <LabelRow label="List Version" value={listVersion ? `Downloaded ${formatDate(listVersion)}` : 'Unknown'} />
+        <LabelRow label="Screened On" value={formatDate(result.screened_at)} />
+        <LabelRow label="Match Found" value={matchFound} valueClass="font-medium" />
+        <LabelRow
+          label="Match Score"
+          value={`${result.match_score}% — ${confidenceLabel(result.match_score)}`}
+        />
+        <LabelRow label="Program" value={result.program || '—'} />
+        <LabelRow label="Match Type" value={result.match_type || '—'} />
+        <LabelRow label="Reviewed By" value={reviewedBy} />
+        <LabelRow label="Review Decision" value={decisionLabel(status)} />
+        <LabelRow label="Review Notes" value={reviewNotes} />
+      </div>
+      {status === 'pending' && (
+        <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+          <button
+            onClick={onDismiss}
+            className="text-[11px] px-2.5 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-50"
+          >
+            Dismiss as Not a Match
+          </button>
+          <button
+            onClick={onConfirm}
+            className="text-[11px] px-2.5 py-1 rounded border border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+          >
+            Confirm Match
+          </button>
+        </div>
+      )}
+    </FindingCard>
   );
 }
 

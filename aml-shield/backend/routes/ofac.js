@@ -139,11 +139,19 @@ router.get('/results/:entityType/:entityId', async (req, res, next) => {
     }
 
     const lastScreened = rows.length > 0 ? rows[0].screened_at : null;
+    const listVersion = (await pool.query(
+      `SELECT downloaded_at FROM ofac_download_log
+        WHERE status = 'success'
+        ORDER BY downloaded_at DESC NULLS LAST
+        LIMIT 1`
+    )).rows[0] || null;
+
     res.json({
       entity_type: entityType,
       entity_id: entityId,
       status: overall,
       last_screened: lastScreened,
+      list_version: listVersion ? listVersion.downloaded_at : null,
       results: rows
     });
   } catch (err) { next(err); }
