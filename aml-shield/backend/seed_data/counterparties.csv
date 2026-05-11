@@ -1,0 +1,61 @@
+counterparty_id,canonical_name,country,industry,risk_score,sanctions_screening_status
+CP-00001,Horizon Import Group LLC,United States,Wholesale Trade # shared across multiple customers,28,clear
+CP-00002,Pacific Payroll Services Inc,United States,Payroll Services # shared across multiple customers,22,clear
+CP-00003,Mesa Verde Produce Distributors LLC,United States,Food Distribution # shared across multiple customers,31,clear
+CP-00004,Northstar Equipment Leasing Co,United States,Equipment Leasing # shared across multiple customers,35,clear
+CP-00005,Brightline Medical Supply LLC,United States,Medical Supplies # shared across multiple customers,26,clear
+CP-00006,Blue Oak Construction LLC,United States,Construction,33,clear
+CP-00007,Jefferson Auto Wholesale Inc,United States,Automotive Wholesale,42,clear
+CP-00008,Harborview Seafood LLC,United States,Seafood Processing,38,clear
+CP-00009,Silvergate Property Management LLC,United States,Real Estate Management,30,clear
+CP-00010,Benton Family Trust,United States,Family Trust,18,not_screened
+CP-00011,Olivia R. Martinez,United States,Individual,12,clear
+CP-00012,Carter & Lowe Dental PLLC,United States,Healthcare,11,clear
+CP-00013,Red River Logistics LLC,United States,Trucking and Logistics,39,potential_match
+CP-00014,Keystone Staffing Solutions Inc,United States,Staffing Services,25,clear
+CP-00015,Apex Coin & Jewelry LLC,United States,Precious Metals Dealer,72,clear
+CP-00016,Green Prairie Farms LLC,United States,Agriculture,20,clear
+CP-00017,Lakefront Convenience Stores Inc,United States,Convenience Retail,68,clear
+CP-00018,Summit Tech Resellers Inc,United States,Electronics Resale,46,clear
+CP-00019,Daniel K. Whitman,United States,Individual,14,clear
+CP-00020,Liberty Tax & Accounting PC,United States,Accounting Services,17,clear
+CP-00021,Everglade Cash & Carry Market LLC,United States,Grocery Wholesale,63,not_screened
+CP-00022,Meridian Overseas Trading Inc,United States,Import and Export,74,potential_match
+CP-00023,Stonebridge Legal Services LLP,United States,Legal Services,16,clear
+CP-00024,Andrew Cho,United States,Individual,9,clear
+CP-00025,Golden State Apparel LLC,United States,Apparel Wholesale,36,clear
+CP-00026,Magnolia Restaurant Group LLC,United States,Restaurants,44,clear
+CP-00027,Desert Sun Remittance LLC,United States,Money Services Business,82,clear
+CP-00028,Frontier Art & Antiques LLC,United States,Art and Antiques,67,not_screened
+CP-00029,Revive Pharmacy Services Inc,United States,Pharmacy Services,21,clear
+CP-00030,Capitol Event Rentals LLC,United States,Event Rentals,29,clear
+CP-00031,Mandalay Teak Trading Co Ltd,Myanmar,Timber Trading,92,potential_match
+CP-00032,Damascus Cotton Export House,Syria,Textiles Export,98,confirmed_hit
+CP-00033,Caspian Metals Brokerage LLC,Russia,Metals Brokerage,96,confirmed_hit
+CP-00034,Twin Rivers Trucking LLC,United States,Trucking,34,clear
+CP-00035,Amber Ridge Wellness LLC,United States,Personal Services,27,clear
+CP-00036,Seaport Electronics Exporters LLC,United States,Electronics Export,58,clear
+CP-00037,Whitestone Foundation,United States,Nonprofit Organization,41,not_screened
+CP-00038,Jennifer A. Reeves,United States,Individual,7,clear
+CP-00039,Grand Avenue Liquors LLC,United States,Retail Store,66,clear
+CP-00040,Gulf Coast Marine Parts LLC,United States,Marine Parts Distribution,49,clear
+CP-00041,Northeastern Scrap Metal Inc,United States,Scrap Metal Dealer,64,clear
+CP-00042,Cottonwood Property Holdings LLC,United States,Real Estate Investment,52,clear
+CP-00043,Blackstone Hospitality LLC,United States,Hospitality,37,clear
+CP-00044,Al Noor Trading USA LLC,United States,Wholesale Import,79,potential_match
+CP-00045,Opal Fine Jewelry Inc,United States,Jewelry Retail,71,clear
+CP-00046,Cedar Creek Landscaping LLC,United States,Landscaping,18,clear
+CP-00047,Trident Export Services LLC,United States,Freight Forwarding,56,clear
+CP-00048,Rosemont Home Health LLC,United States,Home Healthcare,24,clear
+CP-00049,Westbridge Capital Advisors LLC,United States,Investment Advisory,32,clear
+CP-00050,Lone Star Fuel Distributors LLC,United States,Fuel Distribution,69,clear
+CP-00051,Bluebird Childcare Centers LLC,United States,Childcare Services,13,clear
+CP-00052,Heritage Coin Exchange LLC,United States,Coin Dealer,77,clear
+CP-00053,Northlake Medical Billing Inc,United States,Medical Billing,19,clear
+CP-00054,Sonoran Produce Brokers LLC,United States,Produce Brokerage,33,clear
+CP-00055,Oakridge Community Church,United States,Religious Organization,23,not_screened
+CP-00056,Beacon Used Auto Sales LLC,United States,Used Auto Sales,62,clear
+CP-00057,Catalina Seafood Brokers LLC,United States,Seafood Brokerage,45,clear
+CP-00058,Saffron Road Imports LLC,United States,Specialty Foods Import,73,potential_match
+CP-00059,Preston Family Office LLC,United States,Family Office,20,clear
+CP-00060,Hillcrest Pawn & Jewelry LLC,United States,Pawn and Jewelry,85,clear
