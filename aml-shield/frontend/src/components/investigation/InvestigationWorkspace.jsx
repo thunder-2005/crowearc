@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import OutcomeCard from '../shared/OutcomeCard.jsx';
 import OfacScreeningPanel from './OfacScreeningPanel.jsx';
+import RuleExplanationBanner from './RuleExplanationBanner.jsx';
 import { isAlertClosed, slaSnapshot } from '../../utils/alertStatus.js';
 
 const usd = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -68,6 +69,7 @@ export default function InvestigationWorkspace({ alertId }) {
           </div>
         </div>
       )}
+      <RuleExplanationBanner alert={alert} variant="full" />
       <div className="flex gap-4 min-w-0 h-[calc(100vh-200px)]">
       <section className="flex-[0.65] min-w-0 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
         <LeftTabBar tab={leftTab} onChange={setLeftTab} />

@@ -44,6 +44,7 @@ const L2_SELECT = `
          a.assigned_to        AS l1_analyst,
          a.created_date       AS alert_created_date,
          a.scenario           AS alert_scenario,
+         a.rule_explanation,
          a.customer_risk_rating,
          a.case_id            AS sar_case_id,
          a.linked_sar_id

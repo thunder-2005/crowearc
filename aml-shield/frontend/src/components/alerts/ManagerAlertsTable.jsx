@@ -8,6 +8,7 @@ import {
   Eye, ChevronDown, AlertTriangle, ArrowUpDown, ShieldOff, AlertCircle
 } from 'lucide-react';
 import OutcomeCard from '../shared/OutcomeCard.jsx';
+import RuleExplanationBanner from '../investigation/RuleExplanationBanner.jsx';
 import { isAlertClosed, slaSnapshot } from '../../utils/alertStatus.js';
 
 const PAGE_SIZE = 25;
@@ -646,6 +647,7 @@ function ManagerDetail({ alert, onClose }) {
       </div>
       <div className="flex-1 overflow-y-auto p-5 space-y-2 text-xs">
         <div className="text-[10px] uppercase text-slate-400 italic mb-2">Manager view · read-only</div>
+        <RuleExplanationBanner alert={alert} variant="compact" />
         <Row k="Status" v={<Badge value={alert.alert_status} />} />
         <Row k="Priority" v={<Badge value={alert.priority} />} />
         <Row k="Risk Score" v={`${alert.risk_score}/100`} />

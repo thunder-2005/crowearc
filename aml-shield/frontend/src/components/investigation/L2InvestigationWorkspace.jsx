@@ -6,6 +6,7 @@ import { useRoleNavigate } from '../../state/useRoleNavigate.js';
 import { useInvestigationTabs } from '../../state/InvestigationTabsContext.jsx';
 import { useToast } from '../../state/ToastContext.jsx';
 import { KycProfileBlock } from './InvestigationWorkspace.jsx';
+import RuleExplanationBanner from './RuleExplanationBanner.jsx';
 import {
   AlertCircle, Filter, FileText, MessageSquare, FolderOpen, ListChecks,
   User, Briefcase, ClipboardList, Link2, Upload, Trash2, Download, Eye, X,
@@ -117,6 +118,7 @@ export default function L2InvestigationWorkspace({ l2CaseId, alertId }) {
   return (
     <div className="flex flex-col gap-3 min-w-0">
       <L2Header l2={l2} readOnly={readOnly} />
+      <RuleExplanationBanner alert={l2} variant="full" />
       <div className="flex gap-4 min-w-0 h-[calc(100vh-260px)]">
         <section className="flex-[0.65] min-w-0 bg-white rounded-lg border-2 border-purple-200 shadow-sm flex flex-col overflow-hidden">
           <LeftTabBar tab={leftTab} onChange={setLeftTab} />
