@@ -5,7 +5,7 @@
 export default function CroweArcLogo({ size = 36, className = '' }) {
   return (
     <img
-      src="/crowe-arc-logo.jpg"
+      src="/crowe-arc-logo.png"
       width={size}
       height={size}
       alt="Crowe ARC"
