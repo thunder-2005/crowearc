@@ -17,6 +17,7 @@ import KYCReviewQueue from './pages/KYCReviewQueue.jsx';
 import KYCReviewWorkspace from './pages/KYCReviewWorkspace.jsx';
 import Analytics from './pages/Analytics.jsx';
 import Reports from './pages/Reports.jsx';
+import Investigations from './pages/Investigations.jsx';
 import SLAPopup from './components/SLAPopup.jsx';
 import Placeholder from './pages/Placeholder.jsx';
 import Login from './pages/Login.jsx';
@@ -55,7 +56,7 @@ export default function App() {
                 <Route path="dashboard"             element={<Dashboard />} />
                 <Route path="alerts"                element={<Alerts />} />
                 <Route path="cases"                 element={<Cases />} />
-                <Route path="investigations"        element={<Placeholder title="Investigations" />} />
+                <Route path="investigations"        element={<Investigations />} />
                 <Route path="customers"             element={<CustomerKYC />} />
                 <Route path="customers/:id"         element={<CustomerKYC />} />
                 <Route path="sars"                  element={<SARRepository />} />
