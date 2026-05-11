@@ -24,7 +24,7 @@ export function KpiCard({ label, value, sub, tone = 'default', icon: Icon }) {
     red:     'text-red-600'
   };
   return (
-    <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 transition-colors hover:border-[#E0EEFF] hover:cursor-pointer">
+    <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 cursor-pointer transition-all duration-200 ease-in-out hover:border-[#BFDBFE] hover:bg-[#F8FAFF]">
       <div className="flex items-center justify-between">
         <div className="text-xs text-slate-500 uppercase tracking-wide">{label}</div>
         {Icon && <Icon size={16} className="text-slate-400" />}
