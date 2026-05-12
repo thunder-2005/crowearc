@@ -11,7 +11,12 @@ import ManagerAlertsTable from '../components/alerts/ManagerAlertsTable.jsx';
 import { isAlertClosed, slaSnapshot } from '../utils/alertStatus.js';
 import OutcomeCard from '../components/shared/OutcomeCard.jsx';
 
-const COLUMNS = ['Unassigned', 'Not Started', 'Work in Progress', 'Escalated', 'Completed'];
+// L1 analysts see only their own work — no Unassigned column (alerts the
+// manager hasn't routed to anyone yet have no business showing up in an
+// analyst's personal queue). Manager keeps the full taxonomy via the
+// separate ManagerAlertsTable component.
+const COLUMNS_FULL = ['Unassigned', 'Not Started', 'Work in Progress', 'Escalated', 'Completed'];
+const COLUMNS_L1   = [              'Not Started', 'Work in Progress', 'Escalated', 'Completed'];
 const COLUMN_ACCENT = {
   'Unassigned':       'border-t-slate-400',
   'Not Started':      'border-t-orange-400',
@@ -24,12 +29,17 @@ const ESCALATED_STATUSES = new Set(['Escalated - L2', 'Escalated - SAR']);
 function usd(n) { return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 
 export default function Alerts() {
-  const { isManager, isEmployee, currentAnalyst, isL2 } = useRole();
+  const { isManager, isEmployee, currentAnalyst, isL1, isL2 } = useRole();
   const { tabs, activeId, setActiveId, openTab, closeTab } = useInvestigationTabs();
   const [alerts, setAlerts] = useState([]);
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('overview');
   const [, setTick] = useState(0);
+
+  // L1 analysts get the personal-only Kanban (no Unassigned column, no
+  // unassigned alerts in the payload). Everyone else (manager, L2 catch-all)
+  // sees the full taxonomy.
+  const columns = isL1 ? COLUMNS_L1 : COLUMNS_FULL;
 
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 60_000);
@@ -40,15 +50,19 @@ export default function Alerts() {
     const params = {};
     if (isEmployee && currentAnalyst) {
       params.assigned_to = currentAnalyst;
-      params.include_unassigned_for = 1;
+      // L1 sees ONLY their own alerts — no inclusion of bank-wide unassigned.
+      // L2 keeps the historical behaviour (include_unassigned_for) just in
+      // case the L2 fall-through page is reached; their primary surface is
+      // L2QueuePage anyway.
+      if (!isL1) params.include_unassigned_for = 1;
     }
     return api.get('/alerts', { params }).then(r => setAlerts(r.data));
   };
 
-  useEffect(() => { load(); }, [isEmployee, currentAnalyst]);
+  useEffect(() => { load(); }, [isEmployee, currentAnalyst, isL1]);
 
   const grouped = useMemo(() => {
-    const g = Object.fromEntries(COLUMNS.map(c => [c, []]));
+    const g = Object.fromEntries(columns.map(c => [c, []]));
     for (const a of alerts) {
       // Spec: SAR Filed → card DISAPPEARS from Kanban (lives in SAR Repo).
       if (a.linked_sar_status === 'Filed') continue;
@@ -58,11 +72,12 @@ export default function Alerts() {
       if (ESCALATED_STATUSES.has(target)) target = 'Escalated';
       else if (target === 'In Progress') target = 'Work in Progress';
       else if (target === 'Closed — False Positive') target = 'Completed';
+      else if (target === 'False Positive')          target = 'Completed';
       const col = g[target];
       if (col) col.push(a);
     }
     return g;
-  }, [alerts]);
+  }, [alerts, columns]);
 
   const updateStatus = async (alert, next) => {
     await api.patch(`/alerts/${alert.alert_id}/status`, { alert_status: next });
@@ -113,16 +128,20 @@ export default function Alerts() {
         <L2QueuePage />
       ) : isManager ? (
         <ManagerAlertsTable />
+      ) : isEmployee && !currentAnalyst ? (
+        <MissingAnalystState />
       ) : (
         <KanbanBoard
           alerts={alerts}
           grouped={grouped}
+          columns={columns}
           selected={selected}
           setSelected={setSelected}
           tab={tab}
           setTab={setTab}
           isManager={isManager}
           isEmployee={isEmployee}
+          isL1={isL1}
           currentAnalyst={currentAnalyst}
           assignToMe={assignToMe}
           updateStatus={updateStatus}
@@ -167,27 +186,47 @@ function TabBar({ tabs, activeId, onSelect, onClose }) {
   );
 }
 
+// Defensive empty-state if the role-context says we're an employee but the
+// analyst name didn't make it out of localStorage. Surfaces instead of
+// silently loading every alert in the bank.
+function MissingAnalystState() {
+  return (
+    <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-md p-4 text-sm">
+      Could not identify your analyst profile. Please log out and log back in.
+    </div>
+  );
+}
+
 function KanbanBoard({
-  alerts, grouped, selected, setSelected, tab, setTab,
-  isManager, isEmployee, currentAnalyst,
+  alerts, grouped, columns, selected, setSelected, tab, setTab,
+  isManager, isEmployee, isL1, currentAnalyst,
   assignToMe, updateStatus, startInvestigation
 }) {
+  const gridCols = columns.length >= 5
+    ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-5'
+    : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-4';
   return (
     <div className="flex gap-4 min-w-0">
       <div className="flex-1 min-w-0 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xl font-bold text-navy-900">
-              {isManager ? 'Transaction Monitoring Alerts' : `${currentAnalyst || ''} — Alert Queue`}
+              {isManager
+                ? 'Transaction Monitoring Alerts'
+                : isL1
+                  ? 'My Alerts'
+                  : `${currentAnalyst || ''} — Alert Queue`}
             </div>
             <div className="text-sm text-slate-500">
-              {alerts.length} alerts {isEmployee ? '(yours + unassigned)' : 'team-wide'} · SLA varies by priority
+              {isL1
+                ? <>Alerts assigned to you — <span className="text-navy-900 font-medium">{currentAnalyst}</span> · {alerts.length} total · SLA varies by priority</>
+                : `${alerts.length} alerts ${isEmployee ? '(yours + unassigned)' : 'team-wide'} · SLA varies by priority`}
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-          {COLUMNS.map(col => (
+        <div className={`grid ${gridCols} gap-3`}>
+          {columns.map(col => (
             <div key={col} className={`bg-slate-100/70 rounded-lg border-t-4 ${COLUMN_ACCENT[col]}`}>
               <div className="flex items-center justify-between px-3 py-2.5">
                 <div className="text-sm font-semibold text-navy-900">{col}</div>
