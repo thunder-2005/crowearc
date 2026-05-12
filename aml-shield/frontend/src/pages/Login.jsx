@@ -25,7 +25,7 @@ const DEMO_USERS = [
 ];
 
 function landingFor(role) {
-  if (role === 'compliance_manager') return '/manager/dashboard';
+  if (role === 'compliance_manager' || role === 'bsa_officer') return '/manager/dashboard';
   return '/employee/dashboard';
 }
 

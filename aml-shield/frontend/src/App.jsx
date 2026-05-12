@@ -50,7 +50,7 @@ export default function App() {
       <Route
         path="/manager/*"
         element={
-          <ProtectedRoute allowedRoles={['compliance_manager']}>
+          <ProtectedRoute allowedRoles={['compliance_manager', 'bsa_officer']}>
             <Shell>
               <Routes>
                 <Route path="dashboard"             element={<Dashboard />} />
