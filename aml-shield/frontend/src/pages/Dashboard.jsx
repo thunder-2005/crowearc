@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, Fragment } from 'react';
 import api from '../api/client.js';
 import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import { KpiCard } from '../components/shared/Card.jsx';
@@ -101,8 +101,14 @@ export default function Dashboard() {
 
   const openDrawer = (kind) => isManager && setDrawerKind(kind);
 
-  if (error) return <div className="text-red-600">Failed to load: {error}</div>;
-  if (!stats) return <div className="text-slate-500">Loading dashboard…</div>;
+  if (error && !stats) return (
+    <DashboardErrorState
+      message={error}
+      lastAttempt={lastUpdated}
+      onRetry={() => fetchDashboard().catch(() => {})}
+    />
+  );
+  if (!stats) return <DashboardSkeleton isManager={isManager} />;
 
   const k = stats.kpis;
 
@@ -300,8 +306,18 @@ export default function Dashboard() {
             { key: 'priority', label: 'Priority', render: (r) => <Badge value={r.priority} /> },
             { key: 'assigned_to', label: 'Assigned To', render: r => r.assigned_to || '—' },
             { key: 'age_days', label: 'Age',
-              render: r => <span className="text-red-600 font-semibold">{r.age_days}d</span> },
-            { key: 'due_status', label: 'Status' }
+              render: r => (
+                <span className="inline-flex items-center gap-1 text-red-700 font-semibold">
+                  <UrgencyIcon tone="critical" size={12} />
+                  {r.age_days}d
+                </span>
+              ) },
+            { key: 'due_status', label: 'Status',
+              render: r => (
+                <span className="inline-flex items-center gap-1 text-red-700">
+                  <UrgencyIcon tone="critical" size={11} withLabel label={r.due_status || 'Breached'} />
+                </span>
+              ) }
           ]}
           rows={stats.top_sla_breaches}
           emptyMessage="No SLA breaches"
@@ -309,36 +325,11 @@ export default function Dashboard() {
       </Card>
 
       {isManager && (
-        <Card title="Analyst Workload" subtitle="Capacity 15 alerts / analyst (always team-wide)">
-          <Table
-            columns={[
-              { key: 'analyst', label: 'Analyst', cellClass: 'font-medium text-navy-900' },
-              { key: 'total', label: 'Total' },
-              { key: 'in_progress', label: 'In Progress' },
-              { key: 'breached', label: 'Breached',
-                render: r => r.breached > 0
-                  ? <span className="text-red-600 font-semibold">{r.breached}</span>
-                  : r.breached },
-              { key: 'completed', label: 'Completed' },
-              { key: 'utilization_pct', label: 'Capacity',
-                render: r => (
-                  <div className="flex items-center gap-2 min-w-[140px]">
-                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${
-                          r.utilization_pct >= 90 ? 'bg-red-500'
-                            : r.utilization_pct >= 70 ? 'bg-orange-500' : 'bg-green-500'
-                        }`}
-                        style={{ width: `${r.utilization_pct}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-slate-600 w-9 text-right">{r.utilization_pct}%</span>
-                  </div>
-                ) }
-            ]}
-            rows={stats.analyst_workload}
-            emptyMessage="No analyst workload data"
-          />
+        <Card
+          title="Analyst Workload"
+          subtitle="L1 capacity 35 · L2 capacity 8 — capacities sourced from settings"
+        >
+          <AnalystWorkloadTable rows={stats.analyst_workload} />
         </Card>
       )}
 
@@ -360,6 +351,374 @@ function Clickable({ enabled, onClick, children }) {
   return (
     <div onClick={onClick} className="cursor-pointer">
       {children}
+    </div>
+  );
+}
+
+// PR4 / Issue 15: sortable, filterable, team-grouped analyst workload
+// table. All in-memory state — no new API calls. Data comes from
+// stats.analyst_workload (PR3 shape).
+//
+// Features:
+//   - Click any column header to sort (ASC ↔ DESC). Default: open_alerts DESC.
+//   - Filter chips: All · L1 Only · L2 Only · Overloaded Only.
+//   - Group by team when more than one team is present; each team header
+//     shows analyst count + total open, and is collapsible.
+//   - Rows where open_alerts >= role_capacity get a red row tint and an
+//     "Over capacity" badge with the critical icon.
+//   - Rows >= 90% of role_capacity get an amber tint and a "Near capacity" badge.
+//   - When the dataset exceeds 50 rows, only the first 50 in the current
+//     sort order are rendered (virtualization gate). For 11 analysts this
+//     branch never activates.
+function AnalystWorkloadTable({ rows }) {
+  const [sortKey, setSortKey] = useState('open_alerts');
+  const [sortDir, setSortDir] = useState('desc');
+  const [filter, setFilter] = useState('all');
+  const [collapsedTeams, setCollapsedTeams] = useState(() => new Set());
+
+  const allRows = Array.isArray(rows) ? rows : [];
+
+  // Apply filter
+  const filteredRows = allRows.filter(r => {
+    if (filter === 'l1') return r.role === 'analyst_l1';
+    if (filter === 'l2') return r.role === 'analyst_l2';
+    if (filter === 'overloaded') return !!r.is_overloaded;
+    return true;
+  });
+
+  // Apply sort
+  const sortFns = {
+    analyst:        (r) => (r.analyst || '').toLowerCase(),
+    team:           (r) => (r.team || '').toLowerCase(),
+    open_alerts:    (r) => Number(r.open_alerts) || 0,
+    role_capacity:  (r) => Number(r.role_capacity) || 0,
+    breached:       (r) => Number(r.breached) || 0,
+    completed:      (r) => Number(r.completed) || 0,
+    utilization_pct:(r) => Number(r.utilization_pct) || 0
+  };
+  const sortFn = sortFns[sortKey] || sortFns.open_alerts;
+  const sorted = [...filteredRows].sort((a, b) => {
+    const av = sortFn(a), bv = sortFn(b);
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ?  1 : -1;
+    return 0;
+  });
+
+  // Virtualization gate
+  const VIRT_LIMIT = 50;
+  const visibleRows = sorted.length > VIRT_LIMIT ? sorted.slice(0, VIRT_LIMIT) : sorted;
+  const virtualized = sorted.length > VIRT_LIMIT;
+
+  // Group by team
+  const teamNames = Array.from(new Set(allRows.map(r => r.team).filter(Boolean)));
+  const groupByTeam = teamNames.length > 1;
+
+  const toggleTeam = (t) => setCollapsedTeams(prev => {
+    const next = new Set(prev);
+    if (next.has(t)) next.delete(t); else next.add(t);
+    return next;
+  });
+
+  const clickHeader = (k) => {
+    if (sortKey === k) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(k); setSortDir(k === 'analyst' || k === 'team' ? 'asc' : 'desc'); }
+  };
+
+  return (
+    <div>
+      {/* Filter chips */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        {[
+          { k: 'all',        label: 'All',           count: allRows.length },
+          { k: 'l1',         label: 'L1 Only',       count: allRows.filter(r => r.role === 'analyst_l1').length },
+          { k: 'l2',         label: 'L2 Only',       count: allRows.filter(r => r.role === 'analyst_l2').length },
+          { k: 'overloaded', label: 'Overloaded',    count: allRows.filter(r => r.is_overloaded).length }
+        ].map(c => {
+          const active = filter === c.k;
+          return (
+            <button
+              key={c.k}
+              type="button"
+              onClick={() => setFilter(c.k)}
+              className={`inline-flex items-center gap-1 text-xs rounded-full px-3 py-1 border transition-colors ${
+                active
+                  ? 'bg-blue-600 text-white border-blue-600 font-semibold'
+                  : 'bg-white text-slate-700 border-slate-200 hover:border-blue-300'
+              }`}
+            >
+              <span>{c.label}</span>
+              <span className={`text-[10px] tabular-nums ${active ? 'opacity-90' : 'text-slate-500'}`}>({c.count})</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 tracking-wider">
+            <tr>
+              <SortableTh active={sortKey === 'analyst'}        dir={sortDir} onClick={() => clickHeader('analyst')}>Analyst</SortableTh>
+              {groupByTeam || <SortableTh active={sortKey === 'team'} dir={sortDir} onClick={() => clickHeader('team')}>Team</SortableTh>}
+              <SortableTh active={sortKey === 'open_alerts'}    dir={sortDir} onClick={() => clickHeader('open_alerts')} align="right">Open Alerts</SortableTh>
+              <SortableTh active={sortKey === 'role_capacity'}  dir={sortDir} onClick={() => clickHeader('role_capacity')} align="right">Capacity</SortableTh>
+              <SortableTh active={sortKey === 'breached'}       dir={sortDir} onClick={() => clickHeader('breached')} align="right">SLA Breaches</SortableTh>
+              <SortableTh active={sortKey === 'completed'}      dir={sortDir} onClick={() => clickHeader('completed')} align="right">Closed (30d)</SortableTh>
+              <SortableTh active={sortKey === 'utilization_pct'} dir={sortDir} onClick={() => clickHeader('utilization_pct')} align="right">Utilization</SortableTh>
+            </tr>
+          </thead>
+          <tbody>
+            {groupByTeam
+              ? teamNames.map(team => {
+                  const teamRows = visibleRows.filter(r => r.team === team);
+                  if (teamRows.length === 0) return null;
+                  const teamTotal = teamRows.reduce((s, r) => s + (Number(r.open_alerts) || 0), 0);
+                  const collapsed = collapsedTeams.has(team);
+                  return (
+                    <Fragment key={team}>
+                      <tr className="bg-slate-100/60 border-t border-slate-200">
+                        <td colSpan={6} className="px-3 py-1.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleTeam(team)}
+                            className="inline-flex items-center gap-2 text-[11px] font-semibold text-slate-700 hover:text-navy-900"
+                          >
+                            <span>{collapsed ? '▸' : '▾'}</span>
+                            <span>{team}</span>
+                            <span className="text-slate-500 font-normal">
+                              · {teamRows.length} analyst{teamRows.length === 1 ? '' : 's'} · {teamTotal} open
+                            </span>
+                          </button>
+                        </td>
+                      </tr>
+                      {!collapsed && teamRows.map(r => <WorkloadRow key={r.user_id || r.analyst} r={r} hideTeam />)}
+                    </Fragment>
+                  );
+                })
+              : visibleRows.map(r => <WorkloadRow key={r.user_id || r.analyst} r={r} hideTeam={false} />)}
+          </tbody>
+        </table>
+      </div>
+
+      {visibleRows.length === 0 && (
+        <div className="text-xs text-slate-400 italic px-3 py-4">No analysts match the current filter.</div>
+      )}
+      {virtualized && (
+        <div className="text-[11px] text-slate-500 italic mt-2 px-1">
+          Showing first {VIRT_LIMIT} of {sorted.length} rows (sorted by {sortKey}). Apply a filter to narrow the list.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SortableTh({ active, dir, onClick, align = 'left', children }) {
+  const arrow = active ? (dir === 'asc' ? '▲' : '▼') : '';
+  return (
+    <th
+      onClick={onClick}
+      className={`px-3 py-2 cursor-pointer select-none hover:text-navy-900 text-${align}`}
+    >
+      <span className="inline-flex items-center gap-1">
+        {children}
+        {active && <span className="text-slate-400 text-[9px]">{arrow}</span>}
+      </span>
+    </th>
+  );
+}
+
+function WorkloadRow({ r, hideTeam }) {
+  const open = Number(r.open_alerts) || 0;
+  const cap = Number(r.role_capacity) || 0;
+  const isOverloaded = !!r.is_overloaded;
+  const isNearCapacity = !isOverloaded && cap > 0 && open >= cap * 0.9;
+  const rowBg = isOverloaded
+    ? 'bg-red-50/60'
+    : isNearCapacity
+      ? 'bg-amber-50/60'
+      : '';
+  const breached = Number(r.breached) || 0;
+  return (
+    <tr className={`border-t border-slate-100 ${rowBg}`}>
+      <td className="px-3 py-2 font-medium text-navy-900">
+        <span className="inline-flex items-center gap-1.5">
+          {r.analyst}
+          {r.role === 'analyst_l2' && (
+            <span className="text-[9px] font-bold px-1 rounded bg-purple-100 text-purple-700">L2</span>
+          )}
+          {r.role === 'analyst_l1' && (
+            <span className="text-[9px] font-bold px-1 rounded bg-blue-100 text-blue-700">L1</span>
+          )}
+        </span>
+      </td>
+      {!hideTeam && <td className="px-3 py-2 text-slate-600">{r.team || '—'}</td>}
+      <td className="px-3 py-2 text-right">
+        <span className={`inline-flex items-center justify-end gap-1.5 font-semibold tabular-nums ${
+          isOverloaded ? 'text-red-700' : isNearCapacity ? 'text-amber-700' : 'text-slate-800'
+        }`}>
+          {isOverloaded && <UrgencyIcon tone="critical" size={11} />}
+          {isNearCapacity && <UrgencyIcon tone="warning" size={11} />}
+          {open}
+        </span>
+        {isOverloaded && (
+          <span className="ml-1.5 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-700 align-middle">
+            Over capacity
+          </span>
+        )}
+        {isNearCapacity && (
+          <span className="ml-1.5 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 align-middle">
+            Near capacity
+          </span>
+        )}
+      </td>
+      <td className="px-3 py-2 text-right text-slate-600 tabular-nums">{cap}</td>
+      <td className="px-3 py-2 text-right tabular-nums">
+        {breached > 0
+          ? (
+            <span className="inline-flex items-center justify-end gap-1 text-red-700 font-semibold">
+              <UrgencyIcon tone="critical" size={11} />
+              {breached}
+            </span>
+          )
+          : <span className="text-slate-400">0</span>}
+      </td>
+      <td className="px-3 py-2 text-right text-slate-600 tabular-nums">{Number(r.completed) || 0}</td>
+      <td className="px-3 py-2 text-right">
+        <div className="flex items-center gap-2 justify-end min-w-[140px]">
+          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden max-w-[100px]">
+            <div
+              className={`h-full rounded-full ${
+                r.utilization_pct >= 100 ? 'bg-red-500'
+                  : r.utilization_pct >= 90 ? 'bg-orange-500'
+                  : r.utilization_pct >= 70 ? 'bg-amber-400'
+                  : 'bg-green-500'
+              }`}
+              style={{ width: `${Math.min(100, r.utilization_pct)}%` }}
+            />
+          </div>
+          <span className="text-xs text-slate-700 w-10 text-right tabular-nums">{r.utilization_pct}%</span>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// PR4 / Issue 16: urgency icon system. Color alone fails for ~8% of
+// male users with red-green colour blindness (WCAG 1.4.1). Every urgency
+// signal on the dashboard pairs a colour with one of these three icons
+// plus an explicit text label. Imported lucide icons are reused, no new
+// dependencies.
+//   tone: 'healthy' | 'warning' | 'critical'
+//   label: optional text — defaults to a sensible word per tone
+function UrgencyIcon({ tone, label, size = 12, withLabel = false }) {
+  const map = {
+    healthy:  { Icon: Clock,         color: 'text-green-600',  text: label || 'Healthy'  },
+    warning:  { Icon: AlertTriangle, color: 'text-amber-600',  text: label || 'Warning'  },
+    critical: { Icon: ShieldAlert,   color: 'text-red-600',    text: label || 'Critical' }
+  };
+  const cfg = map[tone] || map.healthy;
+  const { Icon } = cfg;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Icon size={size} className={cfg.color} aria-hidden="true" />
+      {withLabel && <span className={`text-[11px] font-medium ${cfg.color}`}>{cfg.text}</span>}
+    </span>
+  );
+}
+
+// PR4 / Issue 18: page-level skeleton. Same grid layout as the real
+// dashboard so the page doesn't jump when the data lands. Uses Tailwind's
+// animate-pulse for the shimmer; no real labels or numbers are shown.
+function DashboardSkeleton({ isManager }) {
+  const kpiCount = isManager ? 6 : 5;
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Loading dashboard">
+      {/* Header skeleton */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-2">
+          <div className="h-5 w-64 bg-slate-200 rounded animate-pulse" />
+          <div className="h-3 w-80 bg-slate-100 rounded animate-pulse" />
+        </div>
+        <div className="h-4 w-24 bg-slate-100 rounded animate-pulse" />
+      </div>
+
+      {/* WorklistBand placeholder — 5 pill-like cards */}
+      {isManager && (
+        <>
+          <div className="space-y-2">
+            <div className="h-3 w-32 bg-slate-200 rounded animate-pulse" />
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              {[0, 1, 2, 3, 4].map(i => (
+                <div key={i}
+                  className="bg-white border border-slate-200 animate-pulse"
+                  style={{ borderRadius: 10, borderLeftWidth: 4, borderLeftColor: '#E2E8F0', padding: '12px 14px', minHeight: 92 }}
+                />
+              ))}
+            </div>
+          </div>
+          {/* HealthStrip placeholder — 4 small pills */}
+          <div className="flex flex-wrap gap-2">
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="h-6 w-32 bg-slate-100 rounded-full animate-pulse" />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* KPI grid — same column count as real layout */}
+      <div className={`grid grid-cols-2 md:grid-cols-3 ${isManager ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-4`}>
+        {Array.from({ length: kpiCount }).map((_, i) => (
+          <div key={i} className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 animate-pulse" style={{ minHeight: 96 }} />
+        ))}
+      </div>
+
+      {/* Manager second row */}
+      {isManager && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[0, 1, 2, 3].map(i => (
+            <div key={i} className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 animate-pulse" style={{ minHeight: 96 }} />
+          ))}
+        </div>
+      )}
+
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm animate-pulse" style={{ height: 320 }} />
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm animate-pulse" style={{ height: 320 }} />
+      </div>
+    </div>
+  );
+}
+
+// PR4 / Issue 18: page-level error state matching the drawer ErrorState
+// pattern — amber icon, headline, description, Retry button, and the
+// last-attempted timestamp. Retry calls fetchDashboard() without a page
+// refresh.
+function DashboardErrorState({ message, lastAttempt, onRetry }) {
+  const ts = lastAttempt
+    ? `Last attempted: ${lastAttempt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : null;
+  return (
+    <div
+      role="alert"
+      className="flex flex-col items-center justify-center text-center py-16 px-6"
+      style={{ minHeight: '60vh' }}
+    >
+      <AlertTriangle size={32} className="text-amber-500 mb-3" />
+      <h3 className="text-lg font-semibold text-navy-900">Dashboard data unavailable</h3>
+      <p className="text-sm text-slate-600 mt-2 max-w-md">
+        Could not load dashboard metrics. This may be a temporary issue with the backend or your network connection.
+      </p>
+      {message && (
+        <p className="text-xs text-slate-400 mt-1 font-mono">{message}</p>
+      )}
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md"
+      >
+        Try Again
+      </button>
+      {ts && <span className="text-[11px] text-slate-400 mt-2">{ts}</span>}
     </div>
   );
 }
@@ -843,9 +1202,9 @@ const PIE_COLORS = ['#94a3b8', '#f59e0b', '#2563eb', '#10b981', '#8b5cf6', '#ef4
 
 function DrawerContent({ kind, data, onAssigned }) {
   if (kind === 'total-alerts')    return <TotalAlertsContent data={data} />;
-  if (kind === 'in-progress')     return <InProgressContent data={data} />;
-  if (kind === 'completed')       return <CompletedContent data={data} />;
-  if (kind === 'sla-breaches')    return <SlaBreachesContent data={data} />;
+  if (kind === 'in-progress')     return <InProgressContent data={data} onChanged={onAssigned} />;
+  if (kind === 'completed')       return <CompletedContent data={data} onChanged={onAssigned} />;
+  if (kind === 'sla-breaches')    return <SlaBreachesContent data={data} onChanged={onAssigned} />;
   if (kind === 'avg-aging')       return <AvgAgingContent data={data} />;
   if (kind === 'cases-converted') return <CasesConvertedContent data={data} />;
   if (kind === 'team-capacity')   return <TeamCapacityContent data={data} />;
@@ -896,7 +1255,13 @@ function TotalAlertsContent({ data }) {
   );
 }
 
-function InProgressContent({ data }) {
+function InProgressContent({ data, onChanged }) {
+  const { makePath } = useRoleNavigate();
+  // PR4 / Issue 14: "Open Workspace" — sends manager into the alert
+  // investigation tab via the manager deep-link pattern.
+  const openWorkspace = (alertId) => {
+    window.location.href = makePath(`alerts?alert=${encodeURIComponent(alertId)}`);
+  };
   return (
     <div className="px-5 py-4 space-y-4">
       <Section title="Analyst Workload">
@@ -928,9 +1293,28 @@ function InProgressContent({ data }) {
             { key: 'alert_id', label: 'Alert', cellClass: 'font-mono text-[11px]' },
             { key: 'customer_name', label: 'Customer', cellClass: 'truncate max-w-[120px]' },
             { key: 'age_days', label: 'Days', align: 'right',
-              render: r => <span className="font-medium text-orange-700">{r.age_days}d</span> },
+              render: r => {
+                const tone = r.age_days >= 21 ? 'critical' : r.age_days >= 10 ? 'warning' : 'healthy';
+                const cls = tone === 'critical' ? 'text-red-700' : tone === 'warning' ? 'text-amber-700' : 'text-green-700';
+                return (
+                  <span className={`inline-flex items-center justify-end gap-1 font-medium ${cls}`}>
+                    <UrgencyIcon tone={tone} size={11} />
+                    {r.age_days}d
+                  </span>
+                );
+              } },
             { key: 'priority', label: 'Priority', align: 'right',
-              render: r => <Badge value={r.priority} /> }
+              render: r => <Badge value={r.priority} /> },
+            { key: 'actions', label: '', align: 'right',
+              render: r => (
+                <button
+                  type="button"
+                  onClick={() => openWorkspace(r.alert_id)}
+                  className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white rounded px-2 py-0.5"
+                >
+                  Open Workspace
+                </button>
+              ) }
           ]}
           rows={data.oldest}
         />
@@ -939,7 +1323,37 @@ function InProgressContent({ data }) {
   );
 }
 
-function CompletedContent({ data }) {
+function CompletedContent({ data, onChanged }) {
+  const push = useToast().push;
+  const { currentUser } = useRole();
+  const [expandedAlertId, setExpandedAlertId] = useState(null);
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // PR4 / Issue 14: per-row "Add QA Comment" — inline textarea (not a modal).
+  // POSTs to /case-notes with a "[QA Review] " prefix so the note is easy
+  // to spot in the investigation log later.
+  const saveQa = async (alertId) => {
+    const text = note.trim();
+    if (!text) return;
+    setSaving(true);
+    try {
+      await api.post('/case-notes', {
+        alert_id: alertId,
+        note_text: `[QA Review] ${text}`,
+        analyst: currentUser?.name || 'Compliance Manager'
+      });
+      push('QA comment added', 'success', 2500);
+      setExpandedAlertId(null);
+      setNote('');
+      onChanged?.();
+    } catch (e) {
+      push(`Failed to add QA comment: ${e?.response?.data?.error || e.message}`, 'error', 4000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="px-5 py-4 space-y-4">
       <div className="flex flex-wrap gap-2">
@@ -960,25 +1374,168 @@ function CompletedContent({ data }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
+        <div className="text-[11px] text-slate-500 italic mt-1">
+          Last 4 weeks · not affected by operational filter
+        </div>
       </Section>
       <SectionDivider />
       <Section title="Fastest Closures This Month">
-        <CompactTable
-          columns={[
-            { key: 'alert_id', label: 'Alert', cellClass: 'font-mono text-[11px]' },
-            { key: 'analyst', label: 'Analyst' },
-            { key: 'days', label: 'Closed in', align: 'right',
-              render: r => <span className="font-medium text-green-700">{r.days}d</span> }
-          ]}
-          rows={data.fastest}
-          emptyMessage="No closures this month"
-        />
+        <div className="space-y-2 text-xs">
+          {(data.fastest || []).length === 0 && (
+            <div className="text-slate-400 italic">No closures this month</div>
+          )}
+          {(data.fastest || []).map(r => (
+            <div key={r.alert_id} className="border border-slate-100 rounded p-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-mono text-[11px] text-navy-900">{r.alert_id}</span>
+                  <span className="text-slate-500 truncate">{r.analyst}</span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="font-medium text-green-700">{r.days}d</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExpandedAlertId(expandedAlertId === r.alert_id ? null : r.alert_id);
+                      setNote('');
+                    }}
+                    className="text-[11px] border border-slate-300 rounded px-2 py-0.5 hover:bg-slate-50"
+                  >
+                    {expandedAlertId === r.alert_id ? 'Cancel' : 'Add QA Comment'}
+                  </button>
+                </div>
+              </div>
+              {expandedAlertId === r.alert_id && (
+                <div className="mt-2 space-y-2">
+                  <textarea
+                    value={note}
+                    onChange={e => setNote(e.target.value)}
+                    rows={2}
+                    placeholder="QA review notes…"
+                    className="w-full border border-slate-200 rounded p-1.5 text-xs focus:outline-none focus:border-blue-500"
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => saveQa(r.alert_id)}
+                      disabled={saving || !note.trim()}
+                      className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white rounded px-2 py-0.5 disabled:opacity-50"
+                    >
+                      {saving ? 'Saving…' : 'Save Note'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </Section>
     </div>
   );
 }
 
-function SlaBreachesContent({ data }) {
+function SlaBreachesContent({ data, onChanged }) {
+  const push = useToast().push;
+  const { currentUser, analysts: allAnalystNames, analystProfiles } = useRole();
+
+  // L1 analyst list pulled from RoleContext, no extra round-trip.
+  const l1Analysts = (allAnalystNames || []).filter(
+    n => analystProfiles[n]?.level === 'L1'
+  );
+
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkTarget, setBulkTarget] = useState('');
+  const [bulkInFlight, setBulkInFlight] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(null); // text e.g. "Reassigning…"
+
+  // Per-row inline state for Reassign dropdown + Add Note textarea
+  const [openMenu, setOpenMenu] = useState(null);    // { alertId, kind: 'reassign'|'note' } | null
+  const [noteText, setNoteText] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const rows = data.most_overdue || [];
+
+  const toggleRow = (id) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const allSelected = rows.length > 0 && rows.every(r => selectedIds.has(r.alert_id));
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(rows.map(r => r.alert_id)));
+  };
+
+  // PR4 / Issue 14: single-row Reassign → PATCH /api/alerts/:id/assign
+  const reassignOne = async (alertId, analystName) => {
+    setBusy(true);
+    try {
+      await api.patch(`/alerts/${encodeURIComponent(alertId)}/assign`, {
+        assigned_to: analystName,
+        assigned_by: currentUser?.name || 'Compliance Manager'
+      });
+      push(`Alert ${alertId} reassigned to ${analystName}`, 'success', 2500);
+      setOpenMenu(null);
+      setTimeout(() => onChanged?.(), 1000);
+    } catch (e) {
+      push(`Reassign failed: ${e?.response?.data?.error || e.message}`, 'error', 4000);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // PR4 / Issue 14: single-row Add Note → POST /api/case-notes
+  const saveNote = async (alertId) => {
+    const text = noteText.trim();
+    if (!text) return;
+    setBusy(true);
+    try {
+      await api.post('/case-notes', {
+        alert_id: alertId,
+        note_text: text,
+        analyst: currentUser?.name || 'Compliance Manager'
+      });
+      push('Note added', 'success', 2500);
+      setOpenMenu(null);
+      setNoteText('');
+    } catch (e) {
+      push(`Failed to add note: ${e?.response?.data?.error || e.message}`, 'error', 4000);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // PR4 / Issue 14: bulk Reassign → PATCH /api/alerts/bulk-assign (single
+  // round-trip, capacity-aware). Reports assigned vs. skipped counts in
+  // the toast so the manager sees if anyone was over capacity.
+  const bulkReassign = async () => {
+    if (!bulkTarget || selectedIds.size === 0) return;
+    setBulkInFlight(true);
+    setBulkProgress(`Reassigning ${selectedIds.size} alert${selectedIds.size === 1 ? '' : 's'}…`);
+    try {
+      const ids = Array.from(selectedIds);
+      const r = await api.patch('/alerts/bulk-assign', {
+        alert_ids: ids,
+        assigned_to: bulkTarget,
+        assigned_by: currentUser?.name || 'Compliance Manager'
+      });
+      const { assigned = 0, skipped = 0, failed = 0 } = r.data || {};
+      let msg = `${assigned} alert${assigned === 1 ? '' : 's'} reassigned to ${bulkTarget}`;
+      if (skipped > 0) msg += ` · ${skipped} skipped (capacity)`;
+      if (failed > 0) msg += ` · ${failed} failed`;
+      push(msg, skipped + failed > 0 ? 'warning' : 'success', 4000);
+      setSelectedIds(new Set());
+      setBulkTarget('');
+      setTimeout(() => onChanged?.(), 1000);
+    } catch (e) {
+      push(`Bulk reassign failed: ${e?.response?.data?.error || e.message}`, 'error', 4000);
+    } finally {
+      setBulkInFlight(false);
+      setBulkProgress(null);
+    }
+  };
+
   return (
     <div className="px-5 py-4 space-y-4">
       <Section title="Urgency">
@@ -1012,21 +1569,177 @@ function SlaBreachesContent({ data }) {
       </Section>
       <SectionDivider />
       <Section title="Most Overdue">
-        <CompactTable
-          columns={[
-            { key: 'alert_id', label: 'Alert ID', cellClass: 'font-mono text-[11px]' },
-            { key: 'assigned_to', label: 'Analyst', cellClass: 'text-[11px] truncate max-w-[90px]',
-              render: r => r.assigned_to || <span className="italic text-slate-400">Unassigned</span> },
-            { key: 'created_date', label: 'Assigned Date', cellClass: 'text-[11px] whitespace-nowrap',
-              render: r => formatAssignedDate(r.created_date) },
-            { key: 'days_overdue', label: 'Breached By (days)', align: 'right',
-              render: r => <span className="font-medium text-red-700">{r.days_overdue}d</span> },
-            { key: 'scenario', label: 'Scenario', cellClass: 'text-[11px] truncate max-w-[100px]' },
-            { key: 'priority', label: 'Priority', cellClass: 'text-[11px]',
-              render: r => <Badge value={r.priority} /> }
-          ]}
-          rows={data.most_overdue}
-        />
+        {/* Bulk action bar — only renders when 1+ rows are selected. */}
+        {selectedIds.size > 0 && (
+          <div className="mb-2 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded px-2 py-1.5 text-xs">
+            <span className="text-blue-900 font-medium">{selectedIds.size} selected</span>
+            <select
+              value={bulkTarget}
+              onChange={e => setBulkTarget(e.target.value)}
+              disabled={bulkInFlight}
+              className="border border-slate-300 rounded text-xs px-2 py-0.5"
+            >
+              <option value="">Bulk Reassign to…</option>
+              {l1Analysts.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={bulkReassign}
+              disabled={!bulkTarget || bulkInFlight}
+              className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white rounded px-2 py-0.5 disabled:opacity-50"
+            >
+              {bulkInFlight ? (bulkProgress || 'Reassigning…') : 'Apply'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkInFlight}
+              className="text-[11px] text-slate-600 hover:text-navy-900 ml-auto"
+            >
+              Clear Selection
+            </button>
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="text-[10px] uppercase text-slate-500 tracking-wider">
+              <tr className="border-b border-slate-200">
+                <th className="px-1 py-1.5 w-6">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    aria-label="Select all rows"
+                  />
+                </th>
+                <th className="px-2 py-1.5 text-left">Alert ID</th>
+                <th className="px-2 py-1.5 text-left">Analyst</th>
+                <th className="px-2 py-1.5 text-left">Assigned</th>
+                <th className="px-2 py-1.5 text-right">Breached</th>
+                <th className="px-2 py-1.5 text-left">Scenario</th>
+                <th className="px-2 py-1.5 text-left">Priority</th>
+                <th className="px-2 py-1.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr><td colSpan={8} className="text-xs italic text-slate-400 px-2 py-3 text-center">No breaches</td></tr>
+              )}
+              {rows.map(r => {
+                const checked = selectedIds.has(r.alert_id);
+                const reassignOpen = openMenu?.alertId === r.alert_id && openMenu?.kind === 'reassign';
+                const noteOpen     = openMenu?.alertId === r.alert_id && openMenu?.kind === 'note';
+                return (
+                  <Fragment key={r.alert_id}>
+                    <tr className={`border-t border-slate-100 ${checked ? 'bg-blue-50/40' : ''}`}>
+                      <td className="px-1 py-1.5 align-top">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleRow(r.alert_id)}
+                          aria-label={`Select ${r.alert_id}`}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 font-mono text-[11px] text-navy-900">{r.alert_id}</td>
+                      <td className="px-2 py-1.5 text-[11px] truncate max-w-[90px]">
+                        {r.assigned_to || <span className="italic text-slate-400">Unassigned</span>}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] whitespace-nowrap">{formatAssignedDate(r.created_date)}</td>
+                      <td className="px-2 py-1.5 text-right font-medium">
+                        <span className="inline-flex items-center justify-end gap-1 text-red-700">
+                          <UrgencyIcon tone="critical" size={11} />
+                          {r.days_overdue}d
+                        </span>
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] truncate max-w-[100px]">{r.scenario}</td>
+                      <td className="px-2 py-1.5 text-[11px]"><Badge value={r.priority} /></td>
+                      <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenu(reassignOpen ? null : { alertId: r.alert_id, kind: 'reassign' });
+                            setNoteText('');
+                          }}
+                          className="text-[11px] border border-slate-300 rounded px-2 py-0.5 hover:bg-slate-50 mr-1"
+                        >
+                          Reassign
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenu(noteOpen ? null : { alertId: r.alert_id, kind: 'note' });
+                            setNoteText('');
+                          }}
+                          className="text-[11px] border border-blue-300 text-blue-700 rounded px-2 py-0.5 hover:bg-blue-50"
+                        >
+                          Add Note
+                        </button>
+                      </td>
+                    </tr>
+                    {reassignOpen && (
+                      <tr className="bg-slate-50">
+                        <td colSpan={8} className="px-3 py-2">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-slate-600">Reassign to:</span>
+                            <select
+                              defaultValue=""
+                              disabled={busy}
+                              onChange={e => e.target.value && reassignOne(r.alert_id, e.target.value)}
+                              className="border border-slate-300 rounded text-xs px-2 py-0.5"
+                            >
+                              <option value="">Select an L1 analyst…</option>
+                              {l1Analysts.map(n => <option key={n} value={n}>{n}</option>)}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => setOpenMenu(null)}
+                              className="text-[11px] text-slate-500 hover:text-navy-900 ml-1"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {noteOpen && (
+                      <tr className="bg-slate-50">
+                        <td colSpan={8} className="px-3 py-2">
+                          <div className="space-y-1.5">
+                            <textarea
+                              value={noteText}
+                              onChange={e => setNoteText(e.target.value)}
+                              rows={2}
+                              placeholder="Add investigation note…"
+                              className="w-full border border-slate-200 rounded p-1.5 text-xs focus:outline-none focus:border-blue-500"
+                              autoFocus
+                            />
+                            <div className="flex justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setOpenMenu(null)}
+                                className="text-[11px] text-slate-500 hover:text-navy-900 px-2 py-0.5"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => saveNote(r.alert_id)}
+                                disabled={busy || !noteText.trim()}
+                                className="text-[11px] bg-blue-600 hover:bg-blue-700 text-white rounded px-2 py-0.5 disabled:opacity-50"
+                              >
+                                {busy ? 'Saving…' : 'Save Note'}
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </Section>
     </div>
   );
@@ -1059,6 +1772,9 @@ function AvgAgingContent({ data }) {
               <span className="ml-auto font-semibold text-navy-900">{s.count}</span>
             </div>
           ))}
+        </div>
+        <div className="text-[11px] text-slate-500 italic mt-2">
+          Current state · alerts grouped by aging bucket
         </div>
       </Section>
       <SectionDivider />
@@ -1214,6 +1930,9 @@ function FalsePositiveContent({ data }) {
       <div className="text-xs text-slate-600">
         FP rate was <span className="font-semibold">{data.last_month_pct}%</span> last month —
         <span className={`ml-1 font-semibold ${monthCls}`}>{monthArrow} {Math.abs(monthDelta)}pp</span>
+      </div>
+      <div className="text-[11px] text-slate-500 italic">
+        This month vs last month · rolling
       </div>
     </div>
   );
@@ -1545,6 +2264,7 @@ function SarClockContent({ data }) {
             <tbody className="divide-y divide-slate-100">
               {items.map(it => {
                 const d = it.days_remaining;
+                const tone = d < 0 ? 'critical' : d <= 7 ? 'warning' : 'healthy';
                 const cls = d < 0
                   ? 'text-red-700 font-semibold'
                   : d <= 3
@@ -1561,7 +2281,12 @@ function SarClockContent({ data }) {
                     <td className="px-2 py-1.5 truncate max-w-[140px]">{it.customer_name}</td>
                     <td className="px-2 py-1.5 text-slate-600">{it.sar_status}</td>
                     <td className="px-2 py-1.5 text-slate-600 tabular-nums">{(it.detection_date || '').slice(0, 10)}</td>
-                    <td className={`px-2 py-1.5 text-right tabular-nums ${cls}`}>{label}</td>
+                    <td className={`px-2 py-1.5 text-right tabular-nums ${cls}`}>
+                      <span className="inline-flex items-center justify-end gap-1">
+                        <UrgencyIcon tone={tone} size={11} />
+                        {label}
+                      </span>
+                    </td>
                   </tr>
                 );
               })}
