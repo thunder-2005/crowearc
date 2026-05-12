@@ -764,4 +764,116 @@ router.get('/drawer/unassigned', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ─────────────────────────────────────────────── Manager worklist
+//
+// "Your Queue Today" — five action counts surfaced above the KPI grid
+// so the manager can see at a glance what personally needs their
+// attention. Five queries fire in parallel; each is independent and
+// returns a small `{ count, oldest_days, label, urgent }` shape.
+//
+// Status / column conventions used here:
+//   SARs:           sar_filings.sar_status = 'Pending Approval'
+//   KYC:            kyc_reviews.status     = 'pending_approval'  (snake_case is the canonical value)
+//   OFAC:           ofac_screening_results.status = 'pending'
+//   L2 returns:     alerts.returned_from_l2_at IS NOT NULL (semantic column, not a status string)
+//   Legal holds:    table doesn't exist yet → graceful 0 via try/catch
+router.get('/worklist', async (_req, res, next) => {
+  try {
+    const sarQ = pool.query(`
+      SELECT COUNT(*)::int AS count,
+             MIN(submitted_at)                                      AS oldest_at,
+             EXTRACT(DAY FROM NOW() - MIN(submitted_at)::timestamptz)::int AS oldest_days
+        FROM sar_filings
+       WHERE sar_status = 'Pending Approval'
+    `);
+
+    const kycQ = pool.query(`
+      SELECT COUNT(*)::int AS count,
+             MIN(completed_at)                                       AS oldest_at,
+             EXTRACT(DAY FROM NOW() - MIN(completed_at)::timestamptz)::int AS oldest_days
+        FROM kyc_reviews
+       WHERE status = 'pending_approval'
+    `);
+
+    const ofacQ = pool.query(`
+      SELECT COUNT(*)::int AS count,
+             MIN(screened_at) AS oldest_at,
+             EXTRACT(DAY FROM NOW() - MIN(screened_at))::int AS oldest_days
+        FROM ofac_screening_results
+       WHERE status = 'pending'
+    `);
+
+    const returnedQ = pool.query(`
+      SELECT COUNT(*)::int AS count,
+             MAX(returned_from_l2_at) AS most_recent
+        FROM alerts
+       WHERE returned_from_l2_at IS NOT NULL
+         AND alert_status NOT IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')
+    `);
+
+    // Legal holds table is not built yet; query in a try/catch and fall
+    // back to zero if the table is missing.
+    const holdsQ = (async () => {
+      try {
+        const exists = await pool.query(
+          "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'legal_holds') AS e"
+        );
+        if (!exists.rows[0].e) return { rows: [{ count: 0 }] };
+        return await pool.query(
+          'SELECT COUNT(*)::int AS count FROM legal_holds WHERE lifted_at IS NULL'
+        );
+      } catch (_e) {
+        return { rows: [{ count: 0 }] };
+      }
+    })();
+
+    const [sars, kyc, ofac, returned, holds] = await Promise.all([
+      sarQ, kycQ, ofacQ, returnedQ, holdsQ
+    ]);
+
+    const sarsRow     = sars.rows[0]     || { count: 0, oldest_days: null };
+    const kycRow      = kyc.rows[0]      || { count: 0, oldest_days: null };
+    const ofacRow     = ofac.rows[0]     || { count: 0, oldest_days: null };
+    const returnedRow = returned.rows[0] || { count: 0, most_recent: null };
+    const holdsRow    = holds.rows[0]    || { count: 0 };
+
+    res.json({
+      sars_pending_approval: {
+        count: Number(sarsRow.count) || 0,
+        oldest_days: sarsRow.oldest_days != null ? Number(sarsRow.oldest_days) : null,
+        oldest_at: sarsRow.oldest_at || null,
+        label: 'SARs awaiting approval',
+        urgent: (Number(sarsRow.oldest_days) || 0) > 7
+      },
+      kyc_pending_approval: {
+        count: Number(kycRow.count) || 0,
+        oldest_days: kycRow.oldest_days != null ? Number(kycRow.oldest_days) : null,
+        oldest_at: kycRow.oldest_at || null,
+        label: 'KYC reviews awaiting approval',
+        urgent: (Number(kycRow.oldest_days) || 0) > 7
+      },
+      ofac_pending_review: {
+        count: Number(ofacRow.count) || 0,
+        oldest_days: ofacRow.oldest_days != null ? Number(ofacRow.oldest_days) : null,
+        oldest_at: ofacRow.oldest_at || null,
+        label: 'OFAC matches to adjudicate',
+        urgent: (Number(ofacRow.oldest_days) || 0) > 5
+      },
+      alerts_returned_from_l2: {
+        count: Number(returnedRow.count) || 0,
+        most_recent: returnedRow.most_recent || null,
+        label: 'Alerts returned from L2',
+        urgent: (Number(returnedRow.count) || 0) > 0
+      },
+      active_legal_holds: {
+        count: Number(holdsRow.count) || 0,
+        label: 'Active legal holds',
+        urgent: false,
+        not_implemented: true   // surfaces the "Coming soon" badge on the frontend
+      },
+      generated_at: new Date().toISOString()
+    });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

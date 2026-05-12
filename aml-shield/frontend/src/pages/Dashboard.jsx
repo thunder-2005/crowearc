@@ -10,6 +10,7 @@ import {
   Target, Users, ShieldCheck, Eye, ShieldAlert, ArrowUpRight, X, Loader2
 } from 'lucide-react';
 import { useToast } from '../state/ToastContext.jsx';
+import WorklistBand from '../components/dashboard/WorklistBand.jsx';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar, Legend
@@ -140,6 +141,8 @@ export default function Dashboard() {
           </select>
         </div>
       </div>
+
+      {isManager && <WorklistBand />}
 
       <div className={`transition-opacity ${refetching ? 'opacity-60 animate-pulse' : ''} grid grid-cols-2 md:grid-cols-3 ${isManager ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-4`}>
         <Clickable enabled={isManager} onClick={() => openDrawer('total-alerts')}>
