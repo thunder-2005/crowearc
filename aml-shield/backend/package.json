@@ -8,7 +8,8 @@
     "dev": "node server.js",
     "migrate": "node database/migrate.js",
     "seed": "node database/seed.js",
-    "seed:csv": "node database/seed_csv.js"
+    "seed:csv": "node database/seed_csv.js",
+    "generate:rules": "node scripts/generateRuleExplanations.js"
   },
   "engines": {
     "node": ">=18.0.0"
