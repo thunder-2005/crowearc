@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import api from '../api/client.js';
 import Badge from '../components/shared/Badge.jsx';
-import { X, Clock, UserPlus, PlayCircle, AlertTriangle, ShieldCheck, ArrowUpRight, RotateCcw, FolderOpen } from 'lucide-react';
+import { X, Clock, UserPlus, PlayCircle, AlertTriangle, ShieldCheck, ArrowUpRight, RotateCcw, FolderOpen, Zap, SkipForward, Search, CheckCircle2 } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
 import { useInvestigationTabs } from '../state/InvestigationTabsContext.jsx';
 import InvestigationWorkspace from '../components/investigation/InvestigationWorkspace.jsx';
@@ -26,7 +26,49 @@ const COLUMN_ACCENT = {
 };
 const ESCALATED_STATUSES = new Set(['Escalated - L2', 'Escalated - SAR']);
 
+// Which raw alert_status values belong in each Kanban column. Used by the
+// sort/filter pipeline to re-group alerts after they've been sorted.
+const COLUMN_STATUSES = {
+  'Unassigned':       ['Unassigned'],
+  'Not Started':      ['Not Started'],
+  'Work in Progress': ['In Progress', 'Work in Progress'],
+  'Escalated':        ['Escalated - L2', 'Escalated - SAR'],
+  'Completed':        ['Completed', 'Closed — False Positive', 'False Positive']
+};
+
+const OPEN_STATUSES_FOR_NEXT_UP = new Set(['Not Started', 'In Progress', 'Work in Progress']);
+
+const SCENARIO_OPTIONS = [
+  'Structuring',
+  'High Risk Country',
+  'Watchlist Hit',
+  'Cash Intensive',
+  'Rapid Movement',
+  'Trade Based ML'
+];
+
+// Score every open alert from 0-60. Highest score = "Next Up". Drives the
+// sticky banner above the Kanban for L1 analysts.
+function getAlertScore(alert) {
+  const now = Date.now();
+  const deadline = alert.sla_deadline ? new Date(alert.sla_deadline).getTime() : null;
+  const hoursLeft = deadline ? (deadline - now) / 3600000 : Infinity;
+
+  let slaScore = 1;
+  if (hoursLeft <= 0)        slaScore = 30;
+  else if (hoursLeft <= 24)  slaScore = 25;
+  else if (hoursLeft <= 48)  slaScore = 18;
+  else if (hoursLeft <= 168) slaScore = 8;
+
+  const priorityScore = { High: 15, Medium: 8, Low: 3 }[alert.priority] || 0;
+  const riskScore = { 'Very High': 10, High: 6, Medium: 3, Low: 0 }[alert.customer_risk_rating] || 0;
+  const sanctionsBonus = (Number(alert.sanctions_match) === 1 || Number(alert.pep_match) === 1) ? 5 : 0;
+
+  return slaScore + priorityScore + riskScore + sanctionsBonus;
+}
+
 function usd(n) { return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+function usdNoCents(n) { return `$${Number(n || 0).toLocaleString('en-US')}`; }
 
 export default function Alerts() {
   const { isManager, isEmployee, currentAnalyst, isL1, isL2 } = useRole();
@@ -35,6 +77,18 @@ export default function Alerts() {
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('overview');
   const [, setTick] = useState(0);
+
+  // Sort/filter/search state — all client-side, no extra API calls.
+  const [filters, setFilters] = useState({
+    priority: null,        // 'High' | 'Medium' | 'Low' | null
+    scenarios: [],         // multi-select
+    sanctionsHit: false,
+    pepCustomer: false
+  });
+  const [sortBy, setSortBy] = useState('sla_asc');
+  const [searchText, setSearchText] = useState('');
+  const [skippedIds, setSkippedIds] = useState([]);
+  const searchInputRef = useRef(null);
 
   // L1 analysts get the personal-only Kanban (no Unassigned column, no
   // unassigned alerts in the payload). Everyone else (manager, L2 catch-all)
@@ -45,6 +99,26 @@ export default function Alerts() {
     const id = setInterval(() => setTick(t => t + 1), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // Global "/" focuses search; Escape clears + blurs it. Only fires when
+  // the user isn't already typing in another input/textarea.
+  useEffect(() => {
+    if (!isL1) return;
+    const handler = (e) => {
+      const target = e.target;
+      const tag = target?.tagName;
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable;
+      if (e.key === '/' && !typing) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === 'Escape' && document.activeElement === searchInputRef.current) {
+        setSearchText('');
+        searchInputRef.current?.blur();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [isL1]);
 
   const load = () => {
     const params = {};
@@ -61,27 +135,85 @@ export default function Alerts() {
 
   useEffect(() => { load(); }, [isEmployee, currentAnalyst, isL1]);
 
+  // Apply chip filters first — filter results feed both the kanban and
+  // the Next Up banner so all three reflect the same scope.
+  const filteredAlerts = useMemo(() => {
+    return alerts.filter(a => {
+      if (a.linked_sar_status === 'Filed') return false;
+      if (filters.priority && a.priority !== filters.priority) return false;
+      if (filters.scenarios.length > 0 && !filters.scenarios.includes(a.scenario)) return false;
+      if (filters.sanctionsHit && Number(a.sanctions_match) !== 1) return false;
+      if (filters.pepCustomer && Number(a.pep_match) !== 1) return false;
+      return true;
+    });
+  }, [alerts, filters]);
+
+  // Sort according to the toolbar dropdown, then re-bucket into columns.
   const grouped = useMemo(() => {
+    const sortFns = {
+      sla_asc:        (a, b) => new Date(a.sla_deadline || 0) - new Date(b.sla_deadline || 0),
+      priority_desc:  (a, b) => {
+        const p = { High: 3, Medium: 2, Low: 1 };
+        return (p[b.priority] || 0) - (p[a.priority] || 0);
+      },
+      amount_desc:    (a, b) => Number(b.amount_flagged_inr || 0) - Number(a.amount_flagged_inr || 0),
+      created_desc:   (a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0),
+      customer_asc:   (a, b) => (a.customer_name || '').localeCompare(b.customer_name || '')
+    };
+    const sortFn = sortFns[sortBy] || sortFns.sla_asc;
+    const sorted = [...filteredAlerts].sort(sortFn);
+
     const g = Object.fromEntries(columns.map(c => [c, []]));
-    for (const a of alerts) {
-      // Spec: SAR Filed → card DISAPPEARS from Kanban (lives in SAR Repo).
-      if (a.linked_sar_status === 'Filed') continue;
-      // The DB has both 'In Progress' (seeded) and 'Work in Progress' (live
-      // transitions). Bucket both under the single Kanban column.
+    for (const a of sorted) {
       let target = a.alert_status;
       if (ESCALATED_STATUSES.has(target)) target = 'Escalated';
-      else if (target === 'In Progress') target = 'Work in Progress';
+      else if (target === 'In Progress')              target = 'Work in Progress';
       else if (target === 'Closed — False Positive') target = 'Completed';
-      else if (target === 'False Positive')          target = 'Completed';
+      else if (target === 'False Positive')           target = 'Completed';
       const col = g[target];
       if (col) col.push(a);
     }
     return g;
-  }, [alerts, columns]);
+  }, [filteredAlerts, sortBy, columns]);
+
+  // Search match predicate — used to dim non-matches (not to filter them).
+  const searchTrim = searchText.trim().toLowerCase();
+  const matchesSearch = useCallback((a) => {
+    if (!searchTrim) return true;
+    const hay = `${a.alert_id || ''} ${a.customer_name || ''} ${a.scenario || ''}`.toLowerCase();
+    return hay.includes(searchTrim);
+  }, [searchTrim]);
+
+  // Next Up = highest-scoring not-yet-skipped open alert in the filtered set.
+  const nextUp = useMemo(() => {
+    if (!isL1) return null;
+    const candidates = filteredAlerts
+      .filter(a => OPEN_STATUSES_FOR_NEXT_UP.has(a.alert_status))
+      .filter(a => !skippedIds.includes(a.alert_id));
+    if (candidates.length === 0) return null;
+    return candidates
+      .map(a => ({ alert: a, score: getAlertScore(a) }))
+      .sort((x, y) => y.score - x.score)[0].alert;
+  }, [filteredAlerts, skippedIds, isL1]);
+
+  // "All caught up" vs "no open alerts at all" — only show the banner when
+  // there are open alerts to think about.
+  const hasOpenAfterFilters = useMemo(() =>
+    isL1 && filteredAlerts.some(a => OPEN_STATUSES_FOR_NEXT_UP.has(a.alert_status)),
+  [filteredAlerts, isL1]);
+
+  const anyFilterActive = !!filters.priority
+    || filters.scenarios.length > 0
+    || filters.sanctionsHit
+    || filters.pepCustomer;
+  const clearFilters = () => setFilters({ priority: null, scenarios: [], sanctionsHit: false, pepCustomer: false });
 
   const updateStatus = async (alert, next) => {
     await api.patch(`/alerts/${alert.alert_id}/status`, { alert_status: next });
     await load();
+    // Clear the skip list whenever any alert's status changes — the queue
+    // composition just shifted, so prior skip decisions are stale.
+    setSkippedIds([]);
     if (selected?.alert_id === alert.alert_id) setSelected({ ...alert, alert_status: next });
   };
 
@@ -133,6 +265,7 @@ export default function Alerts() {
       ) : (
         <KanbanBoard
           alerts={alerts}
+          filteredAlerts={filteredAlerts}
           grouped={grouped}
           columns={columns}
           selected={selected}
@@ -146,6 +279,22 @@ export default function Alerts() {
           assignToMe={assignToMe}
           updateStatus={updateStatus}
           startInvestigation={startInvestigation}
+          /* PR-search/filter/next-up */
+          filters={filters}
+          setFilters={setFilters}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          searchText={searchText}
+          setSearchText={setSearchText}
+          searchInputRef={searchInputRef}
+          matchesSearch={matchesSearch}
+          anyFilterActive={anyFilterActive}
+          clearFilters={clearFilters}
+          nextUp={nextUp}
+          hasOpenAfterFilters={hasOpenAfterFilters}
+          skippedCount={skippedIds.length}
+          onSkipNextUp={(id) => setSkippedIds(prev => [...prev, id])}
+          onOpenNextUp={(alert) => startInvestigation(alert)}
         />
       )}
     </div>
@@ -186,6 +335,251 @@ function TabBar({ tabs, activeId, onSelect, onClose }) {
   );
 }
 
+// "Next Up" sticky banner — picks the highest-scoring open alert for the
+// L1 analyst and pins it above the kanban. Disappears when all open alerts
+// have been opened/skipped. Skip is session-only state on the parent.
+function NextUpBanner({ alert, skippedCount, onOpen, onSkip }) {
+  // All caught up — no surviving candidates after skips/filters.
+  if (!alert) {
+    return (
+      <div
+        className="bg-green-50 rounded-md flex items-center gap-2 text-sm text-green-800"
+        style={{ borderLeft: '4px solid #16A34A', padding: '10px 14px', position: 'sticky', top: 0, zIndex: 30 }}
+      >
+        <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+        <span className="font-medium">
+          {skippedCount > 0 ? 'All alerts reviewed — great work!' : 'All caught up — no alerts to prioritize'}
+        </span>
+      </div>
+    );
+  }
+
+  // Urgency colour band.
+  const now = Date.now();
+  const deadline = alert.sla_deadline ? new Date(alert.sla_deadline).getTime() : null;
+  const hoursLeft = deadline ? (deadline - now) / 3600000 : Infinity;
+  let borderColor, sla, slaCls;
+  if (hoursLeft <= 24) {
+    borderColor = '#DC2626';
+    slaCls = 'text-red-700 font-semibold';
+    sla = hoursLeft < 0
+      ? `Breached ${Math.round(Math.abs(hoursLeft))}h ago`
+      : hoursLeft < 1
+        ? `Breaching now`
+        : `Breaching in ${Math.round(hoursLeft)}h`;
+  } else if (hoursLeft <= 48) {
+    borderColor = '#F59E0B';
+    slaCls = 'text-amber-700 font-medium';
+    sla = `Due in ${Math.round(hoursLeft / 24)} day${Math.round(hoursLeft / 24) === 1 ? '' : 's'}`;
+  } else {
+    borderColor = '#2563EB';
+    slaCls = 'text-blue-700';
+    sla = `${Math.round(hoursLeft / 24)} days remaining`;
+  }
+
+  const isHighRisk = alert.customer_risk_rating === 'Very High' || alert.customer_risk_rating === 'High';
+  const isPep = Number(alert.pep_match) === 1;
+  const isSanctions = Number(alert.sanctions_match) === 1;
+
+  return (
+    <div
+      className="bg-white rounded-md flex items-center gap-3 flex-wrap"
+      style={{ borderLeft: `4px solid ${borderColor}`, padding: '10px 14px', position: 'sticky', top: 0, zIndex: 30, boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)' }}
+    >
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <Zap size={14} className="text-amber-500 shrink-0" />
+        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 shrink-0">Next up</span>
+        <span className="font-mono text-xs text-navy-900 font-medium shrink-0">{alert.alert_id}</span>
+        <span className="text-slate-400 shrink-0">·</span>
+        <span className="text-sm text-slate-800 truncate">{alert.customer_name}</span>
+        <div className="flex items-center gap-1 shrink-0">
+          {isHighRisk && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">
+              {alert.customer_risk_rating} Risk
+            </span>
+          )}
+          {isPep && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">
+              PEP
+            </span>
+          )}
+          {isSanctions && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">
+              Sanctions
+            </span>
+          )}
+        </div>
+        <span className="text-slate-400 shrink-0">·</span>
+        <span className="text-xs text-slate-600 shrink-0">{alert.scenario}</span>
+        <span className="text-slate-400 shrink-0">·</span>
+        <span className="text-xs text-slate-700 font-medium tabular-nums shrink-0">
+          {usdNoCents(alert.amount_flagged_inr)}
+        </span>
+      </div>
+
+      <div className={`inline-flex items-center gap-1 text-xs ${slaCls} shrink-0`}>
+        <Clock size={12} />
+        <span>{sla}</span>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => onOpen(alert)}
+          className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded px-3 py-1.5"
+        >
+          <PlayCircle size={12} />
+          Open Alert
+        </button>
+        <button
+          type="button"
+          onClick={() => onSkip(alert.alert_id)}
+          className="inline-flex items-center gap-1 border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-medium rounded px-2.5 py-1.5"
+        >
+          <SkipForward size={12} />
+          Skip
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Toolbar above the kanban — filter chips, sort dropdown, search input.
+// All state lives on the parent so the same filters drive the kanban,
+// Next Up banner, and column counts.
+function Toolbar({
+  filters, setFilters, sortBy, setSortBy,
+  searchText, setSearchText, searchInputRef,
+  anyFilterActive, clearFilters
+}) {
+  const setPriority = (p) => setFilters(f => ({ ...f, priority: f.priority === p ? null : p }));
+  const toggleScenario = (s) => setFilters(f => ({
+    ...f,
+    scenarios: f.scenarios.includes(s) ? f.scenarios.filter(x => x !== s) : [...f.scenarios, s]
+  }));
+  const toggleFlag = (key) => setFilters(f => ({ ...f, [key]: !f[key] }));
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-md px-3 py-2 flex items-center gap-3 flex-wrap">
+      {/* Priority group — single-select */}
+      <div className="flex items-center gap-1">
+        <span className="text-[10px] uppercase tracking-wide text-slate-500 mr-1">Priority</span>
+        {['High', 'Medium', 'Low'].map(p => {
+          const active = filters.priority === p;
+          return (
+            <Chip key={p} active={active} onClick={() => setPriority(p)} tone={p === 'High' ? 'red' : p === 'Medium' ? 'amber' : 'slate'}>
+              {p}
+              {active && <X size={10} />}
+            </Chip>
+          );
+        })}
+      </div>
+
+      <span className="text-slate-200">|</span>
+
+      {/* Scenario group — multi-select */}
+      <div className="flex items-center gap-1 flex-wrap">
+        <span className="text-[10px] uppercase tracking-wide text-slate-500 mr-1">Scenario</span>
+        {SCENARIO_OPTIONS.map(s => {
+          const active = filters.scenarios.includes(s);
+          return (
+            <Chip key={s} active={active} onClick={() => toggleScenario(s)}>
+              {s}
+              {active && <X size={10} />}
+            </Chip>
+          );
+        })}
+      </div>
+
+      <span className="text-slate-200">|</span>
+
+      {/* Special flags — multi-select. Prior SAR chip omitted: the alert
+          payload has no field for "customer has prior SAR" today. */}
+      <div className="flex items-center gap-1">
+        <Chip active={filters.sanctionsHit} onClick={() => toggleFlag('sanctionsHit')} tone="red">
+          <AlertTriangle size={10} />
+          Sanctions
+          {filters.sanctionsHit && <X size={10} />}
+        </Chip>
+        <Chip active={filters.pepCustomer} onClick={() => toggleFlag('pepCustomer')} tone="purple">
+          PEP
+          {filters.pepCustomer && <X size={10} />}
+        </Chip>
+      </div>
+
+      <div className="flex-1" />
+
+      {/* Sort by */}
+      <label className="text-xs text-slate-600 inline-flex items-center gap-1.5">
+        Sort by
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          className="border border-slate-200 rounded text-xs px-2 py-1 bg-white"
+        >
+          <option value="sla_asc">SLA (soonest first)</option>
+          <option value="priority_desc">Priority (highest first)</option>
+          <option value="amount_desc">Amount (largest first)</option>
+          <option value="created_desc">Created (newest first)</option>
+          <option value="customer_asc">Customer Name (A-Z)</option>
+        </select>
+      </label>
+
+      {/* Search */}
+      <div className="relative">
+        <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          ref={searchInputRef}
+          type="text"
+          value={searchText}
+          onChange={e => setSearchText(e.target.value)}
+          placeholder="Search alerts… (/)"
+          className="border border-slate-200 rounded text-xs pl-7 pr-7 py-1 w-56 focus:outline-none focus:border-blue-500"
+        />
+        {searchText && (
+          <button
+            type="button"
+            onClick={() => setSearchText('')}
+            className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700"
+            aria-label="Clear search"
+          >
+            <X size={11} />
+          </button>
+        )}
+      </div>
+
+      {anyFilterActive && (
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+        >
+          Clear all filters
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Chip — small toggleable pill used by Toolbar.
+function Chip({ active, onClick, tone, children }) {
+  const inactiveTone = 'bg-white text-slate-700 border-slate-200 hover:border-blue-300';
+  const activeTone =
+    tone === 'red'    ? 'bg-red-600 text-white border-red-600' :
+    tone === 'amber'  ? 'bg-amber-500 text-white border-amber-500' :
+    tone === 'purple' ? 'bg-purple-600 text-white border-purple-600' :
+                        'bg-blue-600 text-white border-blue-600';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 text-[11px] rounded-full px-2 py-0.5 border transition-colors ${active ? activeTone : inactiveTone}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 // Defensive empty-state if the role-context says we're an employee but the
 // analyst name didn't make it out of localStorage. Surfaces instead of
 // silently loading every alert in the bank.
@@ -198,13 +592,19 @@ function MissingAnalystState() {
 }
 
 function KanbanBoard({
-  alerts, grouped, columns, selected, setSelected, tab, setTab,
+  alerts, filteredAlerts, grouped, columns, selected, setSelected, tab, setTab,
   isManager, isEmployee, isL1, currentAnalyst,
-  assignToMe, updateStatus, startInvestigation
+  assignToMe, updateStatus, startInvestigation,
+  filters, setFilters, sortBy, setSortBy,
+  searchText, setSearchText, searchInputRef, matchesSearch,
+  anyFilterActive, clearFilters,
+  nextUp, hasOpenAfterFilters, skippedCount, onSkipNextUp, onOpenNextUp
 }) {
   const gridCols = columns.length >= 5
     ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-5'
     : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-4';
+  const searchActive = searchText.trim().length > 0;
+
   return (
     <div className="flex gap-4 min-w-0">
       <div className="flex-1 min-w-0 space-y-4">
@@ -225,33 +625,66 @@ function KanbanBoard({
           </div>
         </div>
 
+        {isL1 && hasOpenAfterFilters && (
+          <NextUpBanner
+            alert={nextUp}
+            skippedCount={skippedCount}
+            onOpen={onOpenNextUp}
+            onSkip={onSkipNextUp}
+          />
+        )}
+
+        {isL1 && (
+          <Toolbar
+            filters={filters}
+            setFilters={setFilters}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            searchText={searchText}
+            setSearchText={setSearchText}
+            searchInputRef={searchInputRef}
+            anyFilterActive={anyFilterActive}
+            clearFilters={clearFilters}
+          />
+        )}
+
         <div className={`grid ${gridCols} gap-3`}>
-          {columns.map(col => (
-            <div key={col} className={`bg-slate-100/70 rounded-lg border-t-4 ${COLUMN_ACCENT[col]}`}>
-              <div className="flex items-center justify-between px-3 py-2.5">
-                <div className="text-sm font-semibold text-navy-900">{col}</div>
-                <span className="text-xs bg-white border border-slate-200 rounded-full px-2 py-0.5">
-                  {(grouped[col] || []).length}
-                </span>
+          {columns.map(col => {
+            const colAlerts = grouped[col] || [];
+            const matchingCount = searchActive
+              ? colAlerts.filter(matchesSearch).length
+              : colAlerts.length;
+            return (
+              <div key={col} className={`bg-slate-100/70 rounded-lg border-t-4 ${COLUMN_ACCENT[col]}`}>
+                <div className="flex items-center justify-between px-3 py-2.5">
+                  <div className="text-sm font-semibold text-navy-900">{col}</div>
+                  <span className="text-xs bg-white border border-slate-200 rounded-full px-2 py-0.5">
+                    {searchActive ? `${matchingCount} of ${colAlerts.length}` : colAlerts.length}
+                  </span>
+                </div>
+                <div className="px-2 pb-3 space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto">
+                  {colAlerts.map(a => {
+                    const dim = searchActive && !matchesSearch(a);
+                    return (
+                      <div key={a.alert_id} style={{ opacity: dim ? 0.3 : 1, transition: 'opacity 0.15s ease' }}>
+                        <AlertCard
+                          alert={a}
+                          column={col}
+                          isEmployee={isEmployee}
+                          currentAnalyst={currentAnalyst}
+                          onSelect={() => setSelected(a)}
+                          onAssign={() => assignToMe(a)}
+                        />
+                      </div>
+                    );
+                  })}
+                  {colAlerts.length === 0 && (
+                    <div className="text-center text-xs text-slate-400 py-6">No alerts</div>
+                  )}
+                </div>
               </div>
-              <div className="px-2 pb-3 space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto">
-                {(grouped[col] || []).map(a => (
-                  <AlertCard
-                    key={a.alert_id}
-                    alert={a}
-                    column={col}
-                    isEmployee={isEmployee}
-                    currentAnalyst={currentAnalyst}
-                    onSelect={() => setSelected(a)}
-                    onAssign={() => assignToMe(a)}
-                  />
-                ))}
-                {(grouped[col] || []).length === 0 && (
-                  <div className="text-center text-xs text-slate-400 py-6">No alerts</div>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
