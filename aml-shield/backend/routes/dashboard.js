@@ -25,7 +25,12 @@ const STATUS_NOT_CLOSED  = "alert_status NOT IN ('Completed', 'Closed', 'Filed',
 // sticky even when the alert no longer needs attention. The new check
 // recomputes from sla_deadline + alert_status on every query so the KPI
 // always reflects the current state of the queue.
-const SLA_BREACHED_CONDITION = "sla_deadline IS NOT NULL AND sla_deadline::date < NOW()::date AND alert_status NOT IN ('Completed', 'Closed', 'Closed — False Positive', 'False Positive', 'Escalated - SAR', 'Filed', 'Work in Progress')";
+//
+// NOTE: Work in Progress alerts intentionally included in breach count —
+// an actively-worked breach is the highest-priority signal for a manager,
+// not something to hide. Previously excluded by accident; SLA breach count
+// will rise as Work-in-Progress deadlines pass through today's date.
+const SLA_BREACHED_CONDITION = "sla_deadline IS NOT NULL AND sla_deadline::date < NOW()::date AND alert_status NOT IN ('Completed', 'Closed', 'Closed — False Positive', 'False Positive', 'Escalated - SAR', 'Filed')";
 
 // PG SQL fragments for date math (text-comparable YYYY-MM-DD).
 const TODAY            = "to_char(CURRENT_DATE, 'YYYY-MM-DD')";
@@ -154,26 +159,47 @@ router.get('/stats', async (req, res, next) => {
        LIMIT 10
     `, params)).rows;
 
+    // Workload joins from user_profiles → alerts so the table is anchored
+    // on the live, active analyst roster:
+    //   - Departed / inactive users disappear from the table
+    //   - Active analysts with zero alerts still appear (with all zeros)
+    //   - No phantom rows from misspelled assigned_to text values
+    // Date range filter is preserved (consistent with rest of dashboard).
     const workload = (await pool.query(`
-      SELECT assigned_to AS analyst,
-             COUNT(*) AS total,
-             SUM(CASE WHEN ${STATUS_IN_PROGRESS} THEN 1 ELSE 0 END) AS in_progress,
-             SUM(CASE WHEN (${SLA_BREACHED_CONDITION}) THEN 1 ELSE 0 END) AS breached,
-             SUM(CASE WHEN ${STATUS_CLOSED} THEN 1 ELSE 0 END) AS completed
-        FROM alerts
-       WHERE assigned_to IS NOT NULL AND TRIM(assigned_to) <> ''
-         AND created_date BETWEEN $1 AND $2
-       GROUP BY assigned_to
-       ORDER BY total DESC
-    `, [from, to])).rows.map(r => ({
-      analyst: r.analyst,
-      total: Number(r.total),
-      in_progress: Number(r.in_progress),
-      breached: Number(r.breached),
-      completed: Number(r.completed),
-      capacity: 15,
-      utilization_pct: Math.min(100, Math.round(((Number(r.in_progress) + Number(r.total) * 0.2) / 15) * 100))
-    }));
+      SELECT u.user_id,
+             u.name AS analyst,
+             u.role,
+             u.team,
+             u.avatar_color,
+             COUNT(a.id) AS total,
+             COUNT(a.id) FILTER (WHERE ${STATUS_IN_PROGRESS}) AS in_progress,
+             COUNT(a.id) FILTER (WHERE ${SLA_BREACHED_CONDITION}) AS breached,
+             COUNT(a.id) FILTER (WHERE ${STATUS_CLOSED}) AS completed
+        FROM user_profiles u
+        LEFT JOIN alerts a
+          ON a.assigned_to = u.name
+         AND a.created_date BETWEEN $1 AND $2
+       WHERE u.status = 'Active'
+         AND u.role IN ('analyst_l1', 'analyst_l2')
+       GROUP BY u.user_id, u.name, u.role, u.team, u.avatar_color
+       ORDER BY total DESC, u.name ASC
+    `, [from, to])).rows.map(r => {
+      const total = Number(r.total);
+      const inProgress = Number(r.in_progress);
+      return {
+        user_id: r.user_id,
+        analyst: r.analyst,
+        role: r.role,
+        team: r.team,
+        avatar_color: r.avatar_color,
+        total,
+        in_progress: inProgress,
+        breached: Number(r.breached),
+        completed: Number(r.completed),
+        capacity: 15,
+        utilization_pct: Math.min(100, Math.round(((inProgress + total * 0.2) / 15) * 100))
+      };
+    });
 
     const totalCases = await numFrom(
       'SELECT COUNT(*) AS c FROM cases WHERE created_date BETWEEN $1 AND $2',
@@ -187,8 +213,30 @@ router.get('/stats', async (req, res, next) => {
       ? Math.round((casesConverted / totalAlerts) * 1000) / 10
       : 0;
 
+    // OFAC freshness signal for the dashboard stale-banner. last_success
+    // is the most recent successful SDN download; last_attempt is the most
+    // recent attempt regardless of outcome (so we can flag a failed run).
+    const ofacLastSuccess = (await pool.query(
+      "SELECT downloaded_at FROM ofac_download_log WHERE status = 'success' ORDER BY downloaded_at DESC LIMIT 1"
+    )).rows[0] || null;
+    const ofacLastAttempt = (await pool.query(
+      "SELECT status FROM ofac_download_log ORDER BY downloaded_at DESC LIMIT 1"
+    )).rows[0] || null;
+    const hoursSinceSuccess = ofacLastSuccess
+      ? (Date.now() - new Date(ofacLastSuccess.downloaded_at).getTime()) / 3600000
+      : null;
+    const ofacStatus = {
+      last_success_at: ofacLastSuccess?.downloaded_at || null,
+      last_status: ofacLastAttempt?.status || null,
+      hours_since_success: hoursSinceSuccess != null ? Math.round(hoursSinceSuccess * 10) / 10 : null,
+      is_stale: (ofacLastAttempt?.status === 'failed')
+             || (hoursSinceSuccess != null && hoursSinceSuccess > 36)
+             || (ofacLastSuccess == null)
+    };
+
     res.json({
       scope: { assigned_to: assigned_to || null, from, to },
+      ofac_status: ofacStatus,
       kpis: {
         total_alerts: totalAlerts,
         unassigned,
@@ -280,32 +328,40 @@ router.get('/drawer/in-progress', async (req, res, next) => {
       "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('In Progress', 'Work in Progress') AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
-    const ipByAnalyst = (await pool.query(`
-      SELECT assigned_to AS analyst, COUNT(*) AS in_progress
-        FROM alerts
-       WHERE alert_status IN ('In Progress', 'Work in Progress')
-         AND assigned_to IS NOT NULL AND TRIM(assigned_to) <> ''
-         AND created_date BETWEEN $1 AND $2
-       GROUP BY assigned_to
+    // Single GROUP BY query joining user_profiles → alerts. Replaces the
+    // previous N+1 pattern (one COUNT per analyst). Each analyst gets
+    // in_progress + total_open in one round trip.
+    const by_analyst = (await pool.query(`
+      SELECT u.name,
+             u.role,
+             u.avatar_color,
+             COUNT(a.id) FILTER (WHERE a.alert_status IN ('In Progress', 'Work in Progress')) AS in_progress,
+             COUNT(a.id) FILTER (WHERE a.alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')) AS total_open
+        FROM user_profiles u
+        LEFT JOIN alerts a
+          ON a.assigned_to = u.name
+         AND a.created_date BETWEEN $1 AND $2
+       WHERE u.status = 'Active'
+         AND u.role IN ('analyst_l1', 'analyst_l2')
+       GROUP BY u.name, u.role, u.avatar_color
+       HAVING COUNT(a.id) FILTER (WHERE a.alert_status IN ('In Progress', 'Work in Progress')) > 0
        ORDER BY in_progress DESC
-    `, [from, to])).rows.map(r => ({ ...r, in_progress: Number(r.in_progress) }));
-    const analysts = await listAnalysts();
-    const profileByName = Object.fromEntries(analysts.map(a => [a.name, a]));
-    const by_analyst = [];
-    for (const r of ipByAnalyst) {
-      const total_open = await num(
-        "SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = $1 AND alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive') AND created_date BETWEEN $2 AND $3",
-        [r.analyst, from, to]
-      );
-      const pct = Math.min(100, Math.round((total_open / ANALYST_CAPACITY) * 100));
-      by_analyst.push({
-        ...(profileByName[r.analyst] || { name: r.analyst, level: 'L1', initials: avatarInitials(r.analyst) }),
-        in_progress: r.in_progress,
-        total_open,
+    `, [from, to])).rows.map(r => {
+      const inProgress = Number(r.in_progress);
+      const totalOpen = Number(r.total_open);
+      const level = /l2$/i.test(r.role || '') ? 'L2' : 'L1';
+      return {
+        name: r.name,
+        role: r.role,
+        level,
+        initials: avatarInitials(r.name),
+        avatar_color: r.avatar_color,
+        in_progress: inProgress,
+        total_open: totalOpen,
         capacity: ANALYST_CAPACITY,
-        pct
-      });
-    }
+        pct: Math.min(100, Math.round((totalOpen / ANALYST_CAPACITY) * 100))
+      };
+    });
 
     const oldest = (await pool.query(`
       SELECT alert_id, customer_name, age_days, priority
@@ -525,16 +581,38 @@ router.get('/drawer/team-capacity', async (req, res, next) => {
   try {
     const { from, to } = parseRange(req);
     const num = async (sql, p) => Number((await pool.query(sql, p)).rows[0].c);
-    const analysts = await listAnalysts();
-    const enriched = [];
-    for (const a of analysts) {
-      const open = await num(
-        "SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = $1 AND alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive') AND created_date BETWEEN $2 AND $3",
-        [a.name, from, to]
-      );
-      const pct = Math.min(100, Math.round((open / ANALYST_CAPACITY) * 100));
-      enriched.push({ ...a, open, capacity: ANALYST_CAPACITY, pct });
-    }
+
+    // Single GROUP BY query: every active analyst with their open count
+    // in one round trip. Active-only roster avoids ghost rows.
+    const enriched = (await pool.query(`
+      SELECT u.name,
+             u.role,
+             u.team,
+             u.avatar_color,
+             COUNT(a.id) FILTER (WHERE a.alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')) AS open
+        FROM user_profiles u
+        LEFT JOIN alerts a
+          ON a.assigned_to = u.name
+         AND a.created_date BETWEEN $1 AND $2
+       WHERE u.status = 'Active'
+         AND u.role IN ('analyst_l1', 'analyst_l2')
+       GROUP BY u.name, u.role, u.team, u.avatar_color
+       ORDER BY open DESC, u.name ASC
+    `, [from, to])).rows.map(r => {
+      const open = Number(r.open);
+      const level = /l2$/i.test(r.role || '') ? 'L2' : 'L1';
+      return {
+        name: r.name,
+        role: r.role,
+        level,
+        team: r.team,
+        avatar_color: r.avatar_color,
+        initials: avatarInitials(r.name),
+        open,
+        capacity: ANALYST_CAPACITY,
+        pct: Math.min(100, Math.round((open / ANALYST_CAPACITY) * 100))
+      };
+    });
     const at_capacity_count = enriched.filter(a => a.pct >= 100).length;
     const team_pct = enriched.length > 0
       ? Math.round(enriched.reduce((s, a) => s + a.pct, 0) / enriched.length)
@@ -625,16 +703,36 @@ router.get('/drawer/unassigned', async (req, res, next) => {
     const by_priority = { High: 0, Medium: 0, Low: 0 };
     for (const r of byPriority) by_priority[r.priority || 'Low'] = Number(r.c);
 
-    const analysts = await listAnalysts();
-    const enriched = [];
-    for (const a of analysts) {
-      const open = await num(
-        "SELECT COUNT(*) AS c FROM alerts WHERE assigned_to = $1 AND alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive') AND created_date BETWEEN $2 AND $3",
-        [a.name, from, to]
-      );
+    // Single GROUP BY query for analyst capacity (replaces per-analyst N+1).
+    const enriched = (await pool.query(`
+      SELECT u.name,
+             u.role,
+             u.avatar_color,
+             COUNT(a.id) FILTER (WHERE a.alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')) AS open
+        FROM user_profiles u
+        LEFT JOIN alerts a
+          ON a.assigned_to = u.name
+         AND a.created_date BETWEEN $1 AND $2
+       WHERE u.status = 'Active'
+         AND u.role IN ('analyst_l1', 'analyst_l2')
+       GROUP BY u.name, u.role, u.avatar_color
+       ORDER BY open ASC, u.name ASC
+    `, [from, to])).rows.map(r => {
+      const open = Number(r.open);
       const pct = Math.min(100, Math.round((open / ANALYST_CAPACITY) * 100));
-      enriched.push({ ...a, open, capacity: ANALYST_CAPACITY, pct, can_take: Math.max(0, ANALYST_CAPACITY - open) });
-    }
+      const level = /l2$/i.test(r.role || '') ? 'L2' : 'L1';
+      return {
+        name: r.name,
+        role: r.role,
+        level,
+        avatar_color: r.avatar_color,
+        initials: avatarInitials(r.name),
+        open,
+        capacity: ANALYST_CAPACITY,
+        pct,
+        can_take: Math.max(0, ANALYST_CAPACITY - open)
+      };
+    });
     const available = enriched
       .filter(a => a.pct < FATIGUED_AT * 100 && a.can_take > 0)
       .sort((a, b) => a.pct - b.pct);

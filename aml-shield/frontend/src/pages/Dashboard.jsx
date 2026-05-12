@@ -7,8 +7,9 @@ import Table from '../components/shared/Table.jsx';
 import Badge from '../components/shared/Badge.jsx';
 import {
   AlertTriangle, Activity, CheckCircle2, Clock, TrendingUp, Briefcase,
-  Target, Users, ShieldCheck, Eye, ShieldAlert, ArrowUpRight, X
+  Target, Users, ShieldCheck, Eye, ShieldAlert, ArrowUpRight, X, Loader2
 } from 'lucide-react';
+import { useToast } from '../state/ToastContext.jsx';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar, Legend
@@ -46,20 +47,54 @@ export default function Dashboard() {
   const [range, setRange] = useState('all');
   const [refetching, setRefetching] = useState(false);
   const [drawerKind, setDrawerKind] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [pollError, setPollError] = useState(false);
   const { from, to } = dateRangeFor(range);
 
+  // Build the API params from current state. Kept stable across the
+  // initial fetch and the 60-second poll so both share the same scope.
+  const buildParams = () => {
+    const p = {};
+    if (from) p.from = from;
+    if (to) p.to = to;
+    if (isEmployee && currentAnalyst) p.assigned_to = currentAnalyst;
+    return p;
+  };
+
+  // Single fetch implementation. Returns the promise so callers (initial
+  // load vs. background poll) can chain their own success/error handling.
+  const fetchDashboard = ({ silent = false } = {}) => {
+    if (!silent) setRefetching(true);
+    return api.get('/dashboard/stats', { params: buildParams() })
+      .then(r => {
+        setStats(r.data);
+        setError(null);
+        setLastUpdated(new Date());
+        setPollError(false);
+        return r.data;
+      })
+      .catch(e => {
+        if (silent) setPollError(true);
+        else setError(e.message);
+        throw e;
+      })
+      .finally(() => { if (!silent) setRefetching(false); });
+  };
+
+  // Initial load on scope change.
   useEffect(() => {
-    // Build params lazily so the 'All Time' selection sends no from/to —
-    // the backend treats absent params as "span every date".
-    const params = {};
-    if (from) params.from = from;
-    if (to) params.to = to;
-    if (isEmployee && currentAnalyst) params.assigned_to = currentAnalyst;
-    setRefetching(true);
-    api.get('/dashboard/stats', { params })
-      .then(r => { setStats(r.data); setError(null); })
-      .catch(e => setError(e.message))
-      .finally(() => setRefetching(false));
+    fetchDashboard().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to, isEmployee, currentAnalyst]);
+
+  // 60-second background poll. Re-armed when the scope inputs change so
+  // the interval always fires against the current date range / analyst.
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchDashboard({ silent: true }).catch(() => {});
+    }, 60000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, isEmployee, currentAnalyst]);
 
   const openDrawer = (kind) => isManager && setDrawerKind(kind);
@@ -71,6 +106,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {isManager && stats.ofac_status?.is_stale && (
+        <OfacStaleBanner
+          status={stats.ofac_status}
+          onSynced={() => fetchDashboard({ silent: true }).catch(() => {})}
+        />
+      )}
       <div className="flex items-center justify-between">
         <div>
           <div className="text-xl font-bold text-navy-900">
@@ -84,17 +125,20 @@ export default function Dashboard() {
               : 'Your personal alert queue and investigation performance'}
           </div>
         </div>
-        <select
-          value={range}
-          onChange={e => setRange(e.target.value)}
-          className="bg-white border border-slate-200 rounded-md text-sm px-3 py-2"
-        >
-          <option value="all">All Time</option>
-          <option value="7d">Last 7 days</option>
-          <option value="30d">Last 30 days</option>
-          <option value="90d">Last 90 days</option>
-          <option value="ytd">Year to date</option>
-        </select>
+        <div className="flex items-center gap-3">
+          <LastUpdatedIndicator lastUpdated={lastUpdated} pollError={pollError} />
+          <select
+            value={range}
+            onChange={e => setRange(e.target.value)}
+            className="bg-white border border-slate-200 rounded-md text-sm px-3 py-2"
+          >
+            <option value="all">All Time</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+            <option value="90d">Last 90 days</option>
+            <option value="ytd">Year to date</option>
+          </select>
+        </div>
       </div>
 
       <div className={`transition-opacity ${refetching ? 'opacity-60 animate-pulse' : ''} grid grid-cols-2 md:grid-cols-3 ${isManager ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-4`}>
@@ -303,6 +347,105 @@ function Clickable({ enabled, onClick, children }) {
   );
 }
 
+// Top-of-page red banner that surfaces when the OFAC SDN list is stale
+// or the most recent download failed. Backend signals via
+// stats.ofac_status.is_stale; this component renders nothing when healthy.
+function OfacStaleBanner({ status, onSynced }) {
+  const push = useToast().push;
+  const { currentUser } = useRole();
+  const [syncing, setSyncing] = useState(false);
+  const hours = status?.hours_since_success;
+  const detail =
+    status?.last_status === 'failed'
+      ? 'Last download attempt failed.'
+      : hours != null
+        ? `Last successful sync: ${formatHoursAgo(hours)}.`
+        : 'No successful sync has been recorded.';
+
+  const forceSync = async () => {
+    setSyncing(true);
+    try {
+      await api.post('/ofac/sync');
+      await api.post('/audit-trail', {
+        entity_type: 'system',
+        sar_id: 'ofac_sdn',
+        action: 'manual_ofac_sync',
+        performed_by: currentUser?.name || 'system',
+        details: JSON.stringify({ triggered_by: 'stale_banner_force_sync', timestamp: new Date().toISOString() })
+      }).catch(() => {});
+      push('OFAC sync started — list will update shortly', 'success', 3500);
+      setTimeout(() => { onSynced && onSynced(); }, 5000);
+    } catch (e) {
+      push(`OFAC sync failed: ${e?.response?.data?.error || e.message}`, 'error', 5000);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-3 bg-red-50 px-4 py-3 rounded-md"
+      style={{ borderLeft: '4px solid #B91C1C' }}
+    >
+      <ShieldAlert size={20} className="text-red-700 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold text-red-800">OFAC Sanctions List Outdated</div>
+        <div className="text-xs text-red-700 mt-0.5">
+          {detail} All screening results may be based on stale data. Contact your administrator immediately.
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={forceSync}
+        disabled={syncing}
+        className="shrink-0 text-xs px-3 py-1.5 rounded border border-red-300 bg-white text-red-700 hover:bg-red-100 disabled:opacity-50 inline-flex items-center gap-1.5"
+      >
+        {syncing ? <><Loader2 size={12} className="animate-spin" /> Syncing…</> : 'Force Sync'}
+      </button>
+    </div>
+  );
+}
+
+function formatHoursAgo(hours) {
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} min ago`;
+  if (hours < 48) return `${Math.round(hours)} hours ago`;
+  return `${Math.round(hours / 24)} days ago`;
+}
+
+// Header-right indicator for "Updated Xs ago / Xm ago / at HH:MM" plus
+// an amber error state when the background poll fails. Re-renders every
+// 15s so the relative time stays fresh without re-fetching.
+function LastUpdatedIndicator({ lastUpdated, pollError }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 15000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (pollError) {
+    return (
+      <span
+        className="text-xs text-amber-700 inline-flex items-center gap-1"
+        title="Dashboard data may be outdated — check your connection"
+      >
+        <AlertTriangle size={12} /> Update failed
+      </span>
+    );
+  }
+  if (!lastUpdated) return null;
+  const diffSec = Math.max(0, Math.round((Date.now() - lastUpdated.getTime()) / 1000));
+  let label;
+  if (diffSec < 60) label = `Updated ${diffSec}s ago`;
+  else if (diffSec < 300) label = `Updated ${Math.floor(diffSec / 60)}m ago`;
+  else {
+    const hh = String(lastUpdated.getHours()).padStart(2, '0');
+    const mm = String(lastUpdated.getMinutes()).padStart(2, '0');
+    label = `Updated at ${hh}:${mm}`;
+  }
+  return <span className="text-xs text-slate-500">{label}</span>;
+}
+
 // ─────────────────────────────────────────────── drawer system
 
 const DRAWER_META = {
@@ -337,15 +480,66 @@ function DrawerContainer({ kind, onClose, makePath, from, to }) {
   const lastKindRef = useRef(null);
   if (kind) lastKindRef.current = kind;
   const renderKind = kind || lastKindRef.current;
+  const asideRef = useRef(null);
+  const openerRef = useRef(null);
 
-  // Lock body scroll while open
+  // Lock body scroll while open + capture the element that had focus when
+  // the drawer opened so we can restore focus to it on close.
   useEffect(() => {
     if (open) {
+      openerRef.current = (typeof document !== 'undefined' && document.activeElement) || null;
       const prev = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => { document.body.style.overflow = prev; };
     }
+    // On close: return focus to the KPI card that opened the drawer.
+    if (openerRef.current && typeof openerRef.current.focus === 'function') {
+      try { openerRef.current.focus(); } catch (_e) { /* ignore */ }
+      openerRef.current = null;
+    }
   }, [open]);
+
+  // Move focus into the drawer (close button) after it opens, so keyboard
+  // users land inside it instead of behind it.
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => {
+      const closeBtn = asideRef.current?.querySelector('[data-drawer-close]');
+      if (closeBtn && typeof closeBtn.focus === 'function') closeBtn.focus();
+    }, 60);
+    return () => clearTimeout(t);
+  }, [open, renderKind]);
+
+  // Escape closes, and Tab cycles within the drawer (focus trap).
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab') {
+        const root = asideRef.current;
+        if (!root) return;
+        const focusables = Array.from(root.querySelectorAll(
+          'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )).filter(el => !el.disabled && el.offsetParent !== null);
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose]);
 
   return (
     <>
@@ -362,6 +556,7 @@ function DrawerContainer({ kind, onClose, makePath, from, to }) {
         }}
       />
       <aside
+        ref={asideRef}
         role="dialog" aria-modal="true"
         className="border-l border-slate-200"
         style={{
@@ -459,7 +654,12 @@ function DrawerHeader({ meta, data, onClose, kind }) {
           {trend}
         </div>
       </div>
-      <button onClick={onClose} className="p-1 rounded hover:bg-slate-100 shrink-0" aria-label="Close drawer">
+      <button
+        onClick={onClose}
+        data-drawer-close
+        className="p-1 rounded hover:bg-slate-100 shrink-0"
+        aria-label="Close drawer"
+      >
         <X size={16} />
       </button>
     </div>
@@ -1272,9 +1472,12 @@ function SlaWatch() {
 // manager a one-click "Force Sync" trigger. Failures don't break the rest
 // of the dashboard — the widget just shows a dash.
 function OfacStatusWidget() {
+  const push = useToast().push;
+  const { currentUser } = useRole();
   const [s, setS] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [err, setErr] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const load = async () => {
     try {
@@ -1286,15 +1489,33 @@ function OfacStatusWidget() {
   };
   useEffect(() => { load(); }, []);
 
+  // Confirm-modal driven Force Sync (replaces window.confirm). On success:
+  //   1. POST /ofac/sync
+  //   2. Write an audit-trail row tagging the user that triggered it
+  //   3. Toast feedback
+  //   4. Refresh widget after 5 s so the new last_updated lands
   const forceSync = async () => {
-    if (!confirm('Force a fresh download of the OFAC SDN list? This may take a moment.')) return;
+    setConfirmOpen(false);
     setSyncing(true);
     setErr(null);
     try {
       await api.post('/ofac/sync');
-      await load();
+      await api.post('/audit-trail', {
+        entity_type: 'system',
+        sar_id: 'ofac_sdn',
+        action: 'manual_ofac_sync',
+        performed_by: currentUser?.name || 'system',
+        details: JSON.stringify({
+          triggered_by: 'dashboard_force_sync',
+          timestamp: new Date().toISOString()
+        })
+      }).catch(() => {});
+      push('OFAC sync started — list will update shortly', 'success', 3500);
+      setTimeout(() => { load(); }, 5000);
     } catch (e) {
-      setErr(e.response?.data?.error || e.message);
+      const msg = e?.response?.data?.error || e.message || 'OFAC sync failed';
+      setErr(msg);
+      push(`OFAC sync failed: ${msg}`, 'error', 5000);
     } finally {
       setSyncing(false);
     }
@@ -1303,8 +1524,12 @@ function OfacStatusWidget() {
   return (
     <Card title="OFAC Screening Status" bodyClassName="p-4"
       action={
-        <button onClick={forceSync} disabled={syncing}
-          className="text-xs px-3 py-1.5 rounded border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+        <button
+          type="button"
+          onClick={() => setConfirmOpen(true)}
+          disabled={syncing}
+          className="text-xs px-3 py-1.5 rounded border border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+        >
           {syncing ? 'Syncing…' : 'Force Sync'}
         </button>
       }>
@@ -1341,6 +1566,59 @@ function OfacStatusWidget() {
           <div className="text-[10px] text-slate-500">sanctions hits</div>
         </div>
       </div>
+      {confirmOpen && (
+        <ForceSyncConfirmModal
+          syncing={syncing}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={forceSync}
+        />
+      )}
     </Card>
+  );
+}
+
+// Confirmation modal for manual OFAC sync. Mirrors the InlineAssignModal
+// pattern so the dashboard stays consistent — no browser confirm() popup.
+function ForceSyncConfirmModal({ syncing, onConfirm, onCancel }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      onClick={onCancel}
+    >
+      <div
+        role="dialog" aria-modal="true"
+        onClick={e => e.stopPropagation()}
+        className="bg-white rounded-lg shadow-xl w-full max-w-md p-5 space-y-4"
+      >
+        <div className="flex items-center justify-between">
+          <div className="font-semibold text-navy-900">Force OFAC List Sync</div>
+          <button type="button" onClick={onCancel} className="p-1 hover:bg-slate-100 rounded">
+            <X size={16} />
+          </button>
+        </div>
+        <p className="text-sm text-slate-700">
+          This will immediately download the latest OFAC SDN list from the US Treasury.
+          This action will be logged in the audit trail.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={syncing}
+            className="text-xs px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={syncing}
+            className="text-xs px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 inline-flex items-center gap-1.5"
+          >
+            {syncing ? <><Loader2 size={12} className="animate-spin" /> Syncing…</> : 'Sync Now'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
