@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../state/ToastContext.jsx';
 import WorklistBand from '../components/dashboard/WorklistBand.jsx';
+import HealthStrip from '../components/dashboard/HealthStrip.jsx';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar, Legend
@@ -120,29 +121,26 @@ export default function Dashboard() {
               ? 'Team Dashboard — Suspicious Activity Monitoring'
               : `My Queue — ${currentAnalyst || ''}`}
           </div>
-          <div className="text-sm text-slate-500">
-            {isManager
-              ? 'Control #2 · All alerts, cases, SLA and analyst workload'
-              : 'Your personal alert queue and investigation performance'}
+          <div className="text-sm text-slate-500 flex items-center gap-2">
+            <span>Current operational state</span>
+            {isManager && (
+              <>
+                <span className="text-slate-300">·</span>
+                <a
+                  href={makePath('analytics')}
+                  className="text-blue-600 hover:underline text-xs"
+                >
+                  For trend analysis see Analytics →
+                </a>
+              </>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <LastUpdatedIndicator lastUpdated={lastUpdated} pollError={pollError} />
-          <select
-            value={range}
-            onChange={e => setRange(e.target.value)}
-            className="bg-white border border-slate-200 rounded-md text-sm px-3 py-2"
-          >
-            <option value="all">All Time</option>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-            <option value="90d">Last 90 days</option>
-            <option value="ytd">Year to date</option>
-          </select>
-        </div>
+        <LastUpdatedIndicator lastUpdated={lastUpdated} pollError={pollError} />
       </div>
 
       {isManager && <WorklistBand />}
+      {isManager && stats.health && <HealthStrip health={stats.health} />}
 
       <div className={`transition-opacity ${refetching ? 'opacity-60 animate-pulse' : ''} grid grid-cols-2 md:grid-cols-3 ${isManager ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-4`}>
         <Clickable enabled={isManager} onClick={() => openDrawer('total-alerts')}>
@@ -180,10 +178,21 @@ export default function Dashboard() {
       </div>
 
       {isManager && (
-        <div className={`transition-opacity ${refetching ? 'opacity-60 animate-pulse' : ''} grid grid-cols-1 md:grid-cols-3 gap-4`}>
+        <div className={`transition-opacity ${refetching ? 'opacity-60 animate-pulse' : ''} grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4`}>
+          {/* PR3 / Issue 9: headline flips from team-avg % to overloaded count.
+              Drawer behind the card is unchanged. */}
           <Clickable enabled={isManager} onClick={() => openDrawer('team-capacity')}>
-            <KpiCard label="Team Capacity" value={`${k.team_capacity_pct}%`} tone="blue" icon={Users}
-                     sub="Avg across analysts" />
+            <KpiCard
+              label="Team Capacity"
+              value={
+                k.total_analysts > 0
+                  ? `${k.overloaded_count} of ${k.total_analysts}`
+                  : '—'
+              }
+              tone={k.overloaded_count > 0 ? 'red' : 'green'}
+              icon={Users}
+              sub={k.overloaded_count > 0 ? 'analysts overloaded' : 'no one overloaded'}
+            />
           </Clickable>
           <Clickable enabled={isManager} onClick={() => openDrawer('false-positive')}>
             <KpiCard label="False Positive Rate" value={`${k.false_positive_rate_pct}%`} tone="orange"
@@ -192,6 +201,11 @@ export default function Dashboard() {
           <Clickable enabled={isManager} onClick={() => openDrawer('unassigned')}>
             <KpiCard label="Unassigned Queue" value={k.unassigned} tone="red" icon={ShieldCheck}
                      sub="Needs triage" />
+          </Clickable>
+          {/* PR3 / Issue 11: SAR Filing Clock — FinCEN 30-day requirement.
+              Card opens the new 'sar-clock' drawer with per-SAR detail. */}
+          <Clickable enabled={isManager} onClick={() => openDrawer('sar-clock')}>
+            <SarClockKpiCard />
           </Clickable>
         </div>
       )}
@@ -460,7 +474,9 @@ const DRAWER_META = {
   'cases-converted': { title: 'Cases Converted',      icon: Briefcase,     tone: 'blue',    viewAllLabel: 'View SAR Cases',   viewAllPath: 'cases',  filter: {},                                trendDir: 'neutral' },
   'team-capacity':   { title: 'Team Capacity',        icon: Users,         tone: 'blue',    viewAllLabel: 'View Team',        viewAllPath: 'users',  filter: {},                                trendDir: 'less_is_good' },
   'false-positive':  { title: 'False Positive Rate',  icon: Target,        tone: 'orange',  viewAllLabel: 'View Analytics',   viewAllPath: 'analytics', filter: {},                             trendDir: 'less_is_good' },
-  'unassigned':      { title: 'Unassigned Queue',     icon: ShieldCheck,   tone: 'red',     viewAllLabel: 'Manage Unassigned',viewAllPath: 'alerts', filter: { alert_status: 'Unassigned' },    trendDir: 'less_is_good' }
+  'unassigned':      { title: 'Unassigned Queue',     icon: ShieldCheck,   tone: 'red',     viewAllLabel: 'Manage Unassigned',viewAllPath: 'alerts', filter: { alert_status: 'Unassigned' },    trendDir: 'less_is_good' },
+  // PR3 / Issue 11: SAR Filing Clock drawer (FinCEN 30-day).
+  'sar-clock':       { title: 'SAR Filing Clock',     icon: Clock,         tone: 'red',     viewAllLabel: 'View SAR Approvals', viewAllPath: 'sar-approvals', filter: {},                            trendDir: 'less_is_good', endpoint: '/dashboard/sar-clock' }
 };
 
 const TONE_TEXT = {
@@ -602,7 +618,10 @@ function DrawerBody({ kind, onClose, makePath, from, to }) {
     const params = {};
     if (from) params.from = from;
     if (to) params.to = to;
-    api.get(`/dashboard/drawer/${kind}`, { params })
+    // DRAWER_META can specify a custom endpoint (e.g. /dashboard/sar-clock).
+    // Default is the per-kind /dashboard/drawer/<kind> pattern.
+    const endpoint = (DRAWER_META[kind] && DRAWER_META[kind].endpoint) || `/dashboard/drawer/${kind}`;
+    api.get(endpoint, { params })
       .then(r => { if (!cancelled) setData(r.data); })
       .catch(e => { if (!cancelled) setError(e?.response?.data?.error || e.message || 'Failed to load'); });
     return () => { cancelled = true; };
@@ -674,6 +693,7 @@ function headerBigNumber(data, kind) {
   if (kind === 'avg-aging' && data.avg != null) return `${data.avg}d`;
   if (kind === 'team-capacity' && data.team_pct != null) return `${data.team_pct}%`;
   if (kind === 'false-positive' && data.rate_pct != null) return `${data.rate_pct}%`;
+  if (kind === 'sar-clock' && data.in_flight != null) return data.in_flight;
   if (data.total != null) return data.total;
   return '—';
 }
@@ -831,6 +851,7 @@ function DrawerContent({ kind, data, onAssigned }) {
   if (kind === 'team-capacity')   return <TeamCapacityContent data={data} />;
   if (kind === 'false-positive')  return <FalsePositiveContent data={data} />;
   if (kind === 'unassigned')      return <UnassignedContent data={data} onAssigned={onAssigned} />;
+  if (kind === 'sar-clock')       return <SarClockContent data={data} />;
   return null;
 }
 
@@ -1419,6 +1440,141 @@ function L2OversightWidget() {
         </div>
       </div>
     </Card>
+  );
+}
+
+// ─────────────────────────────────────────────── Issue 11: SAR Clock card
+//
+// KPI card on the manager second row. Fetches /dashboard/sar-clock on
+// mount + every 60s. Surfaces 4 colour-coded counts in the card body
+// and a green checkmark when nothing is in flight.
+function SarClockKpiCard() {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => api.get('/dashboard/sar-clock')
+      .then(r => { if (!cancelled) setData(r.data); })
+      .catch(() => {});
+    load();
+    const id = setInterval(load, 60000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  const overdue = data?.overdue ?? 0;
+  const c3 = data?.due_within_3_days ?? 0;
+  const c7 = data?.due_within_7_days ?? 0;
+  const inFlight = data?.in_flight ?? 0;
+  const isAllClear = data && inFlight === 0;
+  const isOverdue = overdue > 0;
+
+  const borderColor = isOverdue ? '#DC2626' : (c3 + c7 > 0 ? '#F59E0B' : '#16A34A');
+
+  return (
+    <div
+      className="bg-white border border-slate-200 shadow-sm p-4 cursor-pointer transition-all duration-200 ease-in-out hover:border-[#BFDBFE] hover:bg-[#F8FAFF]"
+      style={{ borderRadius: 8, borderLeftWidth: 4, borderLeftColor: borderColor }}
+    >
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-slate-500 uppercase tracking-wide">SAR Filing Clock</div>
+        <Clock size={16} className={isOverdue ? 'text-red-500' : 'text-slate-400'} />
+      </div>
+      <div className="text-[10px] text-slate-500 mt-0.5">FinCEN 30-day requirement</div>
+
+      {isAllClear ? (
+        <div className="mt-2 flex items-center gap-1.5 text-sm text-green-700 font-medium">
+          <CheckCircle2 size={14} /> All SARs filed on time
+        </div>
+      ) : (
+        <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+            <span className="text-slate-600">Overdue:</span>
+            <span className={`font-bold tabular-nums ${overdue > 0 ? 'text-red-600' : 'text-slate-400'}`}>{overdue}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
+            <span className="text-slate-600">≤ 3d:</span>
+            <span className={`font-bold tabular-nums ${c3 > 0 ? 'text-orange-600' : 'text-slate-400'}`}>{c3}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+            <span className="text-slate-600">≤ 7d:</span>
+            <span className={`font-bold tabular-nums ${c7 > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{c7}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+            <span className="text-slate-600">In flight:</span>
+            <span className="font-bold tabular-nums text-slate-700">{inFlight}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Drawer body for the SAR Filing Clock — sorted by days_remaining ASC.
+function SarClockContent({ data }) {
+  const items = data?.items || [];
+  if (items.length === 0) {
+    return (
+      <div className="px-5 py-8 text-center text-sm text-slate-500">
+        <CheckCircle2 size={28} className="mx-auto mb-2 text-green-500" />
+        All SARs are filed on time — no in-flight items.
+      </div>
+    );
+  }
+  return (
+    <div className="px-5 py-4 space-y-3 text-xs">
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <StatBlock tone="red"    label="Overdue"     value={data.overdue} />
+        <StatBlock tone="orange" label="≤ 3 days"    value={data.due_within_3_days} />
+        <StatBlock tone="blue"   label="≤ 7 days"    value={data.due_within_7_days} />
+      </div>
+      <Section title={`In-flight SARs (${items.length})`}>
+        <div className="overflow-x-auto -mx-2">
+          <table className="min-w-full text-xs">
+            <thead className="border-b border-slate-200 text-[10px] uppercase text-slate-500 tracking-wider">
+              <tr>
+                <th className="text-left py-1.5 px-2">SAR</th>
+                <th className="text-left py-1.5 px-2">Customer</th>
+                <th className="text-left py-1.5 px-2">Status</th>
+                <th className="text-left py-1.5 px-2">Detection</th>
+                <th className="text-right py-1.5 px-2">Days Remaining</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {items.map(it => {
+                const d = it.days_remaining;
+                const cls = d < 0
+                  ? 'text-red-700 font-semibold'
+                  : d <= 3
+                    ? 'text-orange-700 font-semibold'
+                    : d <= 7
+                      ? 'text-amber-700 font-medium'
+                      : 'text-green-700';
+                const label = d < 0
+                  ? `${Math.abs(d)}d overdue`
+                  : `${d}d left`;
+                return (
+                  <tr key={it.sar_id}>
+                    <td className="px-2 py-1.5 font-mono text-navy-900">{it.sar_id}</td>
+                    <td className="px-2 py-1.5 truncate max-w-[140px]">{it.customer_name}</td>
+                    <td className="px-2 py-1.5 text-slate-600">{it.sar_status}</td>
+                    <td className="px-2 py-1.5 text-slate-600 tabular-nums">{(it.detection_date || '').slice(0, 10)}</td>
+                    <td className={`px-2 py-1.5 text-right tabular-nums ${cls}`}>{label}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {data?.detection_date_source && (
+          <div className="text-[10px] text-slate-400 italic mt-2">
+            {data.detection_date_source}
+          </div>
+        )}
+      </Section>
+    </div>
   );
 }
 

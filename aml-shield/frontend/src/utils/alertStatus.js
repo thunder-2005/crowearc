@@ -10,7 +10,9 @@
 const CLOSED_STATUSES = new Set([
   'Completed',
   'Closed',
-  'Filed',
+  // 'Filed' removed (PR3 Issue 10) — 'Filed' is a sar_filings.sar_status
+  // value, not an alert_status. Alerts that result in a filed SAR retain
+  // alert_status = 'Escalated - SAR'.
   'False Positive',
   // Em dash — matches the seed-data convention. Without this entry the
   // FP-closed rows fall through to the closed_date check below; that

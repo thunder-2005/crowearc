@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../database/db');
+const { getManagerSetting } = require('../utils/getManagerSetting');
 
 const router = express.Router();
 
@@ -14,10 +15,10 @@ const STATUS_IN_PROGRESS = "alert_status IN ('In Progress', 'Work in Progress')"
 // like "Completed/Closed" and the FP-rate denominator capture the full
 // set. Bulk-close writes 'Closed — False Positive'; the legacy path used
 // 'Completed'; SAR submissions use 'Filed'.
-const STATUS_CLOSED      = "alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')";
+const STATUS_CLOSED      = "alert_status IN ('Completed', 'Closed', 'Closed — False Positive')";
 // "Open" = anything not closed. Used by the analyst-load and unassigned
 // queries that need to ignore historical FP-closed rows.
-const STATUS_NOT_CLOSED  = "alert_status NOT IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')";
+const STATUS_NOT_CLOSED  = "alert_status NOT IN ('Completed', 'Closed', 'Closed — False Positive')";
 
 // Real-time "is this alert currently breached?" criterion. Replaces the
 // stale `sla_breached = 1` column flag — the latter was being set by an
@@ -30,7 +31,7 @@ const STATUS_NOT_CLOSED  = "alert_status NOT IN ('Completed', 'Closed', 'Filed',
 // an actively-worked breach is the highest-priority signal for a manager,
 // not something to hide. Previously excluded by accident; SLA breach count
 // will rise as Work-in-Progress deadlines pass through today's date.
-const SLA_BREACHED_CONDITION = "sla_deadline IS NOT NULL AND sla_deadline::date < NOW()::date AND alert_status NOT IN ('Completed', 'Closed', 'Closed — False Positive', 'False Positive', 'Escalated - SAR', 'Filed')";
+const SLA_BREACHED_CONDITION = "sla_deadline IS NOT NULL AND sla_deadline::date < NOW()::date AND alert_status NOT IN ('Completed', 'Closed', 'Closed — False Positive', 'False Positive', 'Escalated - SAR')";
 
 // PG SQL fragments for date math (text-comparable YYYY-MM-DD).
 const TODAY            = "to_char(CURRENT_DATE, 'YYYY-MM-DD')";
@@ -96,11 +97,20 @@ async function listAnalysts() {
 router.get('/stats', async (req, res, next) => {
   try {
     const { assigned_to } = req.query;
+    // PR3 / Issue 8: the operational dashboard reflects CURRENT STATE —
+    // every open alert regardless of when it was created — so the global
+    // date filter is no longer applied to operational counts. The endpoint
+    // still accepts from/to for backward compatibility with the frontend
+    // and other clients; only the trend chart and conversion-rate-window
+    // metrics use a hard-coded window of their own below.
     const { from, to } = parseRange(req);
-    const params = [from, to];
-    let whereSql = ' WHERE created_date BETWEEN $1 AND $2';
-    if (assigned_to) { params.push(assigned_to); whereSql += ` AND assigned_to = $${params.length}`; }
-    const withAnd = whereSql + ' AND ';
+    const params = [];
+    let whereSql = '';
+    if (assigned_to) {
+      params.push(assigned_to);
+      whereSql = ` WHERE assigned_to = $${params.length}`;
+    }
+    const withAnd = whereSql ? whereSql + ' AND ' : ' WHERE ';
 
     const num = async (sql, p = params) => Number((await pool.query(sql, p)).rows[0].c);
     const numFrom = async (sql, p) => Number((await pool.query(sql, p)).rows[0].c);
@@ -121,10 +131,12 @@ router.get('/stats', async (req, res, next) => {
       ? Math.round((closedFalsePositives / completed) * 100)
       : 0;
 
+    // Trend chart genuinely needs a window — keep a hard-coded 30-day
+    // window for the chart only.
+    const trendWindowSql = "created_date >= (NOW() - INTERVAL '30 days')::date::text";
     const trend = (await pool.query(`
       SELECT created_date AS day, COUNT(*) AS alerts
-        FROM alerts
-       ${whereSql}
+        FROM alerts${whereSql}${whereSql ? ' AND ' : ' WHERE '} ${trendWindowSql}
        GROUP BY created_date
        ORDER BY created_date ASC
     `, params)).rows.map(r => ({ ...r, alerts: Number(r.alerts) }));
@@ -159,63 +171,77 @@ router.get('/stats', async (req, res, next) => {
        LIMIT 10
     `, params)).rows;
 
-    // Workload joins from user_profiles → alerts so the table is anchored
-    // on the live, active analyst roster:
-    //   - Departed / inactive users disappear from the table
-    //   - Active analysts with zero alerts still appear (with all zeros)
-    //   - No phantom rows from misspelled assigned_to text values
-    // Date range filter is preserved (consistent with rest of dashboard).
+    // PR3 / Issue 9: capacity is per-role.
+    //   L1 capacity comes from manager_settings.max_alerts_per_analyst (default 35).
+    //   L2 capacity is fixed at 8 (L2 cases are deeper and longer).
+    // The headline KPI flips from "team avg %" to "X of Y analysts overloaded"
+    // — the per-analyst breakdown stays in the existing drawer.
+    const l1Capacity = Number(await getManagerSetting('max_alerts_per_analyst', 35)) || 35;
+    const L2_CAPACITY = 8;
+
+    // PR3 / Issue 8: workload also drops the date filter — open count is
+    // always current state. completed count keeps a 30-day window inside
+    // the FILTER so the "what did this analyst close recently" view stays
+    // meaningful.
     const workload = (await pool.query(`
       SELECT u.user_id,
              u.name AS analyst,
              u.role,
              u.team,
              u.avatar_color,
-             COUNT(a.id) AS total,
+             COUNT(a.id) FILTER (WHERE a.alert_status NOT IN ('Completed','Closed','Closed — False Positive','False Positive')) AS open_alerts,
              COUNT(a.id) FILTER (WHERE ${STATUS_IN_PROGRESS}) AS in_progress,
              COUNT(a.id) FILTER (WHERE ${SLA_BREACHED_CONDITION}) AS breached,
-             COUNT(a.id) FILTER (WHERE ${STATUS_CLOSED}) AS completed
+             COUNT(a.id) FILTER (WHERE ${STATUS_CLOSED} AND closed_date >= (NOW() - INTERVAL '30 days')::date::text) AS completed
         FROM user_profiles u
         LEFT JOIN alerts a
           ON a.assigned_to = u.name
-         AND a.created_date BETWEEN $1 AND $2
        WHERE u.status = 'Active'
          AND u.role IN ('analyst_l1', 'analyst_l2')
        GROUP BY u.user_id, u.name, u.role, u.team, u.avatar_color
-       ORDER BY total DESC, u.name ASC
-    `, [from, to])).rows.map(r => {
-      const total = Number(r.total);
+       ORDER BY open_alerts DESC, u.name ASC
+    `)).rows.map(r => {
+      const open = Number(r.open_alerts);
       const inProgress = Number(r.in_progress);
+      const roleCapacity = r.role === 'analyst_l2' ? L2_CAPACITY : l1Capacity;
+      const isOverloaded = open > roleCapacity;
+      const utilization_pct = roleCapacity > 0
+        ? Math.min(999, Math.round((open / roleCapacity) * 100))
+        : 0;
       return {
         user_id: r.user_id,
         analyst: r.analyst,
         role: r.role,
         team: r.team,
         avatar_color: r.avatar_color,
-        total,
+        // 'total' kept for legacy frontend callers — equals open_alerts now
+        total: open,
+        open_alerts: open,
         in_progress: inProgress,
         breached: Number(r.breached),
         completed: Number(r.completed),
-        capacity: 15,
-        utilization_pct: Math.min(100, Math.round(((inProgress + total * 0.2) / 15) * 100))
+        capacity: roleCapacity,
+        role_capacity: roleCapacity,
+        is_overloaded: isOverloaded,
+        utilization_pct
       };
     });
 
-    const totalCases = await numFrom(
-      'SELECT COUNT(*) AS c FROM cases WHERE created_date BETWEEN $1 AND $2',
-      [from, to]
-    );
+    const overloadedCount = workload.filter(w => w.is_overloaded).length;
+    const totalAnalysts = workload.length;
+
+    // Conversion-rate metrics: keep all-time semantics (matches operational
+    // counts above). The "in the period" numbers are not surfaced on the
+    // dashboard anymore — they were tied to the now-removed date filter.
+    const totalCases = await numFrom('SELECT COUNT(*) AS c FROM cases', []);
     const totalSars = await numFrom(
-      "SELECT COUNT(*) AS c FROM sar_filings WHERE filed_date IS NOT NULL AND filed_date BETWEEN $1 AND $2",
-      [from, to]
+      "SELECT COUNT(*) AS c FROM sar_filings WHERE filed_date IS NOT NULL", []
     );
     const conversionRatePct = totalAlerts > 0
       ? Math.round((casesConverted / totalAlerts) * 1000) / 10
       : 0;
 
-    // OFAC freshness signal for the dashboard stale-banner. last_success
-    // is the most recent successful SDN download; last_attempt is the most
-    // recent attempt regardless of outcome (so we can flag a failed run).
+    // OFAC freshness signal for the dashboard stale-banner.
     const ofacLastSuccess = (await pool.query(
       "SELECT downloaded_at FROM ofac_download_log WHERE status = 'success' ORDER BY downloaded_at DESC LIMIT 1"
     )).rows[0] || null;
@@ -234,9 +260,16 @@ router.get('/stats', async (req, res, next) => {
              || (ofacLastSuccess == null)
     };
 
+    // PR3 / Issue 13: program-health summary surfaced as the HealthStrip.
+    // Each sub-pill returns { status: 'ok'|'warning'|'error'|'unknown',
+    // message, …details }. Failures inside any block are swallowed so a
+    // single broken table cannot crash the dashboard.
+    const health = await buildHealthBlock({ ofacStatus });
+
     res.json({
       scope: { assigned_to: assigned_to || null, from, to },
       ofac_status: ofacStatus,
+      health,
       kpis: {
         total_alerts: totalAlerts,
         unassigned,
@@ -251,6 +284,13 @@ router.get('/stats', async (req, res, next) => {
         total_sars: totalSars,
         conversion_rate_pct: conversionRatePct,
         false_positive_rate_pct: falsePositiveRate,
+        // PR3 / Issue 9: new headline. team_capacity_pct preserved for
+        // legacy consumers; drawer is unchanged.
+        overloaded_count: overloadedCount,
+        total_analysts: totalAnalysts,
+        overload_headline: totalAnalysts > 0
+          ? `${overloadedCount} of ${totalAnalysts} overloaded`
+          : 'No active analysts',
         team_capacity_pct: workload.length
           ? Math.round(workload.reduce((s, w) => s + w.utilization_pct, 0) / workload.length)
           : 0
@@ -264,6 +304,168 @@ router.get('/stats', async (req, res, next) => {
     });
   } catch (err) { next(err); }
 });
+
+// ───────────────────────── Issue 13: health block builder
+//
+// Returns { ofac, background_jobs, retention, kyc_queue } where each
+// sub-block has `status` of 'ok' | 'warning' | 'error' | 'unknown' plus
+// a short message and the raw counts the frontend pill needs.
+async function buildHealthBlock({ ofacStatus }) {
+  const health = {
+    ofac: { status: 'unknown', message: null },
+    background_jobs: { status: 'unknown', healthy_count: 0, total_count: 0, jobs: [] },
+    retention: { status: 'unknown' },
+    kyc_queue: { status: 'unknown' }
+  };
+
+  // OFAC pill — reuses the ofac_status computed for the stale banner.
+  try {
+    const hours = ofacStatus?.hours_since_success;
+    let pendingAdj = 0;
+    try {
+      pendingAdj = Number((await pool.query(
+        "SELECT COUNT(*) AS c FROM ofac_screening_results WHERE status = 'pending'"
+      )).rows[0].c) || 0;
+    } catch (_e) { /* leave at 0 */ }
+    let status = 'ok';
+    let message = null;
+    if (ofacStatus?.last_status === 'failed') {
+      status = 'error';
+      message = `Last sync attempt failed${hours != null ? ` ${Math.round(hours)}h ago` : ''}`;
+    } else if (hours != null && hours > 36) {
+      status = 'error';
+      message = `No successful sync in ${Math.round(hours)}h`;
+    } else if (pendingAdj > 3) {
+      status = 'warning';
+      message = `${pendingAdj} OFAC matches pending adjudication`;
+    }
+    health.ofac = {
+      status,
+      last_sync_at: ofacStatus?.last_success_at || null,
+      hours_since_sync: hours,
+      pending_adjudications: pendingAdj,
+      message
+    };
+  } catch (_e) { /* keep 'unknown' */ }
+
+  // Background-job pill. The codebase doesn't have a sync_runs table yet —
+  // only ofacSync has a real history via ofac_download_log. The other two
+  // jobs (slaMonitor, kycReviewMonitor) report 'unknown' until that table
+  // exists, with a message explaining why.
+  try {
+    const jobs = [];
+
+    // ofacSync — real history available
+    try {
+      const r = await pool.query(
+        "SELECT downloaded_at FROM ofac_download_log WHERE status = 'success' ORDER BY downloaded_at DESC LIMIT 1"
+      );
+      const last = r.rows[0]?.downloaded_at || null;
+      const hours = last ? (Date.now() - new Date(last).getTime()) / 3600000 : null;
+      jobs.push({
+        name: 'ofacSync',
+        last_success_at: last,
+        status: last && hours <= 25 ? 'ok' : last ? 'error' : 'unknown'
+      });
+    } catch (_e) {
+      jobs.push({ name: 'ofacSync', last_success_at: null, status: 'unknown' });
+    }
+
+    // slaMonitor + kycReviewMonitor — no history table; report unknown.
+    jobs.push({
+      name: 'slaMonitor',
+      last_success_at: null,
+      status: 'unknown',
+      message: 'No run-history table; add sync_runs for precise tracking'
+    });
+    jobs.push({
+      name: 'kycReviewMonitor',
+      last_success_at: null,
+      status: 'unknown',
+      message: 'No run-history table; add sync_runs for precise tracking'
+    });
+
+    const healthyCount = jobs.filter(j => j.status === 'ok').length;
+    const totalCount = jobs.length;
+    let status;
+    if (jobs.some(j => j.status === 'error')) status = 'error';
+    else if (jobs.some(j => j.status === 'unknown')) status = 'warning';
+    else status = 'ok';
+    health.background_jobs = {
+      status,
+      healthy_count: healthyCount,
+      total_count: totalCount,
+      jobs,
+      message: status === 'error'
+        ? 'One or more jobs have no recent successful run'
+        : status === 'warning'
+          ? 'Some jobs have no run-history tracking'
+          : null
+    };
+  } catch (_e) { /* keep 'unknown' */ }
+
+  // Retention pill — SARs whose retention_expiry_date is within 30 days.
+  try {
+    const r = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (
+          WHERE retention_expiry_date IS NOT NULL
+            AND retention_expiry_date::date <= (NOW() + INTERVAL '30 days')::date
+            AND retention_expiry_date::date >= NOW()::date
+            AND sar_status = 'Filed'
+        )::int AS expiring_30,
+        COUNT(*) FILTER (
+          WHERE retention_expiry_date IS NOT NULL
+            AND retention_expiry_date::date <= (NOW() + INTERVAL '90 days')::date
+            AND retention_expiry_date::date >= NOW()::date
+            AND sar_status = 'Filed'
+        )::int AS expiring_90
+      FROM sar_filings
+    `);
+    const e30 = Number(r.rows[0].expiring_30) || 0;
+    const e90 = Number(r.rows[0].expiring_90) || 0;
+    let status;
+    if (e30 > 3) status = 'error';
+    else if (e30 > 0) status = 'warning';
+    else status = 'ok';
+    health.retention = {
+      status,
+      expiring_within_30_days: e30,
+      expiring_within_90_days: e90,
+      message: status === 'error'
+        ? `${e30} SARs expire within 30 days`
+        : status === 'warning'
+          ? `${e30} SAR expires within 30 days`
+          : null
+    };
+  } catch (_e) { /* keep 'unknown' */ }
+
+  // KYC queue pill — overdue and due-soon counts.
+  try {
+    const overdue = Number((await pool.query(
+      "SELECT COUNT(*) AS c FROM kyc_reviews WHERE status = 'overdue'"
+    )).rows[0].c) || 0;
+    const dueSoon = Number((await pool.query(
+      "SELECT COUNT(*) AS c FROM kyc_reviews WHERE due_date IS NOT NULL AND due_date::date <= (NOW() + INTERVAL '15 days')::date AND status NOT IN ('completed','approved')"
+    )).rows[0].c) || 0;
+    let status;
+    if (overdue > 10) status = 'error';
+    else if (overdue > 5) status = 'warning';
+    else status = 'ok';
+    health.kyc_queue = {
+      status,
+      overdue_count: overdue,
+      due_soon_count: dueSoon,
+      message: status === 'error'
+        ? `${overdue} KYC reviews overdue`
+        : status === 'warning'
+          ? `${overdue} KYC reviews overdue`
+          : null
+    };
+  } catch (_e) { /* keep 'unknown' */ }
+
+  return health;
+}
 
 // ─── 1. Total Alerts
 router.get('/drawer/total-alerts', async (req, res, next) => {
@@ -285,12 +487,12 @@ router.get('/drawer/total-alerts', async (req, res, next) => {
     if (escalated > 0) breakdown.push({ name: 'Escalated', value: escalated });
 
     const high_priority = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE priority = 'High' AND alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive') AND created_date BETWEEN $1 AND $2",
+      "SELECT COUNT(*) AS c FROM alerts WHERE priority = 'High' AND alert_status NOT IN ('Completed','Closed','Closed — False Positive') AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
     const breaching_today = await num(`
       SELECT COUNT(*) AS c FROM alerts
-       WHERE alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')
+       WHERE alert_status NOT IN ('Completed','Closed','Closed — False Positive')
          AND sla_deadline IS NOT NULL
          AND substr(sla_deadline, 1, 10) = ${TODAY}
          AND created_date BETWEEN $1 AND $2
@@ -336,7 +538,7 @@ router.get('/drawer/in-progress', async (req, res, next) => {
              u.role,
              u.avatar_color,
              COUNT(a.id) FILTER (WHERE a.alert_status IN ('In Progress', 'Work in Progress')) AS in_progress,
-             COUNT(a.id) FILTER (WHERE a.alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')) AS total_open
+             COUNT(a.id) FILTER (WHERE a.alert_status NOT IN ('Completed','Closed','Closed — False Positive')) AS total_open
         FROM user_profiles u
         LEFT JOIN alerts a
           ON a.assigned_to = u.name
@@ -383,19 +585,19 @@ router.get('/drawer/completed', async (req, res, next) => {
     const { from, to } = parseRange(req);
     const num = async (sql, p) => Number((await pool.query(sql, p)).rows[0].c);
     const total = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND created_date BETWEEN $1 AND $2",
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Closed — False Positive') AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
     const fp = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 0 AND created_date BETWEEN $1 AND $2",
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Closed — False Positive') AND case_converted = 0 AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
     const l2 = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 1 AND linked_sar_id IS NULL AND created_date BETWEEN $1 AND $2",
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Closed — False Positive') AND case_converted = 1 AND linked_sar_id IS NULL AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
     const sar = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND linked_sar_id IS NOT NULL AND created_date BETWEEN $1 AND $2",
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Closed — False Positive') AND linked_sar_id IS NOT NULL AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
 
@@ -416,14 +618,14 @@ router.get('/drawer/completed', async (req, res, next) => {
       SELECT alert_id, assigned_to AS analyst,
              CAST(closed_date::date - created_date::date AS INTEGER) AS days
         FROM alerts
-       WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')
+       WHERE alert_status IN ('Completed', 'Closed', 'Closed — False Positive')
          AND closed_date IS NOT NULL
          AND created_date BETWEEN $1 AND $2
        ORDER BY days ASC
        LIMIT 3
     `, [from, to])).rows;
 
-    const trend = await compareThisVsLast('alerts', 'closed_date', "alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')");
+    const trend = await compareThisVsLast('alerts', 'closed_date', "alert_status IN ('Completed', 'Closed', 'Closed — False Positive')");
     res.json({ total, fp, l2, sar, by_week, fastest, trend });
   } catch (err) { next(err); }
 });
@@ -444,7 +646,7 @@ router.get('/drawer/sla-breaches', async (req, res, next) => {
         FROM alerts
        WHERE (${SLA_BREACHED_CONDITION})
          AND sla_deadline IS NOT NULL
-         AND alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')
+         AND alert_status NOT IN ('Completed','Closed','Closed — False Positive')
          AND created_date BETWEEN $1 AND $2
     `, [from, to])).rows.map(r => ({ ...r, days_overdue: Number(r.days_overdue) }));
 
@@ -493,7 +695,7 @@ router.get('/drawer/avg-aging', async (req, res, next) => {
     const open = (await pool.query(`
       SELECT alert_id, customer_name, age_days, assigned_to
         FROM alerts
-       WHERE alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')
+       WHERE alert_status NOT IN ('Completed','Closed','Closed — False Positive')
          AND created_date BETWEEN $1 AND $2
     `, [from, to])).rows;
     const total_open = open.length;
@@ -589,7 +791,7 @@ router.get('/drawer/team-capacity', async (req, res, next) => {
              u.role,
              u.team,
              u.avatar_color,
-             COUNT(a.id) FILTER (WHERE a.alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')) AS open
+             COUNT(a.id) FILTER (WHERE a.alert_status NOT IN ('Completed','Closed','Closed — False Positive')) AS open
         FROM user_profiles u
         LEFT JOIN alerts a
           ON a.assigned_to = u.name
@@ -638,17 +840,17 @@ router.get('/drawer/false-positive', async (req, res, next) => {
     const { from, to } = parseRange(req);
     const num = async (sql, p) => Number((await pool.query(sql, p)).rows[0].c);
     const closed = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND created_date BETWEEN $1 AND $2", [from, to]
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Closed — False Positive') AND created_date BETWEEN $1 AND $2", [from, to]
     );
     const fp = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 0 AND created_date BETWEEN $1 AND $2", [from, to]
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('Completed', 'Closed', 'Closed — False Positive') AND case_converted = 0 AND created_date BETWEEN $1 AND $2", [from, to]
     );
     const rate_pct = closed > 0 ? Math.round((fp / closed) * 1000) / 10 : 0;
 
     const monthRate = async (sinceExpr, untilExpr) => {
       const sql = `SELECT
-        SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 0 THEN 1 ELSE 0 END) AS fp,
-        SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') THEN 1 ELSE 0 END) AS closed
+        SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Closed — False Positive') AND case_converted = 0 THEN 1 ELSE 0 END) AS fp,
+        SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Closed — False Positive') THEN 1 ELSE 0 END) AS closed
         FROM alerts
        WHERE closed_date IS NOT NULL
          AND closed_date >= ${sinceExpr}
@@ -664,12 +866,12 @@ router.get('/drawer/false-positive', async (req, res, next) => {
     const by_scenario = (await pool.query(`
       SELECT scenario,
              COUNT(*) AS total,
-             SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 0 THEN 1 ELSE 0 END) AS fp_count
+             SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Closed — False Positive') AND case_converted = 0 THEN 1 ELSE 0 END) AS fp_count
         FROM alerts
-       WHERE alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND scenario IS NOT NULL
+       WHERE alert_status IN ('Completed', 'Closed', 'Closed — False Positive') AND scenario IS NOT NULL
          AND created_date BETWEEN $1 AND $2
        GROUP BY scenario
-       ORDER BY (CAST(SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive') AND case_converted = 0 THEN 1.0 ELSE 0 END) AS DOUBLE PRECISION) / NULLIF(COUNT(*), 0)) DESC
+       ORDER BY (CAST(SUM(CASE WHEN alert_status IN ('Completed', 'Closed', 'Closed — False Positive') AND case_converted = 0 THEN 1.0 ELSE 0 END) AS DOUBLE PRECISION) / NULLIF(COUNT(*), 0)) DESC
        LIMIT 4
     `, [from, to])).rows.map(r => {
       const total = Number(r.total);
@@ -708,7 +910,7 @@ router.get('/drawer/unassigned', async (req, res, next) => {
       SELECT u.name,
              u.role,
              u.avatar_color,
-             COUNT(a.id) FILTER (WHERE a.alert_status NOT IN ('Completed','Closed','Filed','Closed — False Positive')) AS open
+             COUNT(a.id) FILTER (WHERE a.alert_status NOT IN ('Completed','Closed','Closed — False Positive')) AS open
         FROM user_profiles u
         LEFT JOIN alerts a
           ON a.assigned_to = u.name
@@ -808,7 +1010,7 @@ router.get('/worklist', async (_req, res, next) => {
              MAX(returned_from_l2_at) AS most_recent
         FROM alerts
        WHERE returned_from_l2_at IS NOT NULL
-         AND alert_status NOT IN ('Completed', 'Closed', 'Filed', 'Closed — False Positive')
+         AND alert_status NOT IN ('Completed', 'Closed', 'Closed — False Positive')
     `);
 
     // Legal holds table is not built yet; query in a try/catch and fall
@@ -872,6 +1074,69 @@ router.get('/worklist', async (_req, res, next) => {
         not_implemented: true   // surfaces the "Coming soon" badge on the frontend
       },
       generated_at: new Date().toISOString()
+    });
+  } catch (err) { next(err); }
+});
+
+// ─────────────────────────────────────────────── Issue 11: SAR 30-day clock
+//
+// FinCEN 31 CFR 1020.320(b)(3) requires SARs to be filed within 30 days
+// of detecting suspicious activity. There is no detection_date column on
+// alerts today, so alerts.created_date is used as the proxy with a comment.
+// When a real detection_date is added, swap COALESCE(a.detection_date, a.created_date)
+// in below. The join chain is sar_filings → cases → alerts → customers
+// using cases.source_alert_id (the actual FK; cases.alert_id does not exist).
+router.get('/sar-clock', async (_req, res, next) => {
+  try {
+    const rows = (await pool.query(`
+      SELECT sf.sar_id,
+             sf.sar_status,
+             sf.case_id,
+             c.customer_id,
+             cu.customer_name,
+             a.alert_id,
+             a.created_date::date                                      AS detection_date,
+             sf.submitted_at,
+             (NOW()::date - a.created_date::date)                      AS days_since_detection,
+             (30 - (NOW()::date - a.created_date::date))               AS days_remaining
+        FROM sar_filings sf
+        JOIN cases c       ON sf.case_id = c.case_id
+        JOIN alerts a      ON c.source_alert_id = a.alert_id
+        JOIN customers cu  ON a.customer_id = cu.customer_id
+       WHERE sf.sar_status NOT IN ('Filed', 'Draft')
+       ORDER BY days_remaining ASC
+    `)).rows;
+
+    const items = rows.map(r => {
+      const daysRemaining = Number(r.days_remaining);
+      let urgency;
+      if (daysRemaining < 0)      urgency = 'overdue';
+      else if (daysRemaining <= 3) urgency = 'critical';
+      else if (daysRemaining <= 7) urgency = 'warning';
+      else                         urgency = 'ok';
+      return {
+        sar_id: r.sar_id,
+        sar_status: r.sar_status,
+        case_id: r.case_id,
+        customer_id: r.customer_id,
+        customer_name: r.customer_name,
+        alert_id: r.alert_id,
+        detection_date: r.detection_date,
+        submitted_at: r.submitted_at || null,
+        days_since_detection: Number(r.days_since_detection),
+        days_remaining: daysRemaining,
+        urgency
+      };
+    });
+
+    res.json({
+      generated_at: new Date().toISOString(),
+      detection_date_source: 'alerts.created_date (proxy; no detection_date column yet)',
+      overdue: items.filter(i => i.urgency === 'overdue').length,
+      due_within_3_days: items.filter(i => i.urgency === 'critical').length,
+      due_within_7_days: items.filter(i => i.urgency === 'warning').length,
+      in_flight: items.length,
+      items
     });
   } catch (err) { next(err); }
 });
