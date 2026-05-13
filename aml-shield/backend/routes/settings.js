@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../database/db');
 const { MANAGER_DEFAULTS, EMPLOYEE_DEFAULTS } = require('../database/admin_defaults');
+const { requireManager } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -33,7 +34,7 @@ router.get('/manager', async (_req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/manager', async (req, res, next) => {
+router.post('/manager', requireManager, async (req, res, next) => {
   try {
     const body = req.body || {};
     let changed = 0;
@@ -57,7 +58,7 @@ router.get('/employee/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/employee/:id', async (req, res, next) => {
+router.post('/employee/:id', requireManager, async (req, res, next) => {
   try {
     const body = req.body || {};
     let changed = 0;
@@ -75,14 +76,14 @@ router.post('/employee/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/manager', async (_req, res, next) => {
+router.delete('/manager', requireManager, async (_req, res, next) => {
   try {
     await pool.query('DELETE FROM manager_settings');
     res.json({ ok: true, settings: await loadManager() });
   } catch (err) { next(err); }
 });
 
-router.delete('/employee/:id', async (req, res, next) => {
+router.delete('/employee/:id', requireManager, async (req, res, next) => {
   try {
     await pool.query('DELETE FROM employee_settings WHERE analyst_id = $1', [req.params.id]);
     res.json({ ok: true, settings: await loadEmployee(req.params.id) });

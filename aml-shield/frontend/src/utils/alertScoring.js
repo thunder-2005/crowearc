@@ -6,7 +6,7 @@
 // The math is identical across all three surfaces — single source of truth
 // here so the analyst sees consistent ranking everywhere.
 
-const OPEN_STATUSES = new Set(['Not Started', 'In Progress', 'Work in Progress']);
+const OPEN_STATUSES = new Set(['Not Started', 'In Progress']);
 
 export function getAlertScore(alert) {
   if (!alert) return 0;

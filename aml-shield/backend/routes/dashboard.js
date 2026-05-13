@@ -5,12 +5,11 @@ const { getManagerSetting } = require('../utils/getManagerSetting');
 const router = express.Router();
 
 // ─── Canonical alert_status taxonomy ──────────────────────────────────
-// The DB carries multiple variants for the same conceptual state — most
-// notably 'In Progress' (seeded) vs 'Work in Progress' (live transitions),
-// and 'Completed' (resolved-OK) vs 'Closed — False Positive' (em dash,
-// FP-closed). These constants are inlined into SQL fragments below so
-// every KPI counts every relevant row.
-const STATUS_IN_PROGRESS = "alert_status IN ('In Progress', 'Work in Progress')";
+// 'In Progress' is the canonical in-flight status (legacy 'Work in
+// Progress' rows were canonicalised). 'Completed' is resolved-OK,
+// 'Closed — False Positive' (em dash) is FP-closed. These constants are
+// inlined into SQL fragments below so every KPI counts every relevant row.
+const STATUS_IN_PROGRESS = "alert_status = 'In Progress'";
 // Closed-state set: includes everything that's "no longer active" so KPIs
 // like "Completed/Closed" and the FP-rate denominator capture the full
 // set. Bulk-close writes 'Closed — False Positive'; the legacy path used
@@ -27,10 +26,9 @@ const STATUS_NOT_CLOSED  = "alert_status NOT IN ('Completed', 'Closed', 'Closed 
 // recomputes from sla_deadline + alert_status on every query so the KPI
 // always reflects the current state of the queue.
 //
-// NOTE: Work in Progress alerts intentionally included in breach count —
+// NOTE: In-Progress alerts intentionally included in breach count —
 // an actively-worked breach is the highest-priority signal for a manager,
-// not something to hide. Previously excluded by accident; SLA breach count
-// will rise as Work-in-Progress deadlines pass through today's date.
+// not something to hide.
 const SLA_BREACHED_CONDITION = "sla_deadline IS NOT NULL AND sla_deadline::date < NOW()::date AND alert_status NOT IN ('Completed', 'Closed', 'Closed — False Positive', 'False Positive', 'Escalated - SAR')";
 
 // PG SQL fragments for date math (text-comparable YYYY-MM-DD).
@@ -527,7 +525,7 @@ router.get('/drawer/in-progress', async (req, res, next) => {
     const { from, to } = parseRange(req);
     const num = async (sql, p) => Number((await pool.query(sql, p)).rows[0].c);
     const total = await num(
-      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status IN ('In Progress', 'Work in Progress') AND created_date BETWEEN $1 AND $2",
+      "SELECT COUNT(*) AS c FROM alerts WHERE alert_status = 'In Progress' AND created_date BETWEEN $1 AND $2",
       [from, to]
     );
     // Single GROUP BY query joining user_profiles → alerts. Replaces the
@@ -537,7 +535,7 @@ router.get('/drawer/in-progress', async (req, res, next) => {
       SELECT u.name,
              u.role,
              u.avatar_color,
-             COUNT(a.id) FILTER (WHERE a.alert_status IN ('In Progress', 'Work in Progress')) AS in_progress,
+             COUNT(a.id) FILTER (WHERE a.alert_status = 'In Progress') AS in_progress,
              COUNT(a.id) FILTER (WHERE a.alert_status NOT IN ('Completed','Closed','Closed — False Positive')) AS total_open
         FROM user_profiles u
         LEFT JOIN alerts a
@@ -546,7 +544,7 @@ router.get('/drawer/in-progress', async (req, res, next) => {
        WHERE u.status = 'Active'
          AND u.role IN ('analyst_l1', 'analyst_l2')
        GROUP BY u.name, u.role, u.avatar_color
-       HAVING COUNT(a.id) FILTER (WHERE a.alert_status IN ('In Progress', 'Work in Progress')) > 0
+       HAVING COUNT(a.id) FILTER (WHERE a.alert_status = 'In Progress') > 0
        ORDER BY in_progress DESC
     `, [from, to])).rows.map(r => {
       const inProgress = Number(r.in_progress);
@@ -568,13 +566,13 @@ router.get('/drawer/in-progress', async (req, res, next) => {
     const oldest = (await pool.query(`
       SELECT alert_id, customer_name, age_days, priority
         FROM alerts
-       WHERE alert_status IN ('In Progress', 'Work in Progress')
+       WHERE alert_status = 'In Progress'
          AND created_date BETWEEN $1 AND $2
        ORDER BY age_days DESC
        LIMIT 3
     `, [from, to])).rows;
 
-    const trend = await compareThisVsLast('alerts', 'last_activity_date', "alert_status IN ('In Progress', 'Work in Progress')");
+    const trend = await compareThisVsLast('alerts', 'last_activity_date', "alert_status = 'In Progress'");
     res.json({ total, by_analyst, oldest, trend });
   } catch (err) { next(err); }
 });

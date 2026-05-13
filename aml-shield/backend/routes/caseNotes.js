@@ -1,10 +1,11 @@
 const express = require('express');
 const pool = require('../database/db');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
+const { requireAnyAnalyst } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireAnyAnalyst, async (req, res, next) => {
   try {
     const { alert_id, note_text, analyst } = req.body;
     if (!alert_id || !note_text) {

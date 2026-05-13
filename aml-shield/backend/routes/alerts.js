@@ -10,7 +10,7 @@ const router = express.Router();
 // terminal (closed / completed / filed / handed off to L2 or SAR) is
 // excluded so capacity reflects active work in front of the analyst.
 const OPEN_FOR_QUOTA_STATUSES = [
-  'Unassigned', 'Not Started', 'In Progress', 'Work in Progress'
+  'Unassigned', 'Not Started', 'In Progress'
 ];
 
 async function countOpenAlertsFor(analyst, client) {
@@ -86,7 +86,6 @@ router.get('/', async (req, res, next) => {
         CASE a.alert_status
           WHEN 'Unassigned'         THEN 1
           WHEN 'Not Started'        THEN 2
-          WHEN 'Work in Progress'   THEN 3
           WHEN 'In Progress'        THEN 3
           WHEN 'Escalated - L2'     THEN 4
           WHEN 'Escalated - SAR'    THEN 4
@@ -244,14 +243,11 @@ router.patch('/:id/status', requireAnyAnalyst, async (req, res, next) => {
       [alert_status, assigned_to || null, new Date().toISOString().slice(0, 10), before.alert_id]
     );
 
-    // Audit: differentiate "Investigation started" (Not Started → Work in
-    // Progress when the L1 opens the workspace) from a generic status change.
+    // Audit: differentiate "Investigation started" (Not Started → In Progress
+    // when the L1 opens the workspace) from a generic status change.
     if (before.alert_status !== alert_status) {
       const wasNotStarted = (before.alert_status || '').toLowerCase() === 'not started';
-      // The DB has both 'In Progress' (seeded) and 'Work in Progress' (set by
-      // L2 return + the auto-transition path). Accept either form.
-      const incoming = (alert_status || '').toLowerCase();
-      const nowInProgress = incoming === 'work in progress' || incoming === 'in progress';
+      const nowInProgress = (alert_status || '').toLowerCase() === 'in progress';
       const action = (wasNotStarted && nowInProgress)
         ? 'Investigation started'
         : `Status changed from ${before.alert_status} to ${alert_status}`;
@@ -455,6 +451,10 @@ router.patch('/bulk-close', requireManager, async (req, res, next) => {
         skipped++;
         continue;
       }
+      // Match the canonical seed-data status string (em dash, "Closed" first).
+      // Bulk-close was previously writing 'Completed' here which made KPI
+      // queries that look for 'Closed — False Positive' miss every row.
+      // Disposition stays as 'False Positive' to match seed convention.
       await client.query(`
         UPDATE alerts
            SET alert_status = $1,
@@ -462,10 +462,6 @@ router.patch('/bulk-close', requireManager, async (req, res, next) => {
                closed_date = $3,
                last_activity_date = $4
          WHERE alert_id = $5
-      // Match the canonical seed-data status string (em dash, "Closed" first).
-      // Bulk-close was previously writing 'Completed' here which made KPI
-      // queries that look for 'Closed — False Positive' miss every row.
-      // Disposition stays as 'False Positive' to match seed convention.
       `, ['Closed — False Positive', 'False Positive', today, today, row.alert_id]);
       await logAudit({
         entity_type: ENTITY_TYPES.ALERT, entity_id: row.alert_id,

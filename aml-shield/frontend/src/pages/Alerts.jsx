@@ -17,12 +17,12 @@ import ReopenRequestModal from '../components/alerts/ReopenRequestModal.jsx';
 // manager hasn't routed to anyone yet have no business showing up in an
 // analyst's personal queue). Manager keeps the full taxonomy via the
 // separate ManagerAlertsTable component.
-const COLUMNS_FULL = ['Unassigned', 'Not Started', 'Work in Progress', 'Escalated', 'Completed'];
-const COLUMNS_L1   = [              'Not Started', 'Work in Progress', 'Escalated', 'Completed'];
+const COLUMNS_FULL = ['Unassigned', 'Not Started', 'In Progress', 'Escalated', 'Completed'];
+const COLUMNS_L1   = [              'Not Started', 'In Progress', 'Escalated', 'Completed'];
 const COLUMN_ACCENT = {
   'Unassigned':       'border-t-slate-400',
   'Not Started':      'border-t-orange-400',
-  'Work in Progress': 'border-t-blue-500',
+  'In Progress':      'border-t-blue-500',
   'Escalated':        'border-t-purple-500',
   'Completed':        'border-t-green-500'
 };
@@ -33,12 +33,12 @@ const ESCALATED_STATUSES = new Set(['Escalated - L2', 'Escalated - SAR']);
 const COLUMN_STATUSES = {
   'Unassigned':       ['Unassigned'],
   'Not Started':      ['Not Started'],
-  'Work in Progress': ['In Progress', 'Work in Progress'],
+  'In Progress':      ['In Progress'],
   'Escalated':        ['Escalated - L2', 'Escalated - SAR'],
   'Completed':        ['Completed', 'Closed — False Positive', 'False Positive']
 };
 
-const OPEN_STATUSES_FOR_NEXT_UP = new Set(['Not Started', 'In Progress', 'Work in Progress']);
+const OPEN_STATUSES_FOR_NEXT_UP = new Set(['Not Started', 'In Progress']);
 
 const SCENARIO_OPTIONS = [
   'Structuring',
@@ -152,7 +152,6 @@ export default function Alerts() {
     for (const a of sorted) {
       let target = a.alert_status;
       if (ESCALATED_STATUSES.has(target)) target = 'Escalated';
-      else if (target === 'In Progress')              target = 'Work in Progress';
       else if (target === 'Closed — False Positive') target = 'Completed';
       else if (target === 'False Positive')           target = 'Completed';
       const col = g[target];
@@ -209,7 +208,7 @@ export default function Alerts() {
 
   const startInvestigation = async (alert) => {
     if (isEmployee && alert.alert_status === 'Not Started') {
-      await updateStatus(alert, 'Work in Progress');
+      await updateStatus(alert, 'In Progress');
     }
     openTab(alert, { level: 'L1' });
     setSelected(null);

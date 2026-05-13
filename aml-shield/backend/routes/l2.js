@@ -373,7 +373,7 @@ router.patch('/:id/return', requireL2OrManager, async (req, res, next) => {
 
     await pool.query(`
       UPDATE alerts
-         SET alert_status = 'Work in Progress',
+         SET alert_status = 'In Progress',
              assigned_to = COALESCE($1, assigned_to),
              returned_from_l2_at = $2,
              l2_return_reason = $3,

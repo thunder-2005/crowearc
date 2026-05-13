@@ -699,7 +699,7 @@ function ActivityLogTab({ alert }) {
       ev.push({ ts: `${alert.created_date} 00:05:00`, kind: 'Alert assigned',
         who: alert.assigned_to, detail: `Routed to ${alert.assigned_to}` });
     }
-    if (alert.alert_status === 'Work in Progress' || alert.alert_status === 'In Progress') {
+    if (alert.alert_status === 'In Progress') {
       ev.push({ ts: `${alert.last_activity_date} 09:00:00`, kind: 'Investigation started',
         who: alert.assigned_to, detail: 'Analyst opened the investigation workspace' });
     }

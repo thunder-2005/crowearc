@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../database/db');
+const { requireAnyAnalyst } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -63,7 +64,7 @@ router.get('/:sar_id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireAnyAnalyst, async (req, res, next) => {
   try {
     const { sar_id, action, performed_by, details, entity_type } = req.body;
     if (!sar_id || !action) return res.status(400).json({ error: 'sar_id and action required' });

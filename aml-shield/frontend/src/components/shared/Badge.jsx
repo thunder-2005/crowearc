@@ -1,8 +1,6 @@
 const STATUS_STYLES = {
   'Filed':            'bg-green-100 text-green-700',
   'In Progress':      'bg-blue-100 text-blue-700',
-  'Work In Progress': 'bg-blue-100 text-blue-700',
-  'Work in Progress': 'bg-blue-100 text-blue-700',
   'Pending Review':   'bg-orange-100 text-orange-700',
   'Not Started':      'bg-slate-200 text-slate-700',
   'Unassigned':       'bg-slate-100 text-slate-600',

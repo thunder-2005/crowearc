@@ -118,19 +118,19 @@ export default function App() {
                 <Route path="dashboard"             element={<Dashboard />} />
                 <Route path="alerts"                element={<Alerts />} />
                 <Route path="cases"                 element={
-                  <ProtectedRoute allowedRoles={['analyst_l2', 'compliance_manager', 'bsa_officer']}>
+                  <ProtectedRoute allowedRoles={['analyst_l2']}>
                     <Cases />
                   </ProtectedRoute>
                 } />
                 <Route path="customers"             element={<CustomerKYC />} />
                 <Route path="customers/:id"         element={<CustomerKYC />} />
                 <Route path="sars"                  element={
-                  <ProtectedRoute allowedRoles={['analyst_l2', 'compliance_manager', 'bsa_officer']}>
+                  <ProtectedRoute allowedRoles={['analyst_l2']}>
                     <SARRepository />
                   </ProtectedRoute>
                 } />
                 <Route path="sar-filing/:caseId"    element={
-                  <ProtectedRoute allowedRoles={['analyst_l2', 'compliance_manager', 'bsa_officer']}>
+                  <ProtectedRoute allowedRoles={['analyst_l2']}>
                     <SARFiling />
                   </ProtectedRoute>
                 } />

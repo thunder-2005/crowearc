@@ -826,7 +826,7 @@ function LastUpdatedIndicator({ lastUpdated, pollError }) {
 
 const DRAWER_META = {
   'total-alerts':    { title: 'Total Alerts',         icon: AlertTriangle, tone: 'default', viewAllLabel: 'View All Alerts',  viewAllPath: 'alerts', filter: {},                                trendDir: 'neutral' },
-  'in-progress':     { title: 'In Progress',          icon: Activity,      tone: 'blue',    viewAllLabel: 'View In Progress', viewAllPath: 'alerts', filter: { alert_status: 'Work in Progress' }, trendDir: 'less_is_good' },
+  'in-progress':     { title: 'In Progress',          icon: Activity,      tone: 'blue',    viewAllLabel: 'View In Progress', viewAllPath: 'alerts', filter: { alert_status: 'In Progress' },     trendDir: 'less_is_good' },
   'completed':       { title: 'Completed',            icon: CheckCircle2,  tone: 'green',   viewAllLabel: 'View Completed',   viewAllPath: 'alerts', filter: { alert_status: 'Completed' },     trendDir: 'more_is_good' },
   'sla-breaches':    { title: 'SLA Breaches',         icon: Clock,         tone: 'red',     viewAllLabel: 'View SLA Breaches',viewAllPath: 'alerts', filter: { sla_breached: '1' },             trendDir: 'less_is_good' },
   'avg-aging':       { title: 'Avg Aging',            icon: TrendingUp,    tone: 'orange',  viewAllLabel: 'View Aging Report',viewAllPath: 'alerts', filter: {},                                trendDir: 'less_is_good' },

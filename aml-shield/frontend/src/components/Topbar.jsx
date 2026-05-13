@@ -473,7 +473,7 @@ const STATUS_TONE = {
   // alert
   Unassigned:        'bg-slate-100 text-slate-700',
   'Not Started':     'bg-orange-100 text-orange-700',
-  'Work in Progress':'bg-blue-100 text-blue-700',
+  'In Progress':     'bg-blue-100 text-blue-700',
   Completed:         'bg-green-100 text-green-700',
   'Escalated - L2':  'bg-purple-100 text-purple-700',
   'Escalated - SAR': 'bg-purple-100 text-purple-700',

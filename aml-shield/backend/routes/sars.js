@@ -2,6 +2,7 @@ const express = require('express');
 const archiver = require('archiver');
 const pool = require('../database/db');
 const { downloadStream } = require('../utils/supabaseStorage');
+const { requireL2OrManager } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -86,7 +87,7 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.patch('/:id', async (req, res, next) => {
+router.patch('/:id', requireL2OrManager, async (req, res, next) => {
   try {
     const idParam = req.params.id;
     const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;

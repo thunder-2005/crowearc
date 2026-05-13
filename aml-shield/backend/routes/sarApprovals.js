@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../database/db');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 const { getManagerSetting } = require('../utils/getManagerSetting');
+const { requireManager, requireBsaOfficer } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -189,7 +190,7 @@ router.post('/:id/start-review', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/approve', async (req, res, next) => {
+router.post('/:id/approve', requireManager, async (req, res, next) => {
   try {
     const idParam = req.params.id;
     const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
@@ -312,7 +313,7 @@ router.post('/:id/approve', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/reject', async (req, res, next) => {
+router.post('/:id/reject', requireManager, async (req, res, next) => {
   try {
     const idParam = req.params.id;
     const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
@@ -428,14 +429,7 @@ router.delete('/comments/:id', async (req, res, next) => {
 // to 'Returned for Revision' even though the manager had already filed it.
 // Both paths require x-user-role = 'bsa_officer'.
 
-function requireBsa(req, res, next) {
-  if (req.headers['x-user-role'] !== 'bsa_officer') {
-    return res.status(403).json({ error: 'BSA Officer role required' });
-  }
-  next();
-}
-
-router.post('/:id/bsa-sign-off', requireBsa, async (req, res, next) => {
+router.post('/:id/bsa-sign-off', requireBsaOfficer, async (req, res, next) => {
   try {
     const { notes } = req.body || {};
     const bsaName = req.headers['x-user-name'] || 'BSA Officer';
@@ -489,7 +483,7 @@ router.post('/:id/bsa-sign-off', requireBsa, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/bsa-return', requireBsa, async (req, res, next) => {
+router.post('/:id/bsa-return', requireBsaOfficer, async (req, res, next) => {
   try {
     const { reason } = req.body || {};
     if (!reason || !String(reason).trim()) {
