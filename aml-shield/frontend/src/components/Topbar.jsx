@@ -335,7 +335,7 @@ export default function Topbar() {
             )}
           </button>
           {bellOpen && (
-            <div className="absolute right-0 top-full mt-2 w-96 bg-white border border-slate-200 rounded-lg shadow-xl z-30 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-96 bg-white border border-slate-200 rounded-lg shadow-xl z-[100] overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                 <div>
                   <div className="text-sm font-semibold text-navy-900">Notifications</div>
@@ -420,7 +420,7 @@ export default function Topbar() {
             <ChevronDown size={14} className="text-slate-400 ml-1" />
           </button>
           {userMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-xl z-30 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-xl z-[100] overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
                 <div className="text-sm font-semibold text-navy-900 truncate">
                   {currentUser?.name || 'Signed in'}
@@ -625,7 +625,7 @@ function SearchResultsDropdown({ query, loading, results, total, onSelect }) {
   const empty = !loading && total === 0;
   return (
     <div
-      className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-lg shadow-xl z-30 overflow-hidden"
+      className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-lg shadow-xl z-[100] overflow-hidden"
       style={{ maxHeight: 480 }}
     >
       <div className="overflow-y-auto" style={{ maxHeight: 480 }}>
