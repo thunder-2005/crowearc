@@ -56,7 +56,7 @@ function Shell({ children }) {
  * and L2 sessions render nothing regardless of where they navigate.
  */
 function NextUpFloatIdle() {
-  const { activeId } = useInvestigationTabs();
+  const { activeId, openTab } = useInvestigationTabs();
   const location = useLocation();
   const { goTo } = useRoleNavigate();
 
@@ -64,10 +64,21 @@ function NextUpFloatIdle() {
   const inActiveInvestigation = onAlertsRoute && !!activeId;
   if (inActiveInvestigation) return null;
 
+  // Clicking Open Alert: register the alert in InvestigationTabsContext
+  // (which sets activeId), then navigate to the alerts route. The alerts
+  // page reads activeTab from context and renders InvestigationWorkspace
+  // automatically — no URL-param coordination needed. (The previous
+  // implementation passed `?alert=...` in the query string, but
+  // Alerts.jsx never read it, so nothing opened.)
+  const handleOpen = (next) => {
+    openTab(next, { level: 'L1' });
+    goTo('alerts');
+  };
+
   return (
     <NextUpFloat
       excludeAlertId={null}
-      onOpen={(next) => goTo(`alerts?alert=${next.alert_id}`)}
+      onOpen={handleOpen}
     />
   );
 }
