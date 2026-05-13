@@ -26,11 +26,15 @@ const requireManager      = roleGuard(['compliance_manager']);
 const requireL2OrManager  = roleGuard(['analyst_l2', 'compliance_manager']);
 const requireAnyAnalyst   = roleGuard(['analyst_l1', 'analyst_l2', 'compliance_manager']);
 const requireL1Only       = roleGuard(['analyst_l1']);
+const requireBsaOfficer   = roleGuard(['bsa_officer']);
+const requireBsaOrManager = roleGuard(['bsa_officer', 'compliance_manager']);
 
 module.exports = {
   roleGuard,
   requireManager,
   requireL2OrManager,
   requireAnyAnalyst,
-  requireL1Only
+  requireL1Only,
+  requireBsaOfficer,
+  requireBsaOrManager
 };

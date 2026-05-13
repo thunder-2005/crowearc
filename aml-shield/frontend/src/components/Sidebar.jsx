@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, AlertTriangle, Briefcase, Search, FileText,
   FolderOpen, Clock, ShieldCheck, Activity, BarChart3, Users, Settings,
-  IdCard, Inbox, ClipboardCheck, Lock, Gavel
+  IdCard, Inbox, ClipboardCheck, Lock, Gavel, RotateCcw
 } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
 import { useRoleNavigate } from '../state/useRoleNavigate.js';
@@ -30,6 +30,12 @@ const MANAGER_SECTIONS = [
       { to: 'customers',            icon: IdCard,         label: 'Customer KYC' },
       { to: 'kyc-reviews',          icon: ClipboardCheck, label: 'KYC Reviews', badge: 'overdueReviews',
         match: ['kyc-reviews', 'kyc-review'] }
+    ]
+  },
+  {
+    title: 'APPROVALS',
+    items: [
+      { to: 'reopen-requests',      icon: RotateCcw,   label: 'Reopen Requests', badge: 'reopenPendingManager' }
     ]
   },
   {
@@ -62,7 +68,8 @@ const BSA_SECTIONS = [
   {
     title: 'COMMAND CENTER',
     items: [
-      { to: 'dashboard',          icon: LayoutDashboard, label: 'Dashboard', exact: true }
+      { to: 'dashboard',          icon: LayoutDashboard, label: 'Dashboard', exact: true },
+      { to: 'reopen-requests',    icon: RotateCcw,       label: 'Reopen Authorizations', badge: 'reopenPendingBsa' }
     ]
   },
   {
@@ -198,19 +205,25 @@ export default function Sidebar() {
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [overdueReviews, setOverdueReviews] = useState(0);
   const [myAssignedReviews, setMyAssignedReviews] = useState(0);
+  const [reopenPendingManager, setReopenPendingManager] = useState(0);
+  const [reopenPendingBsa, setReopenPendingBsa] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
         if (isManager || isBsa) {
-          const [{ data: sar }, { data: kyc }] = await Promise.all([
+          const status = isBsa ? 'pending_bsa' : 'pending_manager';
+          const [{ data: sar }, { data: kyc }, { data: reopen }] = await Promise.all([
             api.get('/sar-approvals/stats'),
-            api.get('/kyc-reviews/stats')
+            api.get('/kyc-reviews/stats'),
+            api.get('/reopen-requests', { params: { status } })
           ]);
           if (!cancelled) {
             setPendingApprovals(sar.pending || 0);
             setOverdueReviews(kyc.overdue || 0);
+            if (isBsa) setReopenPendingBsa(reopen.count || 0);
+            else       setReopenPendingManager(reopen.count || 0);
           }
         } else if (currentAnalyst) {
           const { data } = await api.get('/kyc-reviews', {
@@ -227,7 +240,10 @@ export default function Sidebar() {
     return () => { cancelled = true; clearInterval(id); window.removeEventListener('focus', onFocus); };
   }, [isManager, isBsa, currentAnalyst]);
 
-  const badges = { pendingApprovals, overdueReviews, myAssignedReviews };
+  const badges = {
+    pendingApprovals, overdueReviews, myAssignedReviews,
+    reopenPendingManager, reopenPendingBsa
+  };
   const sections = isBsa
     ? BSA_SECTIONS
     : isManager

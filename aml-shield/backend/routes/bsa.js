@@ -68,11 +68,23 @@ router.get('/program-metrics', async (_req, res, next) => {
 });
 
 // GET /api/bsa/reopen-requests
-// Placeholder — the alert_reopen_requests table is not built yet. Returns
-// an empty list with a flag the frontend can use to render "Coming soon".
+// Live count of reopen requests awaiting BSA Officer authorization
+// (status = 'pending_bsa'). Drives the BSA dashboard action queue card.
 router.get('/reopen-requests', async (_req, res, next) => {
   try {
-    res.json({ requests: [], count: 0, not_implemented: true });
+    const r = await pool.query(`
+      SELECT request_id, alert_id, customer_name, requested_by, requested_at,
+             reason_code, manager_reviewed_by, manager_reviewed_at,
+             (NOW()::date - manager_reviewed_at::date) AS days_waiting
+        FROM alert_reopen_requests
+       WHERE status = 'pending_bsa'
+       ORDER BY manager_reviewed_at ASC NULLS LAST
+    `);
+    res.json({
+      count: r.rows.length,
+      oldest_days: r.rows.length ? Number(r.rows[0].days_waiting) : null,
+      requests: r.rows
+    });
   } catch (err) { next(err); }
 });
 

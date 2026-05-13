@@ -31,6 +31,7 @@ const authRouter = require('./routes/auth');
 const ofacRouter = require('./routes/ofac');
 const investigationsRouter = require('./routes/investigations');
 const bsaRouter = require('./routes/bsa');
+const reopenRequestsRouter = require('./routes/reopenRequests');
 const slaMonitor = require('./jobs/slaMonitor');
 const kycReviewMonitor = require('./jobs/kycReviewMonitor');
 const ofacSync = require('./jobs/ofacSync');
@@ -84,6 +85,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/ofac', ofacRouter);
 app.use('/api/investigations', investigationsRouter);
 app.use('/api/bsa', bsaRouter);
+app.use('/api/reopen-requests', reopenRequestsRouter);
 
 app.use((err, _req, res, _next) => {
   console.error('[error]', err);

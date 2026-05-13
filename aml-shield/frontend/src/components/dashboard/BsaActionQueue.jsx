@@ -15,6 +15,7 @@ import { useRoleNavigate } from '../../state/useRoleNavigate.js';
 export default function BsaActionQueue() {
   const { goTo } = useRoleNavigate();
   const [signoff, setSignoff] = useState(null);
+  const [reopen, setReopen] = useState(null);
   const [ofacStatus, setOfacStatus] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -22,13 +23,15 @@ export default function BsaActionQueue() {
     let cancelled = false;
     const load = async () => {
       try {
-        const [{ data: a }, { data: b }] = await Promise.all([
+        const [{ data: a }, { data: b }, { data: c }] = await Promise.all([
           api.get('/bsa/awaiting-signoff'),
-          api.get('/ofac/status')
+          api.get('/ofac/status'),
+          api.get('/bsa/reopen-requests')
         ]);
         if (cancelled) return;
         setSignoff(a);
         setOfacStatus(b);
+        setReopen(c);
       } catch (_e) { /* keep null */ }
       finally { if (!cancelled) setLoading(false); }
     };
@@ -40,8 +43,10 @@ export default function BsaActionQueue() {
   const signoffCount = Number(signoff?.count) || 0;
   const signoffOldest = signoff?.oldest_days != null ? Number(signoff.oldest_days) : null;
   const ofacConfirmed = Number(ofacStatus?.confirmed_count) || 0;
+  const reopenCount = Number(reopen?.count) || 0;
+  const reopenOldest = reopen?.oldest_days != null ? Number(reopen.oldest_days) : null;
 
-  const allClear = signoffCount === 0 && ofacConfirmed === 0;
+  const allClear = signoffCount === 0 && ofacConfirmed === 0 && reopenCount === 0;
 
   return (
     <section aria-label="Requires your action">
@@ -87,10 +92,12 @@ export default function BsaActionQueue() {
           <ActionCard
             icon={RotateCcw}
             label="Alert Reopen Requests"
-            count={0}
-            sub="Coming soon"
-            placeholder
-            onClick={() => goTo('dashboard')}
+            count={reopenCount}
+            sub={reopenCount === 0
+              ? 'No items'
+              : reopenOldest != null ? `Oldest: ${reopenOldest}d since manager approval` : 'In queue'}
+            urgent={reopenCount > 0}
+            onClick={() => goTo('reopen-requests')}
           />
           <ActionCard
             icon={Shield}

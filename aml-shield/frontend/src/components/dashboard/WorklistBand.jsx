@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FileCheck, UserCheck, Shield, CornerUpLeft, Lock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { FileCheck, UserCheck, Shield, CornerUpLeft, RotateCcw, CheckCircle2, AlertTriangle } from 'lucide-react';
 import api from '../../api/client.js';
 import { useRoleNavigate } from '../../state/useRoleNavigate.js';
 
@@ -42,11 +42,15 @@ const CARD_CONFIG = [
     ageMode: 'most_recent'
   },
   {
-    key: 'active_legal_holds',
-    icon: Lock,
-    label: 'Active Legal Holds',
-    path: 'sars',
-    ageMode: 'none'
+    // PR — Alert Reopen workflow. Swapped from the now-placeholder
+    // 'Active Legal Holds' slot. Fetched separately from /reopen-requests
+    // and merged into `data` under this key so the existing render code
+    // keeps working unchanged.
+    key: 'reopen_requests_pending_manager',
+    icon: RotateCcw,
+    label: 'Reopen Requests',
+    path: 'reopen-requests',
+    ageMode: 'oldest'
   }
 ];
 
@@ -86,9 +90,25 @@ export default function WorklistBand() {
     let cancelled = false;
     const load = async () => {
       try {
-        const r = await api.get('/dashboard/worklist');
+        const [worklist, reopen] = await Promise.all([
+          api.get('/dashboard/worklist'),
+          api.get('/reopen-requests', { params: { status: 'pending_manager' } })
+        ]);
         if (cancelled) return;
-        setData(r.data);
+        const reopenRows = reopen.data?.requests || [];
+        const oldest = reopenRows.length
+          ? Math.max(0, Math.floor((Date.now() - new Date(reopenRows[reopenRows.length - 1].requested_at).getTime()) / 86400000))
+          : null;
+        const merged = {
+          ...worklist.data,
+          reopen_requests_pending_manager: {
+            count: reopenRows.length,
+            oldest_days: oldest,
+            label: 'Reopen requests pending manager review',
+            urgent: reopenRows.length > 0 && oldest != null && oldest >= 2
+          }
+        };
+        setData(merged);
         setError(false);
         setLastUpdated(new Date());
       } catch (_e) {

@@ -76,6 +76,7 @@ export default function InvestigationWorkspace({ alertId }) {
           </div>
         </div>
       )}
+      {alert.reopened_at && <ReopenedAlertBanner alert={alert} />}
       <RuleExplanationBanner alert={alert} variant="full" />
       <div className="flex gap-4 min-w-0 h-[calc(100vh-200px)]">
       <section className="flex-[0.65] min-w-0 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
@@ -118,6 +119,80 @@ export default function InvestigationWorkspace({ alertId }) {
         dispositionLabel={completion?.dispositionLabel}
         alertId={alertId}
       />
+    </div>
+  );
+}
+
+// Amber banner shown above the workspace whenever the analyst is looking
+// at an alert that was previously closed and subsequently reopened. The
+// row stays collapsed by default — clicking expands to show the full
+// chain of custody (original closer, reopen request id, BSA authorizer).
+function ReopenedAlertBanner({ alert }) {
+  const [open, setOpen] = useState(false);
+  const [history, setHistory] = useState(null);
+
+  // Lazy-load the full request record (with reason text + decisions) when
+  // the analyst first expands the banner.
+  const expand = async () => {
+    if (history || !alert.reopen_request_id) { setOpen(o => !o); return; }
+    try {
+      const { data } = await api.get(`/reopen-requests/${alert.reopen_request_id}`);
+      setHistory(data);
+    } catch (_e) { /* leave null — banner still useful */ }
+    setOpen(true);
+  };
+
+  return (
+    <div
+      role="region"
+      aria-label="Alert was previously reopened"
+      className="bg-amber-50 rounded-md text-sm"
+      style={{ borderLeft: '4px solid #F59E0B', padding: '10px 14px' }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2 min-w-0">
+          <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <div className="font-semibold text-amber-900">
+              This alert was previously closed and has been reopened
+            </div>
+            <div className="text-[11px] text-amber-800 mt-0.5">
+              Reopened {alert.reopened_at ? new Date(alert.reopened_at).toLocaleDateString() : ''}
+              {alert.reopened_by ? ` · authorized by ${alert.reopened_by}` : ''}
+              {alert.reopen_request_id ? ` · request ${alert.reopen_request_id}` : ''}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={expand}
+          className="text-[11px] text-amber-800 hover:text-amber-900 font-medium underline shrink-0"
+        >
+          {open ? 'Hide details' : 'Show details'}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2 pt-2 border-t border-amber-200 text-xs text-amber-900 space-y-1">
+          {history ? (
+            <>
+              <div><span className="font-semibold">Original disposition:</span> {history.original_disposition || '—'}
+                {history.original_closed_by ? ` (by ${history.original_closed_by})` : ''}
+                {history.original_closed_at ? ` on ${(history.original_closed_at || '').slice(0, 10)}` : ''}</div>
+              <div><span className="font-semibold">Requested by:</span> {history.requested_by} on {(history.requested_at || '').slice(0, 10)}</div>
+              <div><span className="font-semibold">Reason code:</span> {history.reason_code}</div>
+              <div className="bg-white/60 rounded p-2 mt-1 whitespace-pre-wrap">{history.reason_detail}</div>
+              {history.manager_reviewed_by && (
+                <div><span className="font-semibold">Manager approval:</span> {history.manager_reviewed_by} on {(history.manager_reviewed_at || '').slice(0, 10)}{history.manager_notes ? ` — "${history.manager_notes}"` : ''}</div>
+              )}
+              {history.bsa_reviewed_by && (
+                <div><span className="font-semibold">BSA authorization:</span> {history.bsa_reviewed_by} on {(history.bsa_reviewed_at || '').slice(0, 10)}{history.bsa_notes ? ` — "${history.bsa_notes}"` : ''}</div>
+              )}
+            </>
+          ) : (
+            <div className="italic text-amber-700">Reopen request details unavailable.</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

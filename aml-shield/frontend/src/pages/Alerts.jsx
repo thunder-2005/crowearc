@@ -11,6 +11,7 @@ import ManagerAlertsTable from '../components/alerts/ManagerAlertsTable.jsx';
 import { isAlertClosed, slaSnapshot } from '../utils/alertStatus.js';
 import { getAlertScore } from '../utils/alertScoring.js';
 import OutcomeCard from '../components/shared/OutcomeCard.jsx';
+import ReopenRequestModal from '../components/alerts/ReopenRequestModal.jsx';
 
 // L1 analysts see only their own work — no Unassigned column (alerts the
 // manager hasn't routed to anyone yet have no business showing up in an
@@ -72,6 +73,7 @@ export default function Alerts() {
   const [sortBy, setSortBy] = useState('sla_asc');
   const [searchText, setSearchText] = useState('');
   const searchInputRef = useRef(null);
+  const [reopenFor, setReopenFor] = useState(null);  // alert object
 
   // L1 analysts get the personal-only Kanban (no Unassigned column, no
   // unassigned alerts in the payload). Everyone else (manager, L2 catch-all)
@@ -272,6 +274,15 @@ export default function Alerts() {
           nextUp={nextUp}
           hasOpenAfterFilters={hasOpenAfterFilters}
           onOpenNextUp={(alert) => startInvestigation(alert)}
+          requestReopen={(a) => setReopenFor(a)}
+        />
+      )}
+
+      {reopenFor && (
+        <ReopenRequestModal
+          alert={reopenFor}
+          onClose={() => setReopenFor(null)}
+          onSubmitted={() => { setReopenFor(null); load(); }}
         />
       )}
     </div>
@@ -564,7 +575,7 @@ function KanbanBoard({
   filters, setFilters, sortBy, setSortBy,
   searchText, setSearchText, searchInputRef, matchesSearch,
   anyFilterActive, clearFilters,
-  nextUp, hasOpenAfterFilters, onOpenNextUp
+  nextUp, hasOpenAfterFilters, onOpenNextUp, requestReopen
 }) {
   const gridCols = columns.length >= 5
     ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-5'
@@ -632,9 +643,11 @@ function KanbanBoard({
                           alert={a}
                           column={col}
                           isEmployee={isEmployee}
+                          isL1={isL1}
                           currentAnalyst={currentAnalyst}
                           onSelect={() => setSelected(a)}
                           onAssign={() => assignToMe(a)}
+                          onRequestReopen={() => requestReopen && requestReopen(a)}
                         />
                       </div>
                     );
@@ -665,7 +678,7 @@ function KanbanBoard({
   );
 }
 
-function AlertCard({ alert: a, column, isEmployee, currentAnalyst, onSelect, onAssign }) {
+function AlertCard({ alert: a, column, isEmployee, isL1, currentAnalyst, onSelect, onAssign, onRequestReopen }) {
   const sla = slaSnapshot(a);
   const isMine = isEmployee && a.assigned_to === currentAnalyst;
   const breached = sla.bucket === 'breached';
@@ -736,6 +749,24 @@ function AlertCard({ alert: a, column, isEmployee, currentAnalyst, onSelect, onA
         >
           <UserPlus size={12} /> Assign to Me
         </button>
+      )}
+      {/* L1 owner reopen-request link on closed cards. Gated to alerts the
+          current analyst originally worked on (assigned_to match), and only
+          when the alert has no pending request already pinned. */}
+      {isL1 && closed && a.assigned_to === currentAnalyst && (
+        a.reopen_request_id && !a.reopened_at ? (
+          <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-amber-700 inline-flex items-center gap-1">
+            <RotateCcw size={10} /> Reopen pending
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onRequestReopen && onRequestReopen(); }}
+            className="mt-2 pt-2 border-t border-slate-100 w-full text-[11px] text-slate-500 hover:text-blue-700 hover:underline"
+          >
+            Request to reopen
+          </button>
+        )
       )}
     </div>
   );

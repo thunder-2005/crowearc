@@ -19,6 +19,8 @@ import Analytics from './pages/Analytics.jsx';
 import Reports from './pages/Reports.jsx';
 import Investigations from './pages/Investigations.jsx';
 import BsaDashboard from './pages/BsaDashboard.jsx';
+import ReopenRequestsQueue from './pages/ReopenRequestsQueue.jsx';
+import BsaReopenQueue from './pages/BsaReopenQueue.jsx';
 import SLAPopup from './components/SLAPopup.jsx';
 import Placeholder from './pages/Placeholder.jsx';
 import Login from './pages/Login.jsx';
@@ -64,6 +66,7 @@ export default function App() {
                 <Route path="sar-approvals"         element={<SARApprovalQueue />} />
                 <Route path="sar-approval/:sarId"   element={<SARApprovalReview />} />
                 <Route path="kyc-reviews"           element={<KYCReviewQueue scope="manager" />} />
+                <Route path="reopen-requests"       element={<ReopenRequestsQueue mode="manager" />} />
                 <Route path="kyc-review/:reviewId"  element={<KYCReviewWorkspace />} />
                 <Route path="retention"             element={<RetentionMonitor />} />
                 <Route path="audit"                 element={<AuditLog />} />
@@ -96,6 +99,7 @@ export default function App() {
                 <Route path="sar-approval/:sarId"   element={<SARApprovalReview />} />
                 <Route path="retention"             element={<RetentionMonitor />} />
                 <Route path="audit-trail"           element={<AuditLog />} />
+                <Route path="reopen-requests"       element={<BsaReopenQueue />} />
                 <Route path="*"                     element={<Navigate to="/bsa/dashboard" replace />} />
               </Routes>
             </Shell>
