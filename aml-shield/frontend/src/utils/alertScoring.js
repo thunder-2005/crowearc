@@ -6,7 +6,26 @@
 // The math is identical across all three surfaces — single source of truth
 // here so the analyst sees consistent ranking everywhere.
 
-const OPEN_STATUSES = new Set(['Not Started', 'In Progress']);
+const OPEN_STATUSES = new Set(['Not Started', 'In Progress', 'Work in Progress']);
+
+// An alert is genuinely actionable if and only if:
+//   - it carries an "open" status, AND
+//   - it has not been closed (closed_date null), AND
+//   - it has not been dispositioned (e.g. False Positive / Escalated to L2 /
+//     Escalated to SAR), AND
+//   - it has not been linked into a SAR filing.
+// We check all four explicitly. Status alone is not enough — there are real
+// rows in production where a stale `alert_status` survives a status fix
+// because of a bug in canonicalisation, and we don't want to surface those
+// to an analyst as "your next priority".
+export function isActionable(alert) {
+  if (!alert) return false;
+  if (!OPEN_STATUSES.has(alert.alert_status)) return false;
+  if (alert.closed_date) return false;
+  if (alert.disposition && String(alert.disposition).trim() !== '') return false;
+  if (alert.linked_sar_id) return false;
+  return true;
+}
 
 export function getAlertScore(alert) {
   if (!alert) return 0;
@@ -27,13 +46,18 @@ export function getAlertScore(alert) {
   return slaScore + priorityScore + riskScore + sanctionsBonus;
 }
 
-// Pick the highest-scoring open alert excluding a given id (e.g. the alert
-// the analyst is currently looking at). Returns null when nothing remains.
-export function getNextUpAlert(alerts, excludeAlertId = null) {
+// Pick the highest-scoring actionable alert excluding a given id (e.g. the
+// alert the analyst is currently looking at). Uses isActionable() — so
+// closed, dispositioned, or SAR-linked alerts never surface even if the
+// status column hasn't been canonicalised yet. Optionally restrict to a
+// specific analyst (defense against an API-side filter slipping through
+// alerts owned by someone else).
+export function getNextUpAlert(alerts, excludeAlertId = null, restrictToAnalyst = null) {
   if (!Array.isArray(alerts) || alerts.length === 0) return null;
   const candidates = alerts.filter(a =>
     a.alert_id !== excludeAlertId &&
-    OPEN_STATUSES.has(a.alert_status)
+    isActionable(a) &&
+    (!restrictToAnalyst || a.assigned_to === restrictToAnalyst)
   );
   if (candidates.length === 0) return null;
   return candidates
