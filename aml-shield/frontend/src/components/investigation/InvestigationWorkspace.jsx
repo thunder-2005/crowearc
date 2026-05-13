@@ -12,7 +12,6 @@ import {
 import OutcomeCard from '../shared/OutcomeCard.jsx';
 import OfacScreeningPanel from './OfacScreeningPanel.jsx';
 import RuleExplanationBanner from './RuleExplanationBanner.jsx';
-import NextUpFloat from './NextUpFloat.jsx';
 import CompletionPrompt from './CompletionPrompt.jsx';
 import { useRoleNavigate } from '../../state/useRoleNavigate.js';
 import { isAlertClosed, slaSnapshot } from '../../utils/alertStatus.js';
@@ -105,11 +104,10 @@ export default function InvestigationWorkspace({ alertId }) {
       </section>
       </div>
 
-      {/* Floating "Next Priority" pinned bottom-right. Self-gates to L1. */}
-      <NextUpFloat
-        excludeAlertId={alertId}
-        onOpen={(next) => goTo(`alerts?alert=${next.alert_id}`)}
-      />
+      {/* Next Priority float intentionally NOT rendered here — it is
+          shown by the global Shell only when the analyst is idle
+          (not inside an investigation workspace). The Open Next
+          path lives in CompletionPrompt below instead. */}
 
       {/* Post-disposition modal — countdown auto-nav, manual Open Next. */}
       <CompletionPrompt

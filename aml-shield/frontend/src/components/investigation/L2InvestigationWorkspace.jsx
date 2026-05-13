@@ -7,7 +7,6 @@ import { useInvestigationTabs } from '../../state/InvestigationTabsContext.jsx';
 import { useToast } from '../../state/ToastContext.jsx';
 import { KycProfileBlock } from './InvestigationWorkspace.jsx';
 import RuleExplanationBanner from './RuleExplanationBanner.jsx';
-import NextUpFloat from './NextUpFloat.jsx';
 import CompletionPrompt from './CompletionPrompt.jsx';
 import {
   AlertCircle, Filter, FileText, MessageSquare, FolderOpen, ListChecks,
@@ -156,12 +155,9 @@ export default function L2InvestigationWorkspace({ l2CaseId, alertId }) {
         </section>
       </div>
 
-      {/* L2 also gets the corner Next Priority float (self-gates to L1
-          analysts internally, so this is a no-op for managers viewing L2). */}
-      <NextUpFloat
-        excludeAlertId={alertId}
-        onOpen={(next) => goToTop(`alerts?alert=${next.alert_id}`)}
-      />
+      {/* Next Priority float intentionally NOT rendered here — it is
+          shown by the global Shell only when the analyst is idle (not
+          inside an investigation workspace). */}
 
       {/* Post-disposition modal. NOT shown for 'sar' decisions —
           DecisionTab navigates straight to the SAR Filing wizard there. */}
