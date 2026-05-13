@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 function rolePrefix(pathname) {
   if (pathname.startsWith('/employee')) return '/employee';
+  if (pathname.startsWith('/bsa'))      return '/bsa';
   return '/manager';
 }
 

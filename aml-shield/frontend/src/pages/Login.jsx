@@ -12,6 +12,7 @@ const LEGACY_ANALYST_KEY = 'aml_active_analyst';
 
 const DEMO_USERS = [
   { role: 'Compliance Manager', username: 'henry.morgan',  password: 'Henry@123'   },
+  { role: 'BSA Officer',        username: 'james.carter',  password: 'James@123'   },
   { role: 'L2 Analyst',         username: 'olivia.brown',  password: 'Olivia@123'  },
   { role: 'L2 Analyst',         username: 'cassian.jude',  password: 'Cassian@123' },
   { role: 'L2 Analyst',         username: 'marie.davis',   password: 'Marie@123'   },
@@ -25,7 +26,8 @@ const DEMO_USERS = [
 ];
 
 function landingFor(role) {
-  if (role === 'compliance_manager' || role === 'bsa_officer') return '/manager/dashboard';
+  if (role === 'bsa_officer')        return '/bsa/dashboard';
+  if (role === 'compliance_manager') return '/manager/dashboard';
   return '/employee/dashboard';
 }
 

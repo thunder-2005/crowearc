@@ -18,6 +18,7 @@ import KYCReviewWorkspace from './pages/KYCReviewWorkspace.jsx';
 import Analytics from './pages/Analytics.jsx';
 import Reports from './pages/Reports.jsx';
 import Investigations from './pages/Investigations.jsx';
+import BsaDashboard from './pages/BsaDashboard.jsx';
 import SLAPopup from './components/SLAPopup.jsx';
 import Placeholder from './pages/Placeholder.jsx';
 import Login from './pages/Login.jsx';
@@ -71,6 +72,31 @@ export default function App() {
                 <Route path="users"                 element={<Users />} />
                 <Route path="settings"              element={<Settings />} />
                 <Route path="*"                     element={<Navigate to="/manager/dashboard" replace />} />
+              </Routes>
+            </Shell>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* BSA OFFICER — program oversight + final SAR sign-off */}
+      <Route path="/bsa" element={<Navigate to="/bsa/dashboard" replace />} />
+      <Route
+        path="/bsa/*"
+        element={
+          <ProtectedRoute allowedRoles={['bsa_officer']}>
+            <Shell>
+              <Routes>
+                <Route path="dashboard"             element={<BsaDashboard />} />
+                <Route path="alerts"                element={<Alerts />} />
+                <Route path="cases"                 element={<Cases />} />
+                <Route path="customers"             element={<CustomerKYC />} />
+                <Route path="customers/:id"         element={<CustomerKYC />} />
+                <Route path="sar-repository"        element={<SARRepository />} />
+                <Route path="sar-approvals"         element={<SARApprovalQueue />} />
+                <Route path="sar-approval/:sarId"   element={<SARApprovalReview />} />
+                <Route path="retention"             element={<RetentionMonitor />} />
+                <Route path="audit-trail"           element={<AuditLog />} />
+                <Route path="*"                     element={<Navigate to="/bsa/dashboard" replace />} />
               </Routes>
             </Shell>
           </ProtectedRoute>

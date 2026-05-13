@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, AlertTriangle, Briefcase, Search, FileText,
   FolderOpen, Clock, ShieldCheck, Activity, BarChart3, Users, Settings,
-  IdCard, Inbox, ClipboardCheck
+  IdCard, Inbox, ClipboardCheck, Lock, Gavel
 } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
 import { useRoleNavigate } from '../state/useRoleNavigate.js';
@@ -53,6 +53,41 @@ const MANAGER_SECTIONS = [
     items: [
       { to: 'users',                icon: Users,    label: 'Users' },
       { to: 'settings',             icon: Settings, label: 'Settings' }
+    ]
+  }
+];
+
+// BSA Officer sidebar — read-only oversight surface + final SAR sign-off.
+const BSA_SECTIONS = [
+  {
+    title: 'COMMAND CENTER',
+    items: [
+      { to: 'dashboard',          icon: LayoutDashboard, label: 'Dashboard', exact: true }
+    ]
+  },
+  {
+    title: 'OVERSIGHT · READ ONLY',
+    items: [
+      { to: 'alerts',             icon: AlertTriangle, label: 'All Alerts' },
+      { to: 'cases',              icon: Briefcase,     label: 'All Cases' },
+      { to: 'customers',          icon: IdCard,        label: 'All Customers' }
+    ]
+  },
+  {
+    title: 'SAR MANAGEMENT',
+    items: [
+      { to: 'sar-approvals',      icon: Gavel,    label: 'SAR Final Sign-off', badge: 'pendingApprovals',
+        match: ['sar-approvals', 'sar-approval'] },
+      { to: 'sar-repository',     icon: FileText, label: 'SAR Repository' },
+      { to: 'retention',          icon: Clock,    label: 'Retention Monitor' }
+    ]
+  },
+  {
+    title: 'REGULATORY',
+    items: [
+      { to: 'dashboard',          icon: Lock,     label: 'Legal Holds · Coming soon',
+        match: [] /* never highlight from URL — informational */ },
+      { to: 'audit-trail',        icon: Activity, label: 'Audit Trail' }
     ]
   }
 ];
@@ -157,7 +192,7 @@ function isItemActive(item, pathname, prefix) {
 }
 
 export default function Sidebar() {
-  const { role, isManager, currentAnalyst, isL1 } = useRole();
+  const { role, isManager, isBsa, currentAnalyst, isL1, currentUser } = useRole();
   const { makePath, prefix } = useRoleNavigate();
   const location = useLocation();
   const [pendingApprovals, setPendingApprovals] = useState(0);
@@ -168,7 +203,7 @@ export default function Sidebar() {
     let cancelled = false;
     const load = async () => {
       try {
-        if (isManager) {
+        if (isManager || isBsa) {
           const [{ data: sar }, { data: kyc }] = await Promise.all([
             api.get('/sar-approvals/stats'),
             api.get('/kyc-reviews/stats')
@@ -190,22 +225,30 @@ export default function Sidebar() {
     const onFocus = () => load();
     window.addEventListener('focus', onFocus);
     return () => { cancelled = true; clearInterval(id); window.removeEventListener('focus', onFocus); };
-  }, [isManager, currentAnalyst]);
+  }, [isManager, isBsa, currentAnalyst]);
 
   const badges = { pendingApprovals, overdueReviews, myAssignedReviews };
-  const sections = isManager
-    ? MANAGER_SECTIONS
-    : (isL1 ? EMPLOYEE_L1_SECTIONS : EMPLOYEE_L2_SECTIONS);
+  const sections = isBsa
+    ? BSA_SECTIONS
+    : isManager
+      ? MANAGER_SECTIONS
+      : (isL1 ? EMPLOYEE_L1_SECTIONS : EMPLOYEE_L2_SECTIONS);
 
   return (
     <aside className="w-64 shrink-0 bg-navy-900 text-slate-200 flex flex-col h-screen sticky top-0">
       <div className="flex items-center gap-2 px-5 py-5 border-b border-navy-800">
         <CroweArcLogo size={36} />
-        <div>
+        <div className="min-w-0">
           <div className="text-white font-semibold leading-tight">Crowe ARC</div>
           <div className="text-[11px] text-slate-400 leading-tight">
             Alert Review &amp; Casework
           </div>
+          {isBsa && (
+            <div className="mt-1 inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded"
+                 style={{ backgroundColor: '#0EA5E9', color: '#FFFFFF' }}>
+              BSA Officer
+            </div>
+          )}
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto py-4">

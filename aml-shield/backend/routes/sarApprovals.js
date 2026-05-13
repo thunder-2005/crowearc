@@ -417,4 +417,125 @@ router.delete('/comments/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ─────────────────────────────────────────────── BSA Officer co-signature
+//
+// The manager's POST /:id/approve already flips sar_status → 'Filed' and
+// generates the regulator reference. BSA Final Sign-off is a downstream
+// co-signature — it does NOT change sar_status (the SAR is already Filed),
+// it only writes bsa_officer_id + bsa_approved_at and logs the action.
+//
+// "Return for Revision" is the BSA's escape hatch — it flips the SAR back
+// to 'Returned for Revision' even though the manager had already filed it.
+// Both paths require x-user-role = 'bsa_officer'.
+
+function requireBsa(req, res, next) {
+  if (req.headers['x-user-role'] !== 'bsa_officer') {
+    return res.status(403).json({ error: 'BSA Officer role required' });
+  }
+  next();
+}
+
+router.post('/:id/bsa-sign-off', requireBsa, async (req, res, next) => {
+  try {
+    const { notes } = req.body || {};
+    const bsaName = req.headers['x-user-name'] || 'BSA Officer';
+    const bsaId   = req.headers['x-user-id'] || null;
+    const sarId = req.params.id;
+
+    const existing = (await pool.query(
+      'SELECT sar_id, sar_status, bsa_approved_at, customer_name, prepared_by FROM sar_filings WHERE sar_id = $1',
+      [sarId]
+    )).rows[0];
+    if (!existing) return res.status(404).json({ error: 'SAR not found' });
+    if (existing.sar_status !== 'Filed') {
+      return res.status(400).json({ error: `SAR must be in 'Filed' status (currently '${existing.sar_status}')` });
+    }
+    if (existing.bsa_approved_at) {
+      return res.status(400).json({ error: 'SAR has already been signed off by BSA' });
+    }
+
+    const now = new Date().toISOString();
+    await pool.query(
+      'UPDATE sar_filings SET bsa_officer_id = $1, bsa_approved_at = $2, updated_at = $3 WHERE sar_id = $4',
+      [bsaId, now, now, sarId]
+    );
+
+    await logAudit({
+      entity_type: ENTITY_TYPES.SAR, entity_id: sarId,
+      action: `BSA Final Sign-off by ${bsaName}`,
+      performed_by: bsaName,
+      details: notes || null
+    });
+
+    // Notify the analyst who prepared this SAR.
+    if (existing.prepared_by) {
+      try {
+        await pool.query(`
+          INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_id, related_type, tone)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+          null, existing.prepared_by, 'sar_bsa_signed_off',
+          'SAR final sign-off',
+          `${sarId} (${existing.customer_name}) received BSA final sign-off from ${bsaName}.`,
+          sarId, 'sar_filing', 'success'
+        ]);
+      } catch (_e) { /* notification is best-effort */ }
+    }
+
+    const updated = (await pool.query(
+      'SELECT * FROM sar_filings WHERE sar_id = $1', [sarId]
+    )).rows[0];
+    res.json(updated);
+  } catch (err) { next(err); }
+});
+
+router.post('/:id/bsa-return', requireBsa, async (req, res, next) => {
+  try {
+    const { reason } = req.body || {};
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({ error: 'reason required for BSA return' });
+    }
+    const bsaName = req.headers['x-user-name'] || 'BSA Officer';
+    const sarId = req.params.id;
+
+    const existing = (await pool.query(
+      'SELECT sar_id, sar_status, customer_name, prepared_by FROM sar_filings WHERE sar_id = $1',
+      [sarId]
+    )).rows[0];
+    if (!existing) return res.status(404).json({ error: 'SAR not found' });
+
+    const now = new Date().toISOString();
+    await pool.query(
+      "UPDATE sar_filings SET sar_status = 'Returned for Revision', updated_at = $1, returned_to_analyst = 1 WHERE sar_id = $2",
+      [now, sarId]
+    );
+
+    await logAudit({
+      entity_type: ENTITY_TYPES.SAR, entity_id: sarId,
+      action: `BSA returned SAR for revision by ${bsaName}`,
+      performed_by: bsaName,
+      details: reason.trim()
+    });
+
+    if (existing.prepared_by) {
+      try {
+        await pool.query(`
+          INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_id, related_type, tone)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [
+          null, existing.prepared_by, 'sar_bsa_returned',
+          'SAR returned by BSA',
+          `${sarId} (${existing.customer_name}) was returned for revision by ${bsaName}: ${reason.trim()}`,
+          sarId, 'sar_filing', 'warning'
+        ]);
+      } catch (_e) { /* best-effort */ }
+    }
+
+    const updated = (await pool.query(
+      'SELECT * FROM sar_filings WHERE sar_id = $1', [sarId]
+    )).rows[0];
+    res.json(updated);
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

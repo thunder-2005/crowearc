@@ -19,6 +19,7 @@ function readUser() {
 
 function roleFromPathname(pathname) {
   if (pathname.startsWith('/employee')) return 'employee';
+  if (pathname.startsWith('/bsa'))      return 'bsa';
   return 'manager';
 }
 
@@ -107,6 +108,7 @@ export function RoleProvider({ children }) {
       isL2,
       isManager: role === 'manager',
       isEmployee: role === 'employee',
+      isBsa: role === 'bsa',
       scopeParam: role === 'employee' && currentAnalyst ? { assigned_to: currentAnalyst } : {}
     }),
     [role, setRole, currentUser, currentAnalyst, setCurrentAnalyst, signOut,
