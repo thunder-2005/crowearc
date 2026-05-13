@@ -1,6 +1,9 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar.jsx';
 import Topbar from './components/Topbar.jsx';
+import NextUpFloat from './components/investigation/NextUpFloat.jsx';
+import { useInvestigationTabs } from './state/InvestigationTabsContext.jsx';
+import { useRoleNavigate } from './state/useRoleNavigate.js';
 import Dashboard from './pages/Dashboard.jsx';
 import Alerts from './pages/Alerts.jsx';
 import Cases from './pages/Cases.jsx';
@@ -35,7 +38,37 @@ function Shell({ children }) {
         <main className="flex-1 p-6 overflow-x-hidden">{children}</main>
       </div>
       <SLAPopup />
+      <NextUpFloatIdle />
     </div>
+  );
+}
+
+/**
+ * Renders the floating "Next Priority" widget ONLY when the analyst is
+ * idle — meaning they are NOT currently inside an investigation
+ * workspace. Definition of "in a workspace": the route is the alerts
+ * page (`/alerts` segment) AND an investigation tab is currently
+ * active. Everywhere else (dashboard, settings, reports, customer
+ * profile, KYC queue, etc.) the float is visible so the next-up alert
+ * stays one click away.
+ *
+ * NextUpFloat itself self-gates to L1 analysts internally, so manager
+ * and L2 sessions render nothing regardless of where they navigate.
+ */
+function NextUpFloatIdle() {
+  const { activeId } = useInvestigationTabs();
+  const location = useLocation();
+  const { goTo } = useRoleNavigate();
+
+  const onAlertsRoute = /\/alerts(\/|$|\?)/.test(location.pathname);
+  const inActiveInvestigation = onAlertsRoute && !!activeId;
+  if (inActiveInvestigation) return null;
+
+  return (
+    <NextUpFloat
+      excludeAlertId={null}
+      onOpen={(next) => goTo(`alerts?alert=${next.alert_id}`)}
+    />
   );
 }
 
