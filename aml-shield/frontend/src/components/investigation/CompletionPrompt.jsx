@@ -3,7 +3,7 @@ import { CheckCircle2, PlayCircle, Clock, Zap } from 'lucide-react';
 import api from '../../api/client.js';
 import { useRole } from '../../state/RoleContext.jsx';
 import { useRoleNavigate } from '../../state/useRoleNavigate.js';
-import { getNextUpAlert, getPriorityReason, getSlaDescriptor } from '../../utils/alertScoring.js';
+import { getNextUpAlert, getSlaDescriptor } from '../../utils/alertScoring.js';
 
 // CompletionPrompt — full-screen overlay that surfaces immediately after
 // the analyst submits a successful disposition. Confirms what happened,
@@ -220,7 +220,6 @@ function NextPriorityCard({ alert }) {
           </span>
         )}
       </div>
-      <div className="text-xs text-slate-500 mt-1">{getPriorityReason(alert)}</div>
       <div className="text-[11px] text-slate-500 mt-1 font-mono">
         {alert.alert_id} · <span className="tabular-nums">{amount}</span>
       </div>

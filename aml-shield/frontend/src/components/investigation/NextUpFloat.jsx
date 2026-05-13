@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Zap, PlayCircle, Clock } from 'lucide-react';
 import api from '../../api/client.js';
 import { useRole } from '../../state/RoleContext.jsx';
-import { getNextUpAlert, getPriorityReason, getSlaDescriptor } from '../../utils/alertScoring.js';
+import { getNextUpAlert, getSlaDescriptor } from '../../utils/alertScoring.js';
 
 // Floating "Next Up" widget — pinned to the bottom-right of the
 // investigation workspace. Self-fetches the analyst's own alerts, scores
@@ -75,10 +75,6 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
 
       <div className="text-sm font-semibold text-navy-900 truncate" title={next.customer_name}>
         {next.customer_name}
-      </div>
-
-      <div className="text-[11px] text-slate-500 mt-0.5">
-        {getPriorityReason(next)}
       </div>
 
       {(isHighRisk || isPep || isSanctions) && (
