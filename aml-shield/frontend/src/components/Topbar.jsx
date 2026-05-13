@@ -60,7 +60,7 @@ function relativeTime(iso) {
 export default function Topbar() {
   const loc = useLocation();
   const { goTo } = useRoleNavigate();
-  const { currentAnalyst, currentUser, analystProfiles, currentAnalystLevel, isManager, isBsa, signOut } = useRole();
+  const { currentAnalyst, currentUser, analystProfiles, currentAnalystLevel, isManager, isBsa, isL1, signOut } = useRole();
   const toast = useToast();
   const [bellOpen, setBellOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -208,11 +208,14 @@ export default function Topbar() {
     }
   }, [closeSearch, goTo]);
 
+  // L1 analysts get no SAR visibility — even if the backend slips a row
+  // through, drop it before counting/rendering.
+  const showSarResults = !isL1;
   const totalResults =
     searchResults.alerts.length +
     searchResults.customers.length +
     searchResults.cases.length +
-    searchResults.sars.length;
+    (showSarResults ? searchResults.sars.length : 0);
   const dropdownVisible = searchOpen && searchQuery.trim().length >= 2;
 
   // Title comes from path segment after /manager or /employee
@@ -302,6 +305,7 @@ export default function Topbar() {
               loading={searchLoading}
               results={searchResults}
               total={totalResults}
+              showSarResults={showSarResults}
               onSelect={handleSearchNavigate}
             />
           )}
@@ -621,7 +625,7 @@ function MoreLink({ visible, label, onClick }) {
   );
 }
 
-function SearchResultsDropdown({ query, loading, results, total, onSelect }) {
+function SearchResultsDropdown({ query, loading, results, total, showSarResults = true, onSelect }) {
   const empty = !loading && total === 0;
   return (
     <div
@@ -689,7 +693,7 @@ function SearchResultsDropdown({ query, loading, results, total, onSelect }) {
           </div>
         )}
 
-        {!loading && results.sars.length > 0 && (
+        {showSarResults && !loading && results.sars.length > 0 && (
           <div>
             <CategoryHeader>SAR Filings</CategoryHeader>
             {results.sars.map(s => (

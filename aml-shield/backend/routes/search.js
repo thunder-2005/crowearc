@@ -13,6 +13,8 @@ router.get('/', async (req, res, next) => {
     const role = req.query.role === 'employee' ? 'employee' : 'manager';
     const analystId = req.query.analyst_id ? String(req.query.analyst_id) : null;
     const restrict = role === 'employee' && !!analystId;
+    // L1 analysts have zero SAR visibility — skip the SAR query entirely.
+    const includeSars = req.headers['x-user-role'] !== 'analyst_l1';
 
     if (q.length < 2) {
       return res.json({
@@ -81,23 +83,27 @@ router.get('/', async (req, res, next) => {
     const cases_more = casesRaw.length > OTHER_MAX;
 
     // SAR filings — match sar_id, customer_name, case_id
-    let sarSql = `
-      SELECT sf.sar_id, sf.customer_name, sf.case_id, sf.sar_status,
-             sf.filed_date, sf.draft_created_date, sf.prepared_by, sf.reviewed_by
-        FROM sar_filings sf
-       WHERE (sf.sar_id LIKE $1 OR sf.customer_name LIKE $2 OR sf.case_id LIKE $3)
-    `;
-    const sarParams = [like, like, like];
-    let sn = 3;
-    if (restrict) {
-      sarParams.push(analystId, analystId);
-      sarSql += ` AND (sf.prepared_by = $${++sn} OR sf.reviewed_by = $${++sn})`;
+    let sars = [];
+    let sars_more = false;
+    if (includeSars) {
+      let sarSql = `
+        SELECT sf.sar_id, sf.customer_name, sf.case_id, sf.sar_status,
+               sf.filed_date, sf.draft_created_date, sf.prepared_by, sf.reviewed_by
+          FROM sar_filings sf
+         WHERE (sf.sar_id LIKE $1 OR sf.customer_name LIKE $2 OR sf.case_id LIKE $3)
+      `;
+      const sarParams = [like, like, like];
+      let sn = 3;
+      if (restrict) {
+        sarParams.push(analystId, analystId);
+        sarSql += ` AND (sf.prepared_by = $${++sn} OR sf.reviewed_by = $${++sn})`;
+      }
+      sarParams.push(OTHER_MAX + PROBE_EXTRA);
+      sarSql += ` ORDER BY COALESCE(sf.filed_date, sf.draft_created_date) DESC LIMIT $${++sn}`;
+      const sarsRaw = (await pool.query(sarSql, sarParams)).rows;
+      sars = sarsRaw.slice(0, OTHER_MAX);
+      sars_more = sarsRaw.length > OTHER_MAX;
     }
-    sarParams.push(OTHER_MAX + PROBE_EXTRA);
-    sarSql += ` ORDER BY COALESCE(sf.filed_date, sf.draft_created_date) DESC LIMIT $${++sn}`;
-    const sarsRaw = (await pool.query(sarSql, sarParams)).rows;
-    const sars = sarsRaw.slice(0, OTHER_MAX);
-    const sars_more = sarsRaw.length > OTHER_MAX;
 
     res.json({
       alerts, customers, cases, sars,

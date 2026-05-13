@@ -7,6 +7,16 @@ const { generateNarrative } = require('../utils/narrativeTemplates');
 
 const router = express.Router();
 
+// L1 analysts have zero SAR visibility — block every route in this router.
+// Write routes are already gated by requireL2OrManager, but L1 still has
+// nothing to gain from reading drafts or filed SARs.
+router.use((req, res, next) => {
+  if (req.headers['x-user-role'] === 'analyst_l1') {
+    return res.status(403).json({ error: 'SAR access requires L2 analyst or above' });
+  }
+  next();
+});
+
 // Spec wording for the wizard step-completion audit lines.
 const STEP_LABELS = [
   'SAR Details',          // Step 1

@@ -120,8 +120,16 @@ export default function App() {
                 <Route path="cases"                 element={<Cases />} />
                 <Route path="customers"             element={<CustomerKYC />} />
                 <Route path="customers/:id"         element={<CustomerKYC />} />
-                <Route path="sars"                  element={<SARRepository />} />
-                <Route path="sar-filing/:caseId"    element={<SARFiling />} />
+                <Route path="sars"                  element={
+                  <ProtectedRoute allowedRoles={['analyst_l2', 'compliance_manager', 'bsa_officer']}>
+                    <SARRepository />
+                  </ProtectedRoute>
+                } />
+                <Route path="sar-filing/:caseId"    element={
+                  <ProtectedRoute allowedRoles={['analyst_l2', 'compliance_manager', 'bsa_officer']}>
+                    <SARFiling />
+                  </ProtectedRoute>
+                } />
                 <Route path="kyc-reviews/mine"      element={<KYCReviewQueue scope="mine" />} />
                 <Route path="kyc-review/:reviewId"  element={<KYCReviewWorkspace />} />
                 <Route path="reports"               element={<Reports />} />

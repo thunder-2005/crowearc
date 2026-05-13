@@ -139,10 +139,9 @@ const EMPLOYEE_L2_SECTIONS = [
   }
 ];
 
-// L1 — slimmed sidebar. SAR filing is L2/Manager only, so:
-//   - "My Cases" removed (L1 doesn't own SAR cases)
-//   - "File SAR" removed
-//   - SAR Repository stays as a read-only reference
+// L1 — slimmed sidebar. SAR is L2/Manager/BSA only. L1 sees zero SAR surface:
+//   - no SAR Repository (read or otherwise)
+//   - no File SAR / My Cases
 const EMPLOYEE_L1_SECTIONS = [
   {
     title: 'MY WORK',
@@ -157,13 +156,6 @@ const EMPLOYEE_L1_SECTIONS = [
     title: 'CUSTOMERS',
     items: [
       { to: 'customers',            icon: IdCard, label: 'Customer KYC' }
-    ]
-  },
-  {
-    title: 'SAR MANAGEMENT',
-    items: [
-      { to: 'sars',                 icon: FileText, label: 'SAR Repository · read-only',
-        match: ['sars'] }
     ]
   },
   {
