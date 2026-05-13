@@ -25,10 +25,12 @@ const MANAGER_REPORTS = [
   { k: 'alert-aging',       endpoint: 'alert-aging',       icon: Hourglass,   name: 'Alert Aging Report',           desc: 'Open alerts grouped by aging bucket' }
 ];
 
+// L1 analysts have no SAR visibility, so 'my-sars' is filtered out for them
+// downstream. L2 keeps the full report set.
 const EMPLOYEE_REPORTS = [
   { k: 'my-alerts', endpoint: 'my-alerts', icon: Inbox,         name: 'My Alert Summary',   desc: 'My assigned alerts in period' },
   { k: 'my-sla',    endpoint: 'my-sla',    icon: Activity,      name: 'My SLA Performance', desc: 'On-time vs breached and avg resolution vs team' },
-  { k: 'my-sars',   endpoint: 'my-sars',   icon: Briefcase,     name: 'My SAR History',     desc: 'SARs I prepared with approval outcomes' },
+  { k: 'my-sars',   endpoint: 'my-sars',   icon: Briefcase,     name: 'My SAR History',     desc: 'SARs I prepared with approval outcomes', l2Only: true },
   { k: 'my-kyc',    endpoint: 'my-kyc',    icon: ClipboardCheck,name: 'My KYC Reviews',     desc: 'KYC reviews assigned to me' }
 ];
 
@@ -95,8 +97,10 @@ const fmtCell = (col, value) => {
 // ─────────────────────────────────────────────── page
 
 export default function Reports() {
-  const { isManager, currentAnalyst } = useRole();
-  const reports = isManager ? MANAGER_REPORTS : EMPLOYEE_REPORTS;
+  const { isManager, isL1, currentAnalyst } = useRole();
+  const reports = isManager
+    ? MANAGER_REPORTS
+    : EMPLOYEE_REPORTS.filter(r => !(isL1 && r.l2Only));
   const [activeKey, setActiveKey] = useState(reports[0].k);
   const [lastGenerated, setLastGenerated] = useState({}); // { [k]: ISOString }
 
@@ -105,7 +109,7 @@ export default function Reports() {
   useEffect(() => {
     // when role flips, reset to that role's first report
     setActiveKey(reports[0].k);
-  }, [isManager]); // eslint-disable-line
+  }, [isManager, isL1]); // eslint-disable-line
 
   return (
     <div className="space-y-4">

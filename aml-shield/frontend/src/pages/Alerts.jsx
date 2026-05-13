@@ -670,6 +670,7 @@ function KanbanBoard({
           setTab={setTab}
           isEmployee={isEmployee}
           isManager={isManager}
+          isL1={isL1}
           assignToMe={assignToMe}
           startInvestigation={startInvestigation}
         />
@@ -714,7 +715,7 @@ function AlertCard({ alert: a, column, isEmployee, isL1, currentAnalyst, onSelec
           )}
           {isEscalated && (
             <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 inline-flex items-center gap-0.5">
-              <ArrowUpRight size={9} /> {a.alert_status === 'Escalated - SAR' ? 'SAR' : 'L2'}
+              <ArrowUpRight size={9} /> {(!isL1 && a.alert_status === 'Escalated - SAR') ? 'SAR' : 'L2'}
             </span>
           )}
           <Badge value={a.priority} />
@@ -772,7 +773,7 @@ function AlertCard({ alert: a, column, isEmployee, isL1, currentAnalyst, onSelec
   );
 }
 
-function SelectedDetail({ selected, setSelected, tab, setTab, isEmployee, isManager, assignToMe, startInvestigation }) {
+function SelectedDetail({ selected, setSelected, tab, setTab, isEmployee, isManager, isL1, assignToMe, startInvestigation }) {
   const isEscalated = ESCALATED_STATUSES.has(selected.alert_status);
   const closed = isAlertClosed(selected);
   const sla = slaSnapshot(selected);
@@ -819,8 +820,8 @@ function SelectedDetail({ selected, setSelected, tab, setTab, isEmployee, isMana
             <Row k="Channel" v={selected.channel} />
             <Row k="Branch" v={selected.branch} />
             <Row k="Assigned To" v={selected.assigned_to || '—'} />
-            <Row k="Case ID" v={selected.case_id || '—'} />
-            <Row k="Linked SAR" v={selected.linked_sar_id || '—'} />
+            {!isL1 && <Row k="Case ID" v={selected.case_id || '—'} />}
+            {!isL1 && <Row k="Linked SAR" v={selected.linked_sar_id || '—'} />}
             {isEscalated && (
               <Row k="L2 Analyst" v={<span className="text-purple-700 font-medium">{selected.l2_analyst_id || 'Unassigned'}</span>} />
             )}

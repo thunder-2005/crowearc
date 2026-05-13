@@ -117,7 +117,11 @@ export default function App() {
               <Routes>
                 <Route path="dashboard"             element={<Dashboard />} />
                 <Route path="alerts"                element={<Alerts />} />
-                <Route path="cases"                 element={<Cases />} />
+                <Route path="cases"                 element={
+                  <ProtectedRoute allowedRoles={['analyst_l2', 'compliance_manager', 'bsa_officer']}>
+                    <Cases />
+                  </ProtectedRoute>
+                } />
                 <Route path="customers"             element={<CustomerKYC />} />
                 <Route path="customers/:id"         element={<CustomerKYC />} />
                 <Route path="sars"                  element={

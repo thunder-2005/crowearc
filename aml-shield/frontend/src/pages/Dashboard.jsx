@@ -42,7 +42,7 @@ function dateRangeFor(range) {
 }
 
 export default function Dashboard() {
-  const { isManager, isEmployee, currentAnalyst } = useRole();
+  const { isManager, isEmployee, isL1, currentAnalyst } = useRole();
   const { makePath } = useRoleNavigate();
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
@@ -285,8 +285,8 @@ export default function Dashboard() {
         <Card title="Quick Links" action={<Target size={14} className="text-slate-400" />}>
           <ul className="text-sm space-y-2">
             <li><a href={makePath('alerts')} className="text-blue-600 hover:underline">→ {isManager ? 'Team alert queue' : 'My alert queue'}</a></li>
-            <li><a href={makePath('cases')} className="text-blue-600 hover:underline">→ {isManager ? 'All cases' : 'My cases'}</a></li>
-            <li><a href={makePath('sars')} className="text-blue-600 hover:underline">→ SAR Repository</a></li>
+            {!isL1 && <li><a href={makePath('cases')} className="text-blue-600 hover:underline">→ {isManager ? 'All cases' : 'My cases'}</a></li>}
+            {!isL1 && <li><a href={makePath('sars')} className="text-blue-600 hover:underline">→ SAR Repository</a></li>}
             {isManager && <li><a href={makePath('retention')} className="text-blue-600 hover:underline">→ Retention Monitor</a></li>}
             {isManager && <li><a href={makePath('audit')} className="text-blue-600 hover:underline">→ Audit Trail</a></li>}
           </ul>

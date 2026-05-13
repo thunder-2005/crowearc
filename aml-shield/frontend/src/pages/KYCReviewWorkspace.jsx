@@ -20,7 +20,7 @@ const LEFT_TABS = [
 const RIGHT_TABS = [
   { k: 'summary',  label: 'KYC Summary' },
   { k: 'alerts',   label: 'Alert History' },
-  { k: 'sars',     label: 'SAR History' },
+  { k: 'sars',     label: 'SAR History', l2Only: true },
   { k: 'history',  label: 'Review History' }
 ];
 
@@ -58,7 +58,7 @@ const RECOMMENDATIONS = [
   { value: 'upgrade_risk',      label: 'Upgrade Risk Rating' },
   { value: 'downgrade_risk',    label: 'Downgrade Risk Rating' },
   { value: 'exit_customer',     label: 'Exit Customer Relationship' },
-  { value: 'escalate_sar',      label: 'Escalate to SAR' }
+  { value: 'escalate_sar',      label: 'Escalate to SAR', l2Only: true }
 ];
 
 const RATINGS  = ['Low', 'Medium', 'High', 'Very High'];
@@ -76,7 +76,9 @@ function fmtTime(d) {
 
 export default function KYCReviewWorkspace() {
   const { reviewId } = useParams();
-  const { isManager, currentAnalyst } = useRole();
+  const { isManager, isL1, currentAnalyst } = useRole();
+  const visibleRightTabs = RIGHT_TABS.filter(t => !(isL1 && t.l2Only));
+  const visibleRecommendations = RECOMMENDATIONS.filter(r => !(isL1 && r.l2Only));
   const { push } = useToast();
   const { goTo } = useRoleNavigate();
 
@@ -288,6 +290,7 @@ export default function KYCReviewWorkspace() {
                 recommendation={recommendation} setRecommendation={setRecommendation}
                 review={review}
                 isLocked={isLocked}
+                recommendations={visibleRecommendations}
               />
             )}
           </div>
@@ -295,7 +298,7 @@ export default function KYCReviewWorkspace() {
 
         <section className="flex-[0.35] min-w-0 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
           <div className="flex border-b border-slate-200 bg-slate-50/60">
-            {RIGHT_TABS.map(t => {
+            {visibleRightTabs.map(t => {
               const active = rightTab === t.k;
               return (
                 <button key={t.k} onClick={() => setRightTab(t.k)}
@@ -308,9 +311,9 @@ export default function KYCReviewWorkspace() {
             })}
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto p-4 text-sm">
-            {rightTab === 'summary' && <SummaryRight review={review} />}
+            {rightTab === 'summary' && <SummaryRight review={review} isL1={isL1} />}
             {rightTab === 'alerts'  && <AlertsRight review={review} />}
-            {rightTab === 'sars'    && <SarsRight review={review} />}
+            {rightTab === 'sars' && !isL1 && <SarsRight review={review} />}
             {rightTab === 'history' && <HistoryRight review={review} />}
           </div>
         </section>
@@ -609,7 +612,7 @@ function DocumentsTab({ review, documents, isLocked, analyst, onChanged }) {
   );
 }
 
-function FindingsTab({ findings, setFindings, newRating, setNewRating, newCdd, setNewCdd, recommendation, setRecommendation, review, isLocked }) {
+function FindingsTab({ findings, setFindings, newRating, setNewRating, newCdd, setNewCdd, recommendation, setRecommendation, review, isLocked, recommendations }) {
   const c = review.customer || {};
   const wordCount = findings.trim().split(/\s+/).filter(Boolean).length;
   return (
@@ -657,7 +660,7 @@ function FindingsTab({ findings, setFindings, newRating, setNewRating, newCdd, s
             disabled={isLocked}
             className="mt-1 w-full text-sm border border-slate-200 rounded px-2 py-1.5 bg-white">
             <option value="">— select —</option>
-            {RECOMMENDATIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+            {(recommendations || RECOMMENDATIONS).map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
         </div>
       </div>
@@ -679,7 +682,7 @@ function FindingsTab({ findings, setFindings, newRating, setNewRating, newCdd, s
 }
 
 /* --- Right panel --- */
-function SummaryRight({ review }) {
+function SummaryRight({ review, isL1 }) {
   const c = review.customer || {};
   return (
     <div className="space-y-3">
@@ -691,7 +694,7 @@ function SummaryRight({ review }) {
       <Row k="PEP"             v={c.pep_match ? 'Yes' : 'No'} />
       <Row k="Sanctions"       v={c.sanctions_match ? <span className="text-red-600 font-semibold">Hit</span> : 'Clear'} />
       <Row k="Open Alerts"     v={(review.alerts || []).filter(a => a.alert_status !== 'Completed').length} />
-      <Row k="Total SARs"      v={(review.sars || []).length} />
+      {!isL1 && <Row k="Total SARs"      v={(review.sars || []).length} />}
     </div>
   );
 }

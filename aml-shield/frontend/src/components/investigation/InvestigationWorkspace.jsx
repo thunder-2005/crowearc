@@ -681,6 +681,7 @@ function PreviewModal({ doc, onClose }) {
 }
 
 function ActivityLogTab({ alert }) {
+  const { isL1 } = useRole();
   const [notes, setNotes] = useState([]);
   const [docs, setDocs] = useState([]);
 
@@ -718,12 +719,12 @@ function ActivityLogTab({ alert }) {
       ev.push({ ts: `${alert.closed_date} 12:00:00`, kind: 'Alert closed',
         who: alert.assigned_to, detail: alert.disposition || 'Closed' });
     }
-    if (alert.linked_sar_id) {
+    if (!isL1 && alert.linked_sar_id) {
       ev.push({ ts: `${alert.last_activity_date} 11:30:00`, kind: 'SAR filed',
         who: alert.assigned_to, detail: `Linked SAR ${alert.linked_sar_id}` });
     }
     return ev.sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
-  }, [alert, notes, docs]);
+  }, [alert, notes, docs, isL1]);
 
   return (
     <div className="p-5 space-y-3">
@@ -882,7 +883,7 @@ function BusinessTab({ customerId }) {
 }
 
 function CaseInfoTab({ alert, onAlertChange, onCompletion }) {
-  const { isEmployee, currentAnalyst, isManager } = useRole();
+  const { isEmployee, currentAnalyst, isManager, isL1 } = useRole();
   const { closeTab } = useInvestigationTabs();
   const { push: pushToast } = useToast();
 
@@ -990,10 +991,12 @@ function CaseInfoTab({ alert, onAlertChange, onCompletion }) {
             } />}
       </Section>
 
-      <Section title="Linked">
-        <Row k="Case ID" v={alert.case_id || '—'} />
-        <Row k="SAR ID" v={alert.linked_sar_id || '—'} />
-      </Section>
+      {!isL1 && (
+        <Section title="Linked">
+          <Row k="Case ID" v={alert.case_id || '—'} />
+          <Row k="SAR ID" v={alert.linked_sar_id || '—'} />
+        </Section>
+      )}
 
       {closed && (
         <Section title="Outcome">
@@ -1142,14 +1145,17 @@ function EscalateL2Modal({ alertId, submitting, onCancel, onConfirm }) {
 }
 
 function LinkedCasesTab({ alert }) {
+  const { isL1 } = useRole();
   const { openTab } = useInvestigationTabs();
   const [alerts, setAlerts] = useState([]);
   const [sars, setSars] = useState([]);
 
   useEffect(() => {
     api.get(`/customers/${alert.customer_id}/alerts`).then(r => setAlerts(r.data));
-    api.get(`/customers/${alert.customer_id}/sars`).then(r => setSars(r.data));
-  }, [alert.customer_id]);
+    if (!isL1) {
+      api.get(`/customers/${alert.customer_id}/sars`).then(r => setSars(r.data));
+    }
+  }, [alert.customer_id, isL1]);
 
   return (
     <div className="p-4 space-y-4 text-sm">
@@ -1168,18 +1174,20 @@ function LinkedCasesTab({ alert }) {
         {alerts.length === 0 && <div className="text-xs text-slate-400">No prior alerts</div>}
       </Section>
 
-      <Section title={`SAR History (${sars.length})`}>
-        {sars.map(s => (
-          <div key={s.sar_id} className="flex items-center justify-between text-xs border border-slate-100 rounded px-2 py-1.5">
-            <div>
-              <div className="font-mono font-medium">{s.sar_id}</div>
-              <div className="text-slate-500">{s.alert_scenario} · {s.filed_date || 'draft'}</div>
+      {!isL1 && (
+        <Section title={`SAR History (${sars.length})`}>
+          {sars.map(s => (
+            <div key={s.sar_id} className="flex items-center justify-between text-xs border border-slate-100 rounded px-2 py-1.5">
+              <div>
+                <div className="font-mono font-medium">{s.sar_id}</div>
+                <div className="text-slate-500">{s.alert_scenario} · {s.filed_date || 'draft'}</div>
+              </div>
+              <Badge value={s.sar_status} />
             </div>
-            <Badge value={s.sar_status} />
-          </div>
-        ))}
-        {sars.length === 0 && <div className="text-xs text-slate-400">No SARs filed on this customer</div>}
-      </Section>
+          ))}
+          {sars.length === 0 && <div className="text-xs text-slate-400">No SARs filed on this customer</div>}
+        </Section>
+      )}
     </div>
   );
 }

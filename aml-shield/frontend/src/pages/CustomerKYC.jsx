@@ -183,7 +183,7 @@ function CustomerDirectory() {
 
 function CustomerProfilePage({ customerId }) {
   const { goTo } = useRoleNavigate();
-  const { isManager } = useRole();
+  const { isManager, isL1 } = useRole();
   const { push } = useToast();
   const [cust, setCust] = useState(null);
   const [alerts, setAlerts] = useState([]);
@@ -193,7 +193,9 @@ function CustomerProfilePage({ customerId }) {
   const reload = () => {
     api.get(`/customers/${customerId}`).then(r => setCust(r.data));
     api.get(`/customers/${customerId}/alerts`).then(r => setAlerts(r.data));
-    api.get(`/customers/${customerId}/sars`).then(r => setSars(r.data));
+    if (!isL1) {
+      api.get(`/customers/${customerId}/sars`).then(r => setSars(r.data));
+    }
     api.get(`/kyc-reviews/customer/${customerId}/history`).then(r => setReviews(r.data)).catch(() => setReviews([]));
   };
   useEffect(() => { reload(); }, [customerId]);
@@ -225,7 +227,7 @@ function CustomerProfilePage({ customerId }) {
         <ArrowLeft size={14} /> Back to directory
       </button>
 
-      {sars.length > 0 && (
+      {!isL1 && sars.length > 0 && (
         <div className="bg-red-50 border border-red-300 rounded p-3 flex items-center gap-3">
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-600 text-white text-xs font-semibold">
             <AlertTriangle size={12} /> SAR Filed
@@ -342,20 +344,22 @@ function CustomerProfilePage({ customerId }) {
         />
       </Card>
 
-      <Card title={`SAR History (${sars.length})`} bodyClassName="p-0">
-        <Table
-          columns={[
-            { key: 'sar_id', label: 'SAR ID', cellClass: 'font-mono text-xs font-medium' },
-            { key: 'filed_date', label: 'Filed', render: r => r.filed_date || '—' },
-            { key: 'alert_scenario', label: 'Scenario' },
-            { key: 'sar_status', label: 'Status', render: r => <Badge value={r.sar_status} /> },
-            { key: 'regulator_reference', label: 'Regulator Ref', render: r => r.regulator_reference || '—' },
-            { key: 'retention_expiry_date', label: 'Retention', render: r => r.retention_expiry_date || '—' }
-          ]}
-          rows={sars}
-          emptyMessage="No SARs filed"
-        />
-      </Card>
+      {!isL1 && (
+        <Card title={`SAR History (${sars.length})`} bodyClassName="p-0">
+          <Table
+            columns={[
+              { key: 'sar_id', label: 'SAR ID', cellClass: 'font-mono text-xs font-medium' },
+              { key: 'filed_date', label: 'Filed', render: r => r.filed_date || '—' },
+              { key: 'alert_scenario', label: 'Scenario' },
+              { key: 'sar_status', label: 'Status', render: r => <Badge value={r.sar_status} /> },
+              { key: 'regulator_reference', label: 'Regulator Ref', render: r => r.regulator_reference || '—' },
+              { key: 'retention_expiry_date', label: 'Retention', render: r => r.retention_expiry_date || '—' }
+            ]}
+            rows={sars}
+            emptyMessage="No SARs filed"
+          />
+        </Card>
+      )}
     </div>
   );
 }

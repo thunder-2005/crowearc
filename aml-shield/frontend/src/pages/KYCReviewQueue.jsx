@@ -41,7 +41,7 @@ function daysFromToday(dateStr) {
 }
 
 export default function KYCReviewQueue({ scope = 'manager' }) {
-  const { isManager, currentAnalyst } = useRole();
+  const { isManager, isL1, currentAnalyst } = useRole();
   const { goTo } = useRoleNavigate();
   const { push } = useToast();
   const isMine = scope === 'mine';
@@ -202,7 +202,7 @@ export default function KYCReviewQueue({ scope = 'manager' }) {
             className="text-sm border border-slate-200 rounded-md px-3 py-2 bg-white">
             <option value="">All types</option>
             <option value="scheduled">Scheduled</option>
-            <option value="triggered_sar">Triggered — SAR</option>
+            {!isL1 && <option value="triggered_sar">Triggered — SAR</option>}
             <option value="triggered_alerts">Triggered — Alerts</option>
             <option value="manual">Manual</option>
           </select>
@@ -302,11 +302,17 @@ export default function KYCReviewQueue({ scope = 'manager' }) {
             { key: 'cdd_level', label: 'CDD',
               render: r => r.cdd_level || r.previous_cdd_level || '—' },
             { key: 'review_type', label: 'Type',
-              render: r => (
-                <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_TONES[r.review_type] || 'bg-slate-100 text-slate-600'}`}>
-                  {TYPE_LABELS[r.review_type] || r.review_type}
-                </span>
-              ) },
+              render: r => {
+                // L1 must never see the SAR-tagged trigger type label.
+                const label = (isL1 && r.review_type === 'triggered_sar')
+                  ? 'Triggered'
+                  : (TYPE_LABELS[r.review_type] || r.review_type);
+                return (
+                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_TONES[r.review_type] || 'bg-slate-100 text-slate-600'}`}>
+                    {label}
+                  </span>
+                );
+              } },
             { key: 'due_date', label: 'Due Date' },
             { key: 'days_remaining', label: 'Days',
               render: r => {
