@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Zap, PlayCircle, Clock } from 'lucide-react';
 import api from '../../api/client.js';
 import { useRole } from '../../state/RoleContext.jsx';
+import { useInvestigationTabs } from '../../state/InvestigationTabsContext.jsx';
 import { getNextUpAlert, getSlaDescriptor } from '../../utils/alertScoring.js';
 
 // Floating "Next Up" widget — pinned to the bottom-right of the
@@ -18,8 +19,17 @@ import { getNextUpAlert, getSlaDescriptor } from '../../utils/alertScoring.js';
 //   - Renders nothing if no next-up alert remains (silent rather than noisy)
 export default function NextUpFloat({ excludeAlertId, onOpen }) {
   const { isL1, currentAnalyst } = useRole();
+  const { activeId } = useInvestigationTabs();
   const [alerts, setAlerts] = useState(null);
 
+  // Refetch when:
+  //   - currentAnalyst changes (different user logs in)
+  //   - activeId changes (an investigation tab was just closed → the alert
+  //     the analyst was working on may have been completed; the float
+  //     must reflect the new state immediately, not wait for the next
+  //     30s poll tick)
+  // Background poll runs every 30s to catch out-of-band changes
+  // (manager bulk-closed an alert, another analyst reassigned, etc.).
   useEffect(() => {
     if (!isL1 || !currentAnalyst) return;
     let cancelled = false;
@@ -27,9 +37,9 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
       .then(r => { if (!cancelled) setAlerts(r.data || []); })
       .catch(() => {});
     load();
-    const id = setInterval(load, 60000);
+    const id = setInterval(load, 30000);
     return () => { cancelled = true; clearInterval(id); };
-  }, [isL1, currentAnalyst]);
+  }, [isL1, currentAnalyst, activeId]);
 
   // Manager / L2 / unauthenticated → don't render anything.
   if (!isL1 || !currentAnalyst) return null;
@@ -38,7 +48,10 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
   // a placeholder for a secondary panel.
   if (alerts === null) return null;
 
-  const next = getNextUpAlert(alerts, excludeAlertId);
+  // Strict pick: open, not closed, not dispositioned, not SAR-linked, AND
+  // owned by the current analyst (defense against the API filter slipping
+  // through any alert assigned to someone else).
+  const next = getNextUpAlert(alerts, excludeAlertId, currentAnalyst);
   if (!next) return null;
 
   const sla = getSlaDescriptor(next);
