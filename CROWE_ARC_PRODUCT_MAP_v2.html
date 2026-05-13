@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Crowe ARC — Product + Business Model Map (v2)</title>
+<style>
+  :root {
+    --bg:           #f1f5f9;
+    --panel:        #ffffff;
+    --panel-border: #e2e8f0;
+    --ink:          #0f172a;
+    --ink-muted:    #475569;
+    --ink-soft:     #64748b;
+    --accent:       #1e3a8a;
+    --accent-soft:  #dbeafe;
+
+    --built:        #16a34a;
+    --built-bg:     #dcfce7;
+    --partial:      #d97706;
+    --partial-bg:   #fef3c7;
+    --gap:          #dc2626;
+    --gap-bg:       #fee2e2;
+    --info:         #2563eb;
+    --info-bg:      #dbeafe;
+    --neutral:      #64748b;
+    --neutral-bg:   #f1f5f9;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  body { padding: 24px; }
+
+  .canvas {
+    max-width: 1800px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 12px;
+  }
+
+  /* === Header band ============================================ */
+  .header {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+  .header h1 {
+    margin: 0 0 4px;
+    color: var(--accent);
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .header .subtitle {
+    color: var(--ink-muted);
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  .header .positioning {
+    background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+    padding: 12px 16px;
+    border-radius: 0 6px 6px 0;
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: 500;
+    margin-bottom: 14px;
+  }
+  .legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--ink-muted);
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .dot.built   { background: var(--built); }
+  .dot.partial { background: var(--partial); }
+  .dot.gap     { background: var(--gap); }
+  .dot.info    { background: var(--info); }
+  .dot.neutral { background: var(--neutral); }
+
+  /* === Panels ================================================= */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    border-bottom: 2px solid var(--panel-border);
+    padding-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .panel-sub {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    margin: -6px 0 8px;
+    font-style: italic;
+  }
+
+  /* === Items inside panels ==================================== */
+  .items { display: flex; flex-direction: column; gap: 6px; }
+  .item {
+    font-size: 12px;
+    color: var(--ink-muted);
+    background: var(--neutral-bg);
+    border-radius: 6px;
+    padding: 7px 10px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    line-height: 1.4;
+  }
+  .item .dot { margin-top: 4px; flex-shrink: 0; }
+  .item.built    { background: var(--built-bg);   color: #064e3b; }
+  .item.partial  { background: var(--partial-bg); color: #78350f; }
+  .item.gap      { background: var(--gap-bg);     color: #7f1d1d; }
+  .item.info     { background: var(--info-bg);    color: #1e3a8a; }
+  .item.neutral  { background: var(--neutral-bg); color: var(--ink-muted); }
+
+  .group-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    margin: 8px 0 4px;
+    font-weight: 700;
+  }
+  .group-label:first-child { margin-top: 0; }
+
+  /* === Grid spans ============================================= */
+  .span-3  { grid-column: span 3; }
+  .span-4  { grid-column: span 4; }
+  .span-6  { grid-column: span 6; }
+  .span-8  { grid-column: span 8; }
+  .span-12 { grid-column: 1 / -1; }
+
+  /* === Workflow strip ========================================= */
+  .workflow-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  .workflow-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .wf-step {
+    background: var(--neutral-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    text-align: center;
+    min-width: 86px;
+  }
+  .wf-step.start  { background: var(--info-bg);    color: #1e3a8a; border-color: #93c5fd; }
+  .wf-step.action { background: #fef9c3;           color: #713f12; border-color: #fde047; }
+  .wf-step.sar    { background: #ede9fe;           color: #5b21b6; border-color: #c4b5fd; }
+  .wf-step.retain { background: var(--built-bg);   color: #064e3b; border-color: #86efac; }
+  .wf-arrow {
+    font-size: 16px;
+    color: var(--ink-soft);
+    font-weight: 700;
+  }
+  .wf-loop {
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-style: italic;
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 10px;
+    background: var(--neutral-bg);
+    border-radius: 999px;
+    border: 1px dashed var(--panel-border);
+  }
+  .wf-caption {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    text-align: center;
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  /* === Regulatory foundations table =========================== */
+  table.reg {
+    width: 100%;
+    font-size: 11.5px;
+    border-collapse: collapse;
+  }
+  table.reg th, table.reg td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--panel-border);
+    text-align: left;
+    vertical-align: top;
+  }
+  table.reg th {
+    background: var(--neutral-bg);
+    color: var(--ink-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+  table.reg td.status { white-space: nowrap; font-weight: 600; }
+  table.reg td.status.built   { color: var(--built); }
+  table.reg td.status.partial { color: var(--partial); }
+  table.reg td.status.gap     { color: var(--gap); }
+
+  /* === Footer ================================================ */
+  .footer {
+    grid-column: 1 / -1;
+    color: var(--ink-soft);
+    font-size: 11px;
+    padding-top: 8px;
+    text-align: center;
+  }
+
+  /* === Print ================================================= */
+  @media print {
+    body { background: white; padding: 0; }
+    .canvas { max-width: 100%; }
+    .panel { break-inside: avoid; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="canvas">
+
+  <!-- ====================== HEADER ====================== -->
+  <div class="header">
+    <h1>Crowe ARC — Product + Business Model Map (v2)</h1>
+    <div class="subtitle">Demo-ready post-alert AML case-management and SAR workflow prototype · Internal Crowe accelerator</div>
+    <div class="positioning">
+      Crowe ARC manages what happens <em>after</em> an AML alert exists. Demo-ready prototype today on synthetic data;
+      production-grade for live bank operations requires foundational work in ingestion, authentication, and regulatory
+      recordkeeping that is scoped and tractable.
+    </div>
+    <div class="legend">
+      <span class="legend-item"><span class="dot built"></span>Built — works end-to-end</span>
+      <span class="legend-item"><span class="dot partial"></span>Partial — built, has cracks</span>
+      <span class="legend-item"><span class="dot gap"></span>Gap — missing or theater</span>
+      <span class="legend-item"><span class="dot info"></span>Info / positioning</span>
+      <span class="legend-item"><span class="dot neutral"></span>Neutral / context</span>
+    </div>
+  </div>
+
+  <!-- ====================== ROW 2: WHO + WHAT + WHO ====================== -->
+
+  <div class="panel span-4">
+    <h2>Core Problems</h2>
+    <div class="panel-sub">Why this tool exists</div>
+    <div class="items">
+      <div class="item neutral"><span class="dot neutral"></span>Scattered post-alert artifacts (alerts, notes, drafts, evidence) across systems</div>
+      <div class="item neutral"><span class="dot neutral"></span>Managers can't see SLA / aging in real time</div>
+      <div class="item neutral"><span class="dot neutral"></span>30-day FinCEN clock has no anchor on the screen</div>
+      <div class="item neutral"><span class="dot neutral"></span>L1 → L2 handoffs lose investigator reasoning</div>
+      <div class="item neutral"><span class="dot neutral"></span>SAR existence leaks via customer-facing surfaces (tipping-off vector)</div>
+      <div class="item neutral"><span class="dot neutral"></span>Audit trail is application-trust, not database-truth</div>
+      <div class="item neutral"><span class="dot neutral"></span>Settings pages that lie — toggles save but drive nothing</div>
+      <div class="item neutral"><span class="dot neutral"></span>Manual SAR drafting · evidence retrieval pain at exam time</div>
+    </div>
+  </div>
+
+  <div class="panel span-4">
+    <h2>Product Identity</h2>
+    <div class="panel-sub">What Crowe ARC actually is</div>
+    <div class="items">
+      <div class="item info"><span class="dot info"></span><strong>Post-alert AML workflow layer</strong> — not transaction monitoring</div>
+      <div class="item info"><span class="dot info"></span>SAR handling, review, approval, retention, retrieval</div>
+      <div class="item info"><span class="dot info"></span>Demo-ready functional prototype <em>(not yet production-graded for live banking)</em></div>
+      <div class="item info"><span class="dot info"></span>Internal Crowe accelerator + AML advisory tool</div>
+      <div class="item partial"><span class="dot partial"></span>Synthetic data only — no production ingestion path yet</div>
+    </div>
+    <div class="group-label">What it is NOT</div>
+    <div class="items">
+      <div class="item gap"><span class="dot gap"></span>Not an Actimize replacement</div>
+      <div class="item gap"><span class="dot gap"></span>Not a transaction-monitoring engine</div>
+      <div class="item gap"><span class="dot gap"></span>Not a sanctions list authority (we sync OFAC; we don't author it)</div>
+    </div>
+  </div>
+
+  <div class="panel span-4">
+    <h2>Target Users</h2>
+    <div class="panel-sub">Built personas vs. planned</div>
+    <div class="group-label">Built personas (modeled in user_profiles)</div>
+    <div class="items">
+      <div class="item built"><span class="dot built"></span>L1 AML analysts (6 demo personas)</div>
+      <div class="item built"><span class="dot built"></span>L2 investigators (4 demo personas)</div>
+      <div class="item built"><span class="dot built"></span>Compliance Manager (1 demo persona; <em>also serving as the BSA Officer surface</em>)</div>
+    </div>
+    <div class="group-label">Roadmap personas</div>
+    <div class="items">
+      <div class="item gap"><span class="dot gap"></span>BSA Officer — not yet modeled distinctly</div>
+      <div class="item gap"><span class="dot gap"></span>Examiner read-only — not yet modeled; needed for exam-package generation</div>
+      <div class="item gap"><span class="dot gap"></span>Internal auditor read-only — not yet modeled</div>
+    </div>
+  </div>
+
+  <!-- ====================== ROW 3: WORKFLOW (full width) ====================== -->
+
+  <div class="panel span-12">
+    <h2>Core AML Workflow</h2>
+    <div class="panel-sub">The connected lifecycle from alert ownership to retained SAR evidence — including loops the code actually supports</div>
+    <div class="workflow-strip">
+      <div class="workflow-row">
+        <div class="wf-step start">Alert</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step start">Assign</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step action">L1 Review</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step action">L2 Review</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step sar">SAR Draft</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step sar">Approval</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step retain">Retain</div>
+        <div class="wf-arrow">→</div>
+        <div class="wf-step retain">Retrieve</div>
+      </div>
+      <div class="workflow-row">
+        <div class="wf-loop">⟲ L2 returns to L1 with reason + instructions</div>
+        <div class="wf-loop">⟲ Manager rejects SAR → back to L2 with feedback</div>
+        <div class="wf-loop">↪ SAR filing triggers KYC review on customer</div>
+        <div class="wf-loop">↪ 3+ alerts in 90d triggers KYC review</div>
+        <div class="wf-loop">⊘ Manager bulk-close as False Positive</div>
+        <div class="wf-loop gap">⏰ FinCEN 30-day clock — not yet visible on screen</div>
+        <div class="wf-loop gap">📑 Continuing SAR — schema-only counter, not a real link</div>
+      </div>
+      <div class="wf-caption">
+        The forward chain is built and runs on synthetic data. Loops are present in code but underexposed in UI.
+        The FinCEN-clock anchor and continuing-SAR linkage are real gaps in the lifecycle.
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================== ROW 4: DATA + MODULES + TECH ====================== -->
+
+  <div class="panel span-4">
+    <h2>Data Streams / Inputs</h2>
+    <div class="panel-sub">How alerts and context enter the system</div>
+    <div class="group-label">Currently — demo only</div>
+    <div class="items">
+      <div class="item partial"><span class="dot partial"></span>One-shot CSV seed via <code>npm run seed</code> (wipes + reloads)</div>
+      <div class="item gap"><span class="dot gap"></span><strong>No <code>POST /api/alerts</code></strong> · no webhook · no SFTP · no Data Import UI</div>
+      <div class="item neutral"><span class="dot neutral"></span>~250 alerts · ~25 customers · 1,784 transactions · 11 users</div>
+    </div>
+    <div class="group-label">Built rolling feed</div>
+    <div class="items">
+      <div class="item built"><span class="dot built"></span>OFAC SDN daily refresh (Treasury.gov XML, ~14k entries)</div>
+    </div>
+    <div class="group-label">Required for any bank pilot</div>
+    <div class="items">
+      <div class="item gap"><span class="dot gap"></span>Webhook receiver (idempotent on external_alert_id)</div>
+      <div class="item gap"><span class="dot gap"></span>Connector framework — Actimize / Verafin / Oracle FCCM</div>
+      <div class="item gap"><span class="dot gap"></span>Mapping layer · quarantine queue · batch audit</div>
+    </div>
+  </div>
+
+  <div class="panel span-4">
+    <h2>Key Product Modules</h2>
+    <div class="panel-sub">12 modules built · cracks called out honestly</div>
+    <div class="items">
+      <div class="item built"><span class="dot built"></span>Manager dashboard (date filter bug — Wave 1 fix queued)</div>
+      <div class="item built"><span class="dot built"></span>Alert triage + bulk assignment</div>
+      <div class="item built"><span class="dot built"></span>L1 investigation workspace (Kanban + side-panel + tabbed)</div>
+      <div class="item partial"><span class="dot partial"></span>L2 case workflow <em>(counterparty risk flag is component-state only — not persisted)</em></div>
+      <div class="item built"><span class="dot built"></span>SAR filing wizard (6-step · Joint + Continuing variants)</div>
+      <div class="item built"><span class="dot built"></span>SAR approval queue + review</div>
+      <div class="item built"><span class="dot built"></span>SAR repository (read-only banner for L1)</div>
+      <div class="item partial"><span class="dot partial"></span>Retention monitor <em>(legal hold doesn't pause the 5-yr clock)</em></div>
+      <div class="item partial"><span class="dot partial"></span>Audit log <em>(works at app layer; immutability not enforced at DB)</em></div>
+      <div class="item partial"><span class="dot partial"></span>OFAC screening <em>(SDN real with adjudication; PEP is a placeholder)</em></div>
+      <div class="item partial"><span class="dot partial"></span>Reports + analytics <em>(scheduled delivery saves but doesn't send)</em></div>
+      <div class="item partial"><span class="dot partial"></span>Settings <em>(11 of 33 keys actually consumed; the rest are inert)</em></div>
+    </div>
+  </div>
+
+  <div class="panel span-4">
+    <h2>Technology Architecture</h2>
+    <div class="panel-sub">Deployed + production-readiness gaps</div>
+    <div class="group-label">Deployed</div>
+    <div class="items">
+      <div class="item built"><span class="dot built"></span>Frontend: Vercel (React + Vite + Tailwind)</div>
+      <div class="item built"><span class="dot built"></span>Backend: Railway (Node + Express, ~126 endpoints)</div>
+      <div class="item built"><span class="dot built"></span>Database: Supabase Postgres</div>
+      <div class="item built"><span class="dot built"></span>File store: Supabase Storage (private bucket, signed URLs)</div>
+      <div class="item built"><span class="dot built"></span>5 background jobs (SLA, KYC, OFAC, Retention, Reports)</div>
+    </div>
+    <div class="group-label">Production-readiness gaps</div>
+    <div class="items">
+      <div class="item gap"><span class="dot gap"></span>Auth demo-grade (plaintext + spoofable header)</div>
+      <div class="item gap"><span class="dot gap"></span>Jobs in-process setInterval — no durability on restart</div>
+      <div class="item gap"><span class="dot gap"></span>No structured logging · no Sentry · no metrics</div>
+      <div class="item gap"><span class="dot gap"></span>No rate limit · no graceful shutdown · no caching</div>
+      <div class="item gap"><span class="dot gap"></span>CORS permissive (<code>*.vercel.app</code> with credentials)</div>
+    </div>
+  </div>
+
+  <!-- ====================== ROW 5: CONTROLS + AI + FIT ====================== -->
+
+  <div class="panel span-4">
+    <h2>Compliance / Controls</h2>
+    <div class="panel-sub">Built vs. gating before any bank pilot</div>
+    <div class="group-label">Built (partial)</div>
+    <div class="items">
+      <div class="item built"><span class="dot built"></span>Workflow visibility (Control #2 — manager dashboard)</div>
+      <div class="item built"><span class="dot built"></span>Assignment + status tracking with audit</div>
+      <div class="item built"><span class="dot built"></span>SLA 3-tier monitoring (48h / 24h / breach)</div>
+      <div class="item partial"><span class="dot partial"></span>SAR lifecycle (draft → approve → file → retain → retrieve)</div>
+      <div class="item partial"><span class="dot partial"></span>Polymorphic audit trail — broad coverage; DB immutability not enforced</div>
+    </div>
+    <div class="group-label">Gating before production (Control #3 hardening)</div>
+    <div class="items">
+      <div class="item gap"><span class="dot gap"></span>DB-level audit immutability (append-only triggers)</div>
+      <div class="item gap"><span class="dot gap"></span>Retention clock columns immutable post-filing</div>
+      <div class="item gap"><span class="dot gap"></span>Server-side need-to-know on SAR reads</div>
+      <div class="item gap"><span class="dot gap"></span>Document SHA-256 + verified retrieval</div>
+      <div class="item gap"><span class="dot gap"></span>Examiner-grade reproducible export package</div>
+    </div>
+  </div>
+
+  <div class="panel span-4">
+    <h2>AI Assistance</h2>
+    <div class="panel-sub">What "AI" actually is — and the boundary</div>
+    <div class="group-label">Current — narrative drafting via templates</div>
+    <div class="items">
+      <div class="item built"><span class="dot built"></span>6 scenario-aware narrative templates (Structuring, Layering, etc.)</div>
+      <div class="item built"><span class="dot built"></span>Interpolates case data: alerts, transactions, KYC, L2 narrative</div>
+      <div class="item info"><span class="dot info"></span>Template engine — <em>not LLM-backed today</em></div>
+    </div>
+    <div class="group-label">Roadmap — LLM-assisted drafting</div>
+    <div class="items">
+      <div class="item gap"><span class="dot gap"></span>LLM call with case-context retrieval</div>
+      <div class="item gap"><span class="dot gap"></span>Prompt-injection guardrails · output validation</div>
+      <div class="item gap"><span class="dot gap"></span>SR 11-7 model governance package (registry · validation · monitoring)</div>
+    </div>
+    <div class="group-label">Permanent boundaries</div>
+    <div class="items">
+      <div class="item info"><span class="dot info"></span>Analyst always reviews · Manager always approves</div>
+      <div class="item info"><span class="dot info"></span>No auto-filing in any version</div>
+    </div>
+  </div>
+
+  <div class="panel span-4">
+    <h2>Fit vs Actimize</h2>
+    <div class="panel-sub">The pitch line, and what we explicitly don't claim</div>
+    <div class="items">
+      <div class="item info"><span class="dot info"></span><strong>Today:</strong> stand-alone post-alert workflow on synthetic data</div>
+      <div class="item info"><span class="dot info"></span><strong>Future fit:</strong> Crowe ARC receives alerts via ingestion layer; provides a richer downstream case-management surface than the TM vendor offers</div>
+    </div>
+    <div class="group-label">What Crowe ARC is NOT</div>
+    <div class="items">
+      <div class="item gap"><span class="dot gap"></span>A transaction-monitoring engine</div>
+      <div class="item gap"><span class="dot gap"></span>A rule / scenario detection engine</div>
+      <div class="item gap"><span class="dot gap"></span>A FinCEN BSA E-Filing direct integration (currently simulated)</div>
+    </div>
+    <div class="group-label">The Crowe advisory line</div>
+    <div class="items">
+      <div class="item info"><span class="dot info"></span>"We don't compete with Actimize — we put a better case-management layer <em>on top of</em> it."</div>
+    </div>
+  </div>
+
+  <!-- ====================== ROW 6: REALITY + THEATER + LIMITATIONS ====================== -->
+
+  <div class="panel span-4">
+    <h2>Reality Check</h2>
+    <div class="panel-sub">What an analyst can do end-to-end today on synthetic data</div>
+    <div class="items">
+      <div class="item built"><span class="dot built"></span>Log in (demo credentials in localStorage)</div>
+      <div class="item built"><span class="dot built"></span>Pick an alert from My Alerts (Kanban)</div>
+      <div class="item built"><span class="dot built"></span>Investigate in the workspace · add notes · upload evidence</div>
+      <div class="item built"><span class="dot built"></span>Close as FP, return to monitoring, or escalate to L2</div>
+      <div class="item built"><span class="dot built"></span>L2 deep-dive: 10-factor score, counterparty patterns, decision</div>
+      <div class="item built"><span class="dot built"></span>Run OFAC screen on customer or counterparty</div>
+      <div class="item built"><span class="dot built"></span>Walk through the 6-step SAR wizard with template draft</div>
+      <div class="item built"><span class="dot built"></span>Submit · Manager reviews with inline comments · Approve or Reject</div>
+      <div class="item built"><span class="dot built"></span>Filed SAR lands in repository · retention monitor tracks expiry</div>
+      <div class="item built"><span class="dot built"></span>Export SAR package as ZIP for examiner-style retrieval</div>
+      <div class="item built"><span class="dot built"></span>SAR-triggered KYC review auto-created on customer</div>
+    </div>
+  </div>
+
+  <div class="panel span-4">
+    <h2>What's Theater</h2>
+    <div class="panel-sub">UI elements that don't drive behavior — cheap to fix; flag to avoid surprises in demo</div>
+    <div class="items">
+      <div class="item gap"><span class="dot gap"></span>22 of 33 manager settings save but drive nothing</div>
+      <div class="item gap"><span class="dot gap"></span>All 27 employee settings save but drive nothing</div>
+      <div class="item gap"><span class="dot gap"></span>Two "Flag" buttons (Alerts, SAR detail) have no <code>onClick</code></div>
+      <div class="item gap"><span class="dot gap"></span>Counterparty Risk Flag dropdown — never persisted</div>
+      <div class="item gap"><span class="dot gap"></span>Scheduled report delivery — saves the schedule, no worker reads it</div>
+      <div class="item gap"><span class="dot gap"></span>Email recipient field — no SMTP integration anywhere</div>
+      <div class="item gap"><span class="dot gap"></span>Hardcoded developer email at <code>SARRepository.jsx:106</code></div>
+      <div class="item gap"><span class="dot gap"></span>Demo credentials in production frontend bundle (Login.jsx:13-25)</div>
+      <div class="item gap"><span class="dot gap"></span>"Acknowledged" SAR status — set manually; no FinCEN ack loop</div>
+      <div class="item gap"><span class="dot gap"></span>Reporting jurisdiction defaults to <code>FIU-IND</code> (India FIU fossil)</div>
+    </div>
+  </div>
+
+  <div class="panel span-4">
+    <h2>Current Limitations / Roadmap</h2>
+    <div class="panel-sub">Organized by severity — the gating list</div>
+    <div class="group-label">Blockers before any bank pilot</div>
+    <div class="items">
+      <div class="item gap"><span class="dot gap"></span>No <code>POST /api/alerts</code> — system has no front door for live alerts</div>
+      <div class="item gap"><span class="dot gap"></span>Auth: plaintext compare + client-supplied role header</div>
+      <div class="item gap"><span class="dot gap"></span>SAR repository reads + audit-trail reads unguarded</div>
+      <div class="item gap"><span class="dot gap"></span><code>filed_date</code> / <code>retention_expiry_date</code> mutable post-filing</div>
+      <div class="item gap"><span class="dot gap"></span>Audit trail mutable at DB layer (a past migration UPDATE'd 189 rows)</div>
+      <div class="item gap"><span class="dot gap"></span>Customer profile renders SAR existence to anyone</div>
+      <div class="item gap"><span class="dot gap"></span>Detection date is mutable text; no FinCEN 30-day clock visible</div>
+    </div>
+    <div class="group-label">First 90 days post-launch</div>
+    <div class="items">
+      <div class="item partial"><span class="dot partial"></span>BSA Officer + Examiner roles</div>
+      <div class="item partial"><span class="dot partial"></span>Document SHA-256 + verified retrieval</div>
+      <div class="item partial"><span class="dot partial"></span>Legal hold pauses the retention clock</div>
+      <div class="item partial"><span class="dot partial"></span>Out-of-process jobs + structured logging</div>
+      <div class="item partial"><span class="dot partial"></span>PII column-level encryption · need-to-know SAR scoping</div>
+    </div>
+    <div class="group-label">Strategic (6+ months)</div>
+    <div class="items">
+      <div class="item info"><span class="dot info"></span>Real ingestion + scenario rule engine + model governance</div>
+      <div class="item info"><span class="dot info"></span>Entra ID / OIDC / MFA replaces demo auth</div>
+      <div class="item info"><span class="dot info"></span>Direct FinCEN BSA E-Filing (currently simulated)</div>
+    </div>
+  </div>
+
+  <!-- ====================== ROW 7: REG FOUNDATIONS + BIZ VALUE ====================== -->
+
+  <div class="panel span-8">
+    <h2>Regulatory Foundations Addressed (and Not)</h2>
+    <div class="panel-sub">Direct mapping to U.S. AML rules — built / partial / gap status per requirement</div>
+    <table class="reg">
+      <thead>
+        <tr>
+          <th style="width:160px">Rule</th>
+          <th>Element</th>
+          <th style="width:100px">Status</th>
+          <th>Evidence / Gap</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>31 CFR 1020.320(a)</td>
+          <td>SAR program elements</td>
+          <td class="status built">✓ Built</td>
+          <td>End-to-end workflow + dual approval setting + audit coverage</td>
+        </tr>
+        <tr>
+          <td>31 CFR 1020.320(b)(3)</td>
+          <td>30-day filing deadline (60d unknown subject)</td>
+          <td class="status partial">⚠ Partial</td>
+          <td>Schema fields exist but <code>detection_date</code> mutable; no on-screen FinCEN clock; no 60-day extension fields</td>
+        </tr>
+        <tr>
+          <td>31 CFR 1020.320(d)</td>
+          <td>5-year SAR retention</td>
+          <td class="status partial">⚠ Partial</td>
+          <td>Clock computed and surfaced; <code>filed_date</code> + <code>retention_expiry_date</code> user-mutable post-filing; legal hold doesn't pause clock</td>
+        </tr>
+        <tr>
+          <td>31 U.S.C. § 5318(g)(2)</td>
+          <td>SAR confidentiality / no tipping-off</td>
+          <td class="status gap">✗ Gap</td>
+          <td>Customer profile renders SAR badge + history to any viewer; SAR reads unguarded; need-to-know not enforced</td>
+        </tr>
+        <tr>
+          <td>31 CFR 1010.230</td>
+          <td>CDD Final Rule / beneficial ownership</td>
+          <td class="status partial">⚠ Partial</td>
+          <td>UBO captured as JSON blob on customer row; cannot express layered entities or look-through</td>
+        </tr>
+        <tr>
+          <td>31 CFR 1010.311</td>
+          <td>CTR threshold ($10k cash)</td>
+          <td class="status gap">✗ Gap</td>
+          <td>No CTR pathway; $10k references only in structuring detection logic</td>
+        </tr>
+        <tr>
+          <td>31 CFR 501.603</td>
+          <td>OFAC compliance</td>
+          <td class="status partial">⚠ Partial</td>
+          <td>SDN download + adjudication built; list-version per screening not captured; PEP / UN / EU / HMT not integrated</td>
+        </tr>
+        <tr>
+          <td>FFIEC BSA/AML Manual</td>
+          <td>Audit + SAR sections</td>
+          <td class="status partial">⚠ Partial</td>
+          <td>Audit coverage broad; immutability is app-only; export package materially incomplete vs. examiner expectation</td>
+        </tr>
+        <tr>
+          <td>SR 11-7 (OCC 2011-12)</td>
+          <td>Model risk governance</td>
+          <td class="status gap">✗ Gap</td>
+          <td>No model registry, no validation, no monitoring; required before any LLM SAR-narrative work lands</td>
+        </tr>
+        <tr>
+          <td>FFIEC IT Booklet</td>
+          <td>Authentication + access controls</td>
+          <td class="status gap">✗ Gap</td>
+          <td>Plaintext password compare; client-supplied role header; no MFA; 11 demo credentials in production bundle</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel span-4">
+    <h2>Business / Advisory Value</h2>
+    <div class="panel-sub">Why Crowe is the right author</div>
+    <div class="group-label">Internal value</div>
+    <div class="items">
+      <div class="item built"><span class="dot built"></span>Internal Crowe accelerator</div>
+      <div class="item built"><span class="dot built"></span>Client discovery demo asset</div>
+      <div class="item built"><span class="dot built"></span>AI productivity narrative ("we use it for drafting, not deciding")</div>
+    </div>
+    <div class="group-label">Advisory opportunities</div>
+    <div class="items">
+      <div class="item info"><span class="dot info"></span>AML / SAR workflow maturity assessments</div>
+      <div class="item info"><span class="dot info"></span>Reference architecture in client workshops</div>
+      <div class="item info"><span class="dot info"></span>Pilot / implementation engagements</div>
+      <div class="item info"><span class="dot info"></span>Acceptable-AI-in-AML talking point</div>
+      <div class="item info"><span class="dot info"></span>"Control-objective to product-feature" translation case study</div>
+    </div>
+    <div class="group-label">Why Crowe, not a vendor</div>
+    <div class="items">
+      <div class="item info"><span class="dot info"></span>Crowe understands the regulator + the bank + the workflow</div>
+      <div class="item info"><span class="dot info"></span>The software is a foothold for that conversation</div>
+    </div>
+  </div>
+
+  <!-- ====================== FOOTER ====================== -->
+  <div class="footer">
+    Current-state map · accurate to working-tree as of 2026-05-13 · production readiness requires the gating items in §Limitations + §Regulatory Foundations.
+    Verified against the repo (CROWE_ARC_AUDIT_REPORT, CROWE_ARC_HEALTH_CHECK, ENTERPRISE_GAP_ANALYSIS) and the dashboard / Control #3 / L1 / L2 review series.
+  </div>
+
+</div>
+
+</body>
+</html>

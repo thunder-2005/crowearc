@@ -221,16 +221,27 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card title="Alert Volume Trend" subtitle={isEmployee ? `${currentAnalyst}'s alerts over time` : 'Last 30 days'} className="lg:col-span-2">
           <div style={{ width: '100%', height: 260 }}>
-            <ResponsiveContainer>
-              <LineChart data={stats.trend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                <Tooltip />
-                <Line type="monotone" dataKey="alerts" stroke="#2563eb" strokeWidth={2}
-                      dot={{ r: 3 }} activeDot={{ r: 5 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            {stats.trend && stats.trend.length > 0 ? (
+              <ResponsiveContainer>
+                <LineChart data={stats.trend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="alerts" stroke="#2563eb" strokeWidth={2}
+                        dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center px-6">
+                <div className="text-sm font-medium text-slate-700 mb-1">No alerts in the selected period</div>
+                <div className="text-xs text-slate-500 max-w-md">
+                  {range === 'all'
+                    ? `No alerts on record${isEmployee ? ` for ${currentAnalyst || 'this analyst'}` : ''}.`
+                    : <>The date filter is set to <span className="font-semibold">{({'7d':'Last 7 days','30d':'Last 30 days','90d':'Last 90 days','ytd':'Year to date'})[range] || range}</span> and applies to <span className="italic">alert creation date</span>. Try <button onClick={() => setRange('all')} className="font-semibold text-blue-600 underline hover:text-blue-700">All Time</button>.</>}
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 
