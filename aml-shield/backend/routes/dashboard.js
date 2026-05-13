@@ -129,9 +129,13 @@ router.get('/stats', async (req, res, next) => {
       ? Math.round((closedFalsePositives / completed) * 100)
       : 0;
 
-    // Trend chart genuinely needs a window — keep a hard-coded 30-day
-    // window for the chart only.
-    const trendWindowSql = "created_date >= (NOW() - INTERVAL '30 days')::date::text";
+    // Trend chart needs a 30-day window. Anchor it on MAX(created_date)
+    // (filtered by the same scope as the outer query, so an analyst sees
+    // their own recent 30 days, a manager sees the team's) rather than on
+    // NOW(). This keeps the chart populated even when seed data is older
+    // than today — the chart shows the most recent 30 days of available
+    // activity. Falls back to CURRENT_DATE when the table is empty.
+    const trendWindowSql = `created_date >= (COALESCE((SELECT MAX(created_date::date) FROM alerts${whereSql}), CURRENT_DATE) - INTERVAL '30 days')::date::text`;
     const trend = (await pool.query(`
       SELECT created_date AS day, COUNT(*) AS alerts
         FROM alerts${whereSql}${whereSql ? ' AND ' : ' WHERE '} ${trendWindowSql}
