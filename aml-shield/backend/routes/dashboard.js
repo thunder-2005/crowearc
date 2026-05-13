@@ -129,19 +129,26 @@ router.get('/stats', async (req, res, next) => {
       ? Math.round((closedFalsePositives / completed) * 100)
       : 0;
 
-    // Trend chart needs a 30-day window. Anchor it on MAX(created_date)
-    // (filtered by the same scope as the outer query, so an analyst sees
-    // their own recent 30 days, a manager sees the team's) rather than on
-    // NOW(). This keeps the chart populated even when seed data is older
-    // than today — the chart shows the most recent 30 days of available
-    // activity. Falls back to CURRENT_DATE when the table is empty.
-    const trendWindowSql = `created_date >= (COALESCE((SELECT MAX(created_date::date) FROM alerts${whereSql}), CURRENT_DATE) - INTERVAL '30 days')::date::text`;
+    // Trend chart shows the scope's full alert history, bucketed by ISO
+    // week (Monday-start). Two reasons over a date-windowed daily query:
+    //
+    //  - Daily buckets on sparse data (e.g. an analyst who works ~2 alerts
+    //    a week) produce a flat 1-alert-per-day line that hides the trend.
+    //    Weekly buckets aggregate enough volume to show shape.
+    //  - A wall-clock-anchored window (Last N days) goes empty for every
+    //    analyst as soon as the seed data ages out — exactly the bug the
+    //    previous "trendWindowSql" was patching around.
+    //
+    // The `day` column is named for backward compatibility with the
+    // frontend Recharts config (dataKey="day") and carries the Monday-of-
+    // week date in YYYY-MM-DD format.
     const trend = (await pool.query(`
-      SELECT created_date AS day, COUNT(*) AS alerts
-        FROM alerts${whereSql}${whereSql ? ' AND ' : ' WHERE '} ${trendWindowSql}
-       GROUP BY created_date
-       ORDER BY created_date ASC
-    `, params)).rows.map(r => ({ ...r, alerts: Number(r.alerts) }));
+      SELECT to_char(date_trunc('week', created_date::date)::date, 'YYYY-MM-DD') AS day,
+             COUNT(*)::int AS alerts
+        FROM alerts${whereSql}
+       GROUP BY date_trunc('week', created_date::date)
+       ORDER BY date_trunc('week', created_date::date) ASC
+    `, params)).rows;
 
     const byStatus = (await pool.query(`
       SELECT alert_status AS name, COUNT(*) AS value FROM alerts${whereSql} GROUP BY alert_status
