@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import api from '../api/client.js';
 import Badge from '../components/shared/Badge.jsx';
-import { X, Clock, UserPlus, PlayCircle, AlertTriangle, ShieldCheck, ArrowUpRight, RotateCcw, FolderOpen, Zap, SkipForward, Search, CheckCircle2 } from 'lucide-react';
+import { X, Clock, UserPlus, PlayCircle, AlertTriangle, ShieldCheck, ArrowUpRight, RotateCcw, FolderOpen, Zap, Search, CheckCircle2 } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
 import { useInvestigationTabs } from '../state/InvestigationTabsContext.jsx';
 import InvestigationWorkspace from '../components/investigation/InvestigationWorkspace.jsx';
@@ -9,6 +9,7 @@ import L2InvestigationWorkspace from '../components/investigation/L2Investigatio
 import L2QueuePage from '../components/investigation/L2QueuePage.jsx';
 import ManagerAlertsTable from '../components/alerts/ManagerAlertsTable.jsx';
 import { isAlertClosed, slaSnapshot } from '../utils/alertStatus.js';
+import { getAlertScore } from '../utils/alertScoring.js';
 import OutcomeCard from '../components/shared/OutcomeCard.jsx';
 
 // L1 analysts see only their own work — no Unassigned column (alerts the
@@ -47,25 +48,8 @@ const SCENARIO_OPTIONS = [
   'Trade Based ML'
 ];
 
-// Score every open alert from 0-60. Highest score = "Next Up". Drives the
-// sticky banner above the Kanban for L1 analysts.
-function getAlertScore(alert) {
-  const now = Date.now();
-  const deadline = alert.sla_deadline ? new Date(alert.sla_deadline).getTime() : null;
-  const hoursLeft = deadline ? (deadline - now) / 3600000 : Infinity;
-
-  let slaScore = 1;
-  if (hoursLeft <= 0)        slaScore = 30;
-  else if (hoursLeft <= 24)  slaScore = 25;
-  else if (hoursLeft <= 48)  slaScore = 18;
-  else if (hoursLeft <= 168) slaScore = 8;
-
-  const priorityScore = { High: 15, Medium: 8, Low: 3 }[alert.priority] || 0;
-  const riskScore = { 'Very High': 10, High: 6, Medium: 3, Low: 0 }[alert.customer_risk_rating] || 0;
-  const sanctionsBonus = (Number(alert.sanctions_match) === 1 || Number(alert.pep_match) === 1) ? 5 : 0;
-
-  return slaScore + priorityScore + riskScore + sanctionsBonus;
-}
+// getAlertScore moved to utils/alertScoring.js (shared with NextUpFloat and
+// CompletionPrompt so the ranking math is the single source of truth).
 
 function usd(n) { return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 function usdNoCents(n) { return `$${Number(n || 0).toLocaleString('en-US')}`; }
@@ -87,7 +71,6 @@ export default function Alerts() {
   });
   const [sortBy, setSortBy] = useState('sla_asc');
   const [searchText, setSearchText] = useState('');
-  const [skippedIds, setSkippedIds] = useState([]);
   const searchInputRef = useRef(null);
 
   // L1 analysts get the personal-only Kanban (no Unassigned column, no
@@ -184,17 +167,16 @@ export default function Alerts() {
     return hay.includes(searchTrim);
   }, [searchTrim]);
 
-  // Next Up = highest-scoring not-yet-skipped open alert in the filtered set.
+  // Next Up = highest-scoring open alert in the filtered set. Skip support
+  // removed in this PR — the banner now offers one action: Open Alert.
   const nextUp = useMemo(() => {
     if (!isL1) return null;
-    const candidates = filteredAlerts
-      .filter(a => OPEN_STATUSES_FOR_NEXT_UP.has(a.alert_status))
-      .filter(a => !skippedIds.includes(a.alert_id));
+    const candidates = filteredAlerts.filter(a => OPEN_STATUSES_FOR_NEXT_UP.has(a.alert_status));
     if (candidates.length === 0) return null;
     return candidates
       .map(a => ({ alert: a, score: getAlertScore(a) }))
       .sort((x, y) => y.score - x.score)[0].alert;
-  }, [filteredAlerts, skippedIds, isL1]);
+  }, [filteredAlerts, isL1]);
 
   // "All caught up" vs "no open alerts at all" — only show the banner when
   // there are open alerts to think about.
@@ -211,9 +193,6 @@ export default function Alerts() {
   const updateStatus = async (alert, next) => {
     await api.patch(`/alerts/${alert.alert_id}/status`, { alert_status: next });
     await load();
-    // Clear the skip list whenever any alert's status changes — the queue
-    // composition just shifted, so prior skip decisions are stale.
-    setSkippedIds([]);
     if (selected?.alert_id === alert.alert_id) setSelected({ ...alert, alert_status: next });
   };
 
@@ -292,8 +271,6 @@ export default function Alerts() {
           clearFilters={clearFilters}
           nextUp={nextUp}
           hasOpenAfterFilters={hasOpenAfterFilters}
-          skippedCount={skippedIds.length}
-          onSkipNextUp={(id) => setSkippedIds(prev => [...prev, id])}
           onOpenNextUp={(alert) => startInvestigation(alert)}
         />
       )}
@@ -336,10 +313,11 @@ function TabBar({ tabs, activeId, onSelect, onClose }) {
 }
 
 // "Next Up" sticky banner — picks the highest-scoring open alert for the
-// L1 analyst and pins it above the kanban. Disappears when all open alerts
-// have been opened/skipped. Skip is session-only state on the parent.
-function NextUpBanner({ alert, skippedCount, onOpen, onSkip }) {
-  // All caught up — no surviving candidates after skips/filters.
+// L1 analyst and pins it above the kanban. Single action: Open Alert.
+// (Skip / dismiss removed — the banner is informational; if the analyst
+// doesn't want to act they can simply ignore it.)
+function NextUpBanner({ alert, onOpen }) {
+  // No open alerts in scope (e.g. all caught up after filters).
   if (!alert) {
     return (
       <div
@@ -347,9 +325,7 @@ function NextUpBanner({ alert, skippedCount, onOpen, onSkip }) {
         style={{ borderLeft: '4px solid #16A34A', padding: '10px 14px', position: 'sticky', top: 0, zIndex: 30 }}
       >
         <CheckCircle2 size={16} className="text-green-600 shrink-0" />
-        <span className="font-medium">
-          {skippedCount > 0 ? 'All alerts reviewed — great work!' : 'All caught up — no alerts to prioritize'}
-        </span>
+        <span className="font-medium">All caught up — no alerts to prioritize</span>
       </div>
     );
   }
@@ -422,24 +398,14 @@ function NextUpBanner({ alert, skippedCount, onOpen, onSkip }) {
         <span>{sla}</span>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          type="button"
-          onClick={() => onOpen(alert)}
-          className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded px-3 py-1.5"
-        >
-          <PlayCircle size={12} />
-          Open Alert
-        </button>
-        <button
-          type="button"
-          onClick={() => onSkip(alert.alert_id)}
-          className="inline-flex items-center gap-1 border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-medium rounded px-2.5 py-1.5"
-        >
-          <SkipForward size={12} />
-          Skip
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => onOpen(alert)}
+        className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded px-3 py-1.5 shrink-0"
+      >
+        <PlayCircle size={12} />
+        Open Alert
+      </button>
     </div>
   );
 }
@@ -598,7 +564,7 @@ function KanbanBoard({
   filters, setFilters, sortBy, setSortBy,
   searchText, setSearchText, searchInputRef, matchesSearch,
   anyFilterActive, clearFilters,
-  nextUp, hasOpenAfterFilters, skippedCount, onSkipNextUp, onOpenNextUp
+  nextUp, hasOpenAfterFilters, onOpenNextUp
 }) {
   const gridCols = columns.length >= 5
     ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-5'
@@ -626,12 +592,7 @@ function KanbanBoard({
         </div>
 
         {isL1 && hasOpenAfterFilters && (
-          <NextUpBanner
-            alert={nextUp}
-            skippedCount={skippedCount}
-            onOpen={onOpenNextUp}
-            onSkip={onSkipNextUp}
-          />
+          <NextUpBanner alert={nextUp} onOpen={onOpenNextUp} />
         )}
 
         {isL1 && (

@@ -7,6 +7,8 @@ import { useInvestigationTabs } from '../../state/InvestigationTabsContext.jsx';
 import { useToast } from '../../state/ToastContext.jsx';
 import { KycProfileBlock } from './InvestigationWorkspace.jsx';
 import RuleExplanationBanner from './RuleExplanationBanner.jsx';
+import NextUpFloat from './NextUpFloat.jsx';
+import CompletionPrompt from './CompletionPrompt.jsx';
 import {
   AlertCircle, Filter, FileText, MessageSquare, FolderOpen, ListChecks,
   User, Briefcase, ClipboardList, Link2, Upload, Trash2, Download, Eye, X,
@@ -61,6 +63,8 @@ export default function L2InvestigationWorkspace({ l2CaseId, alertId }) {
   const [riskScore, setRiskScore] = useState(0);
   const [riskFactors, setRiskFactors] = useState({});
   const [tabsVisited, setTabsVisited] = useState(new Set());
+  const [completion, setCompletion] = useState(null);
+  const { goTo: goToTop } = useRoleNavigate();
 
   // Track tabs visited for the decision checklist
   useEffect(() => {
@@ -145,11 +149,29 @@ export default function L2InvestigationWorkspace({ l2CaseId, alertId }) {
                 tabsVisited={tabsVisited}
                 readOnly={readOnly}
                 onChanged={reload}
+                onCompletion={(dispositionLabel) => setCompletion({ dispositionLabel })}
               />
             )}
           </div>
         </section>
       </div>
+
+      {/* L2 also gets the corner Next Priority float (self-gates to L1
+          analysts internally, so this is a no-op for managers viewing L2). */}
+      <NextUpFloat
+        excludeAlertId={alertId}
+        onOpen={(next) => goToTop(`alerts?alert=${next.alert_id}`)}
+      />
+
+      {/* Post-disposition modal. NOT shown for 'sar' decisions —
+          DecisionTab navigates straight to the SAR Filing wizard there. */}
+      <CompletionPrompt
+        open={!!completion}
+        onClose={() => setCompletion(null)}
+        justClosedAlertId={alertId}
+        dispositionLabel={completion?.dispositionLabel}
+        alertId={alertId}
+      />
     </div>
   );
 }
@@ -969,7 +991,7 @@ function SarHistoryTab({ customerId }) {
 
 // ─────────────────────────────────────────────── L2 DECISION TAB
 
-function DecisionTab({ l2, riskScore, tabsVisited, readOnly, onChanged }) {
+function DecisionTab({ l2, riskScore, tabsVisited, readOnly, onChanged, onCompletion }) {
   const { currentAnalyst } = useRole();
   const { goTo } = useRoleNavigate();
   const { closeTab } = useInvestigationTabs();
@@ -1015,13 +1037,23 @@ function DecisionTab({ l2, riskScore, tabsVisited, readOnly, onChanged }) {
       push(messages[action], 'success');
       setModal(null);
       const tabKey = `L2:${l2.l2_case_id}`;
-      setTimeout(() => {
-        closeTab(tabKey);
-        if (action === 'sar') {
+      // For SAR decisions the existing UX takes the analyst straight to
+      // the SAR Filing wizard — don't show the CompletionPrompt there.
+      // For return / close we fire the prompt; closeTab happens inside
+      // the prompt's "Return to My Alerts" flow.
+      if (action === 'sar') {
+        setTimeout(() => {
+          closeTab(tabKey);
           const caseId = resp?.data?.case_id;
           if (caseId) goTo(`sar-filing/${caseId}`);
-        }
-      }, 1400);
+        }, 1400);
+      } else {
+        closeTab(tabKey);
+        const dispositionLabel = action === 'close'
+          ? 'Closed — no suspicious activity'
+          : 'Returned to L1';
+        if (typeof onCompletion === 'function') onCompletion(dispositionLabel);
+      }
     } catch (e) {
       push('Decision failed: ' + (e.response?.data?.error || e.message), 'error');
     }

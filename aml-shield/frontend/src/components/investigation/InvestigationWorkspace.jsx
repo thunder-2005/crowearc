@@ -12,6 +12,9 @@ import {
 import OutcomeCard from '../shared/OutcomeCard.jsx';
 import OfacScreeningPanel from './OfacScreeningPanel.jsx';
 import RuleExplanationBanner from './RuleExplanationBanner.jsx';
+import NextUpFloat from './NextUpFloat.jsx';
+import CompletionPrompt from './CompletionPrompt.jsx';
+import { useRoleNavigate } from '../../state/useRoleNavigate.js';
 import { isAlertClosed, slaSnapshot } from '../../utils/alertStatus.js';
 
 const usd = (n) => `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -21,6 +24,10 @@ export default function InvestigationWorkspace({ alertId }) {
   const [loading, setLoading] = useState(true);
   const [leftTab, setLeftTab] = useState('transactions');
   const [rightTab, setRightTab] = useState('kyc');
+  // Set by CaseInfoTab on successful disposition (FP / Escalate to L2).
+  // Shape: { dispositionLabel: string }
+  const [completion, setCompletion] = useState(null);
+  const { goTo } = useRoleNavigate();
 
   useEffect(() => {
     setLoading(true);
@@ -85,11 +92,32 @@ export default function InvestigationWorkspace({ alertId }) {
         <div className="flex-1 min-h-0 overflow-y-auto">
           {rightTab === 'kyc' && <CustomerKycTab customerId={alert.customer_id} />}
           {rightTab === 'business' && <BusinessTab customerId={alert.customer_id} />}
-          {rightTab === 'case' && <CaseInfoTab alert={alert} onAlertChange={setAlert} />}
+          {rightTab === 'case' && (
+            <CaseInfoTab
+              alert={alert}
+              onAlertChange={setAlert}
+              onCompletion={(dispositionLabel) => setCompletion({ dispositionLabel })}
+            />
+          )}
           {rightTab === 'linked' && <LinkedCasesTab alert={alert} />}
         </div>
       </section>
       </div>
+
+      {/* Floating "Next Priority" pinned bottom-right. Self-gates to L1. */}
+      <NextUpFloat
+        excludeAlertId={alertId}
+        onOpen={(next) => goTo(`alerts?alert=${next.alert_id}`)}
+      />
+
+      {/* Post-disposition modal — countdown auto-nav, manual Open Next. */}
+      <CompletionPrompt
+        open={!!completion}
+        onClose={() => setCompletion(null)}
+        justClosedAlertId={alertId}
+        dispositionLabel={completion?.dispositionLabel}
+        alertId={alertId}
+      />
     </div>
   );
 }
@@ -778,7 +806,7 @@ function BusinessTab({ customerId }) {
   );
 }
 
-function CaseInfoTab({ alert, onAlertChange }) {
+function CaseInfoTab({ alert, onAlertChange, onCompletion }) {
   const { isEmployee, currentAnalyst, isManager } = useRole();
   const { closeTab } = useInvestigationTabs();
   const { push: pushToast } = useToast();
@@ -823,7 +851,8 @@ function CaseInfoTab({ alert, onAlertChange }) {
       });
       pushToast('Alert closed as False Positive', 'success');
       setModal(null);
-      setTimeout(() => closeTab('L1:' + alert.alert_id), 2000);
+      closeTab('L1:' + alert.alert_id);
+      if (typeof onCompletion === 'function') onCompletion('Closed as false positive');
     } catch (e) {
       pushToast('Failed to close alert: ' + (e.response?.data?.error || e.message), 'error');
     } finally { setSubmitting(false); }
@@ -847,7 +876,8 @@ function CaseInfoTab({ alert, onAlertChange }) {
       onAlertChange(refreshed);
       pushToast('Alert escalated to Level 2', 'success');
       setModal(null);
-      setTimeout(() => closeTab('L1:' + alert.alert_id), 1500);
+      closeTab('L1:' + alert.alert_id);
+      if (typeof onCompletion === 'function') onCompletion('Escalated to L2');
     } catch (e) {
       pushToast('Failed to escalate: ' + (e.response?.data?.error || e.message), 'error');
     } finally { setSubmitting(false); }
