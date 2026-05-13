@@ -219,14 +219,14 @@ export default function Dashboard() {
       {isManager && <OfacStatusWidget />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card title="Alert Volume Trend" subtitle={isEmployee ? `${currentAnalyst}'s alerts over time` : 'Last 30 days'} className="lg:col-span-2">
+        <Card title="Alert Volume Trend" subtitle={isEmployee ? `${currentAnalyst}'s alerts per week` : 'Team alerts per week'} className="lg:col-span-2">
           <div style={{ width: '100%', height: 260 }}>
             <ResponsiveContainer>
-              <LineChart data={stats.trend}>
+              <LineChart data={stats.trend} margin={{ top: 10, right: 12, left: 0, bottom: 6 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} interval="preserveStartEnd" minTickGap={32} />
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                <Tooltip />
+                <Tooltip labelFormatter={(d) => `Week of ${d}`} />
                 <Line type="monotone" dataKey="alerts" stroke="#2563eb" strokeWidth={2}
                       dot={{ r: 3 }} activeDot={{ r: 5 }} />
               </LineChart>
