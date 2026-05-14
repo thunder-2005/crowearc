@@ -590,7 +590,11 @@ ${s.narrative_summary}
     const names = [...namesSet].sort();
     let i = 1;
     for (const name of names) {
-      const mapping = USER_ROLE_MAP[name] || { role: 'AML Analyst L1', team: 'T1 Monitoring' };
+      // Default unknown names to a valid role enum so the user_profiles
+      // CHECK constraint can't reject a fresh seed if a CSV references
+      // an analyst not in USER_ROLE_MAP. Previously fell back to the
+      // display string 'AML Analyst L1', which fails the constraint.
+      const mapping = USER_ROLE_MAP[name] || { role: 'analyst_l1', team: 'T1 Monitoring' };
       const cred = CREDENTIALS_BY_NAME[name] || { username: null, password: null };
       const uid = `USR-${String(i++).padStart(4, '0')}`;
       const email = `${name.toLowerCase().replace(/\s+/g, '.')}@bank.in`;

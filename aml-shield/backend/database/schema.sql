@@ -277,6 +277,17 @@ CREATE TABLE IF NOT EXISTS case_documents (
 );
 
 -- ── user_profiles ─────────────────────────────────────────
+-- Valid roles are pinned via the user_profiles_role_check constraint so
+-- typos and out-of-taxonomy values can't slip in. The four valid roles
+-- map to UI personas:
+--   analyst_l1         → L1 analyst (front-line triage)
+--   analyst_l2         → L2 analyst (deeper investigation, SAR drafter)
+--   compliance_manager → operational oversight, SAR approval
+--   bsa_officer        → BSA Officer (program-level oversight); shares
+--                        manager-level privileges today, will gain
+--                        BSA-specific gates in a future change
+-- Legacy databases pick this constraint up via migrate.js, which runs
+-- the matching ALTER TABLE ... ADD CONSTRAINT below idempotently.
 CREATE TABLE IF NOT EXISTS user_profiles (
   id           SERIAL PRIMARY KEY,
   user_id      TEXT UNIQUE NOT NULL,
@@ -288,7 +299,9 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   email        TEXT,
   username     TEXT,
   password     TEXT,
-  created_at   TEXT NOT NULL DEFAULT TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
+  created_at   TEXT NOT NULL DEFAULT TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+  CONSTRAINT user_profiles_role_check
+    CHECK (role IN ('analyst_l1', 'analyst_l2', 'compliance_manager', 'bsa_officer'))
 );
 
 -- ── manager_settings ──────────────────────────────────────
