@@ -33,10 +33,16 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
   //     alert disappears.)
   // Background poll runs every 30s to catch out-of-band changes
   // (manager bulk-closed an alert, another analyst reassigned, etc.).
+  //
+  // Note: we fetch the FULL alerts list here, not just `?assigned_to=me`.
+  // The customer-level claim rule inside getNextUpAlert needs to see
+  // OTHER analysts' alerts on the same customer to know whether a
+  // customer is "claimed" institution-wide. The restrictToAnalyst arg
+  // still narrows the surfaced alert to mine.
   useEffect(() => {
     if (!isL1 || !currentAnalyst) return;
     let cancelled = false;
-    const load = () => api.get('/alerts', { params: { assigned_to: currentAnalyst } })
+    const load = () => api.get('/alerts')
       .then(r => { if (!cancelled) setAlerts(r.data || []); })
       .catch(() => {});
     load();
