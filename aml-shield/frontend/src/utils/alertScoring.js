@@ -47,21 +47,28 @@ export function getAlertScore(alert) {
 }
 
 // Customer-level "exclude" rule, computed from the full institution-wide
-// alerts list. A customer drops off everyone's Next Priority surfaces
-// once any of these is true:
+// alerts list. The intent is to stop the float / banner from re-promoting
+// the same customer name back-to-back. It is intentionally narrow — old
+// seeded closed alerts must NOT claim their customer forever (we found
+// that out the painful way: the rule was so aggressive every customer in
+// the demo data got hidden and the widget rendered nothing).
 //
-//   (a) ANOTHER analyst has an alert on the customer that is in-flight
-//       (In Progress / Escalated) or already resolved (dispositioned /
-//       closed / SAR-linked). Two analysts shouldn't be steered to the
-//       same customer at the same time.
+// A customer is excluded against the current analyst when ANY of:
 //
-//   (b) The CURRENT analyst (restrictToAnalyst) has already resolved
-//       any alert on the customer in this session — dispositioned /
-//       closed / escalated / SAR-linked. After "I just closed Richard
-//       Ellis," surfacing the next Richard Ellis alert immediately is
-//       the "wait, didn't I just close that?" failure mode. The remaining
-//       alerts are still visible (and actionable) in My Alerts — they
-//       just stop competing for the analyst's attention as "Next."
+//   (a) Another analyst has an alert on the customer that is currently
+//       in-flight (In Progress / Work in Progress / Escalated). Two
+//       analysts shouldn't be steered to the same live investigation.
+//
+//   (b) Any alert on the customer was resolved TODAY — dispositioned,
+//       closed, SAR-linked, or escalated — by anyone, me or otherwise.
+//       Same-day resolution should suppress further surfacing because
+//       the operator just acted on the customer; tomorrow's float is
+//       free to promote the customer again on a new alert.
+//
+// Recency is detected via `last_activity_date` (date-only column the
+// backend stamps to today on every disposition / status / assign
+// operation). Historical seed rows carry their original `created_at`
+// or `closed_at` date and so will not match.
 //
 // Each alert is still a separate detection under BSA and must be
 // dispositioned individually — this rule only governs which one is
@@ -69,23 +76,31 @@ export function getAlertScore(alert) {
 function buildExcludedCustomerIds(alerts, restrictToAnalyst) {
   const excluded = new Set();
   if (!Array.isArray(alerts)) return excluded;
+  const today = new Date().toISOString().slice(0, 10);
   for (const a of alerts) {
     if (!a || !a.customer_id) continue;
-    const dispositioned = a.disposition && String(a.disposition).trim() !== '';
     const inFlight = a.alert_status === 'In Progress' || a.alert_status === 'Work in Progress';
-    const closed = !!a.closed_date;
     const escalated = typeof a.alert_status === 'string' && a.alert_status.startsWith('Escalated');
+    const dispositioned = a.disposition && String(a.disposition).trim() !== '';
+    const closed = !!a.closed_date;
     const sarLinked = !!a.linked_sar_id;
-    const resolved = dispositioned || closed || escalated || sarLinked;
-    if (restrictToAnalyst && a.assigned_to === restrictToAnalyst) {
-      // My own alert: claim the customer only on hard resolution. My
-      // in-flight alert shouldn't claim the customer against my other
-      // open alerts on it.
-      if (resolved) excluded.add(a.customer_id);
-    } else {
-      // Someone else's alert (or unassigned/system): claim the customer
-      // on resolution OR active investigation.
-      if (resolved || inFlight) excluded.add(a.customer_id);
+    const isMine = restrictToAnalyst && a.assigned_to === restrictToAnalyst;
+    const touchedToday = (a.last_activity_date || '').slice(0, 10) === today;
+
+    // Cross-analyst live work: always claim. (My own in-flight alert
+    // is excluded by isActionable from the candidate list anyway, and
+    // it shouldn't block sibling alerts on the same customer for me.)
+    if (!isMine && (inFlight || escalated)) {
+      excluded.add(a.customer_id);
+      continue;
+    }
+
+    // Recent resolution (today): claim regardless of owner. This is the
+    // "I just dispositioned Richard Ellis a minute ago, don't surface
+    // another Richard Ellis to me right now" rule. Old closures don't
+    // qualify — their last_activity_date is historical, not today.
+    if (touchedToday && (dispositioned || closed || sarLinked)) {
+      excluded.add(a.customer_id);
     }
   }
   return excluded;
