@@ -46,101 +46,23 @@ export function getAlertScore(alert) {
   return slaScore + priorityScore + riskScore + sanctionsBonus;
 }
 
-// Customer-level "exclude" rule, computed from the full institution-wide
-// alerts list. The intent is to stop the float / banner from re-promoting
-// the same customer name back-to-back. It is intentionally narrow — old
-// seeded closed alerts must NOT claim their customer forever (we found
-// that out the painful way: the rule was so aggressive every customer in
-// the demo data got hidden and the widget rendered nothing).
-//
-// A customer is excluded against the current analyst when ANY of:
-//
-//   (a) Another analyst has an alert on the customer that is currently
-//       in-flight (In Progress / Work in Progress / Escalated). Two
-//       analysts shouldn't be steered to the same live investigation.
-//
-//   (b) Any alert on the customer was resolved TODAY — dispositioned,
-//       closed, SAR-linked, or escalated — by anyone, me or otherwise.
-//       Same-day resolution should suppress further surfacing because
-//       the operator just acted on the customer; tomorrow's float is
-//       free to promote the customer again on a new alert.
-//
-// Recency is detected via `last_activity_date` (date-only column the
-// backend stamps to today on every disposition / status / assign
-// operation). Historical seed rows carry their original `created_at`
-// or `closed_at` date and so will not match.
-//
-// Each alert is still a separate detection under BSA and must be
-// dispositioned individually — this rule only governs which one is
-// promoted to the floating "Next Priority" widget.
-function buildExcludedCustomerIds(alerts, restrictToAnalyst) {
-  const excluded = new Set();
-  if (!Array.isArray(alerts)) return excluded;
-  const today = new Date().toISOString().slice(0, 10);
-  for (const a of alerts) {
-    if (!a || !a.customer_id) continue;
-    const inFlight = a.alert_status === 'In Progress' || a.alert_status === 'Work in Progress';
-    const escalated = typeof a.alert_status === 'string' && a.alert_status.startsWith('Escalated');
-    const dispositioned = a.disposition && String(a.disposition).trim() !== '';
-    const closed = !!a.closed_date;
-    const sarLinked = !!a.linked_sar_id;
-    const isMine = restrictToAnalyst && a.assigned_to === restrictToAnalyst;
-    const touchedToday = (a.last_activity_date || '').slice(0, 10) === today;
-
-    // Cross-analyst live work: always claim. (My own in-flight alert
-    // is excluded by isActionable from the candidate list anyway, and
-    // it shouldn't block sibling alerts on the same customer for me.)
-    if (!isMine && (inFlight || escalated)) {
-      excluded.add(a.customer_id);
-      continue;
-    }
-
-    // Recent resolution (today): claim regardless of owner. This is the
-    // "I just dispositioned Richard Ellis a minute ago, don't surface
-    // another Richard Ellis to me right now" rule. Old closures don't
-    // qualify — their last_activity_date is historical, not today.
-    if (touchedToday && (dispositioned || closed || sarLinked)) {
-      excluded.add(a.customer_id);
-    }
-  }
-  return excluded;
-}
-
 // Pick the highest-scoring actionable alert excluding a given id (e.g. the
 // alert the analyst is currently looking at). Uses isActionable() — so
 // closed, dispositioned, or SAR-linked alerts never surface even if the
 // status column hasn't been canonicalised yet. Optionally restrict to a
-// specific analyst.
-//
-// `allAlerts` (optional) is the cross-analyst alerts list used to compute
-// customer-level claims. When omitted, `alerts` is used for both — fine
-// when the caller already has the full institutional view in `alerts`.
-export function getNextUpAlert(alerts, excludeAlertId = null, restrictToAnalyst = null, allAlerts = null) {
+// specific analyst (defense against an API-side filter slipping through
+// alerts owned by someone else).
+export function getNextUpAlert(alerts, excludeAlertId = null, restrictToAnalyst = null) {
   if (!Array.isArray(alerts) || alerts.length === 0) return null;
-  const excludedCustomers = buildExcludedCustomerIds(allAlerts || alerts, restrictToAnalyst);
   const candidates = alerts.filter(a =>
     a.alert_id !== excludeAlertId &&
     isActionable(a) &&
-    (!restrictToAnalyst || a.assigned_to === restrictToAnalyst) &&
-    !excludedCustomers.has(a.customer_id)
+    (!restrictToAnalyst || a.assigned_to === restrictToAnalyst)
   );
   if (candidates.length === 0) return null;
   return candidates
     .map(a => ({ alert: a, score: getAlertScore(a) }))
     .sort((x, y) => y.score - x.score)[0].alert;
-}
-
-// Predicate: "is any actionable alert left that the Next Priority widget
-// would actually surface for this analyst?" Same filter as above so the
-// "you have N open" hint and the actual widget agree.
-export function hasSurfaceableAlert(alerts, restrictToAnalyst = null, allAlerts = null) {
-  if (!Array.isArray(alerts) || alerts.length === 0) return false;
-  const excludedCustomers = buildExcludedCustomerIds(allAlerts || alerts, restrictToAnalyst);
-  return alerts.some(a =>
-    isActionable(a) &&
-    (!restrictToAnalyst || a.assigned_to === restrictToAnalyst) &&
-    !excludedCustomers.has(a.customer_id)
-  );
 }
 
 // Short human-readable reason this alert is the next priority — used as

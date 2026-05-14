@@ -3,7 +3,6 @@ import { CheckCircle2, PlayCircle, Clock, Zap } from 'lucide-react';
 import api from '../../api/client.js';
 import { useRole } from '../../state/RoleContext.jsx';
 import { useRoleNavigate } from '../../state/useRoleNavigate.js';
-import { useInvestigationTabs } from '../../state/InvestigationTabsContext.jsx';
 import { getNextUpAlert, getSlaDescriptor } from '../../utils/alertScoring.js';
 
 // CompletionPrompt — full-screen overlay that surfaces immediately after
@@ -37,21 +36,17 @@ export default function CompletionPrompt({
 }) {
   const { isL1, isL2, currentAnalyst } = useRole();
   const { goTo } = useRoleNavigate();
-  const { openTab } = useInvestigationTabs();
   const isAnalyst = isL1 || isL2;
 
   const [alerts, setAlerts] = useState(null);
   const [remaining, setRemaining] = useState(COUNTDOWN_SECONDS);
 
-  // Self-fetch the FULL alerts list when the prompt opens. We need the
-  // cross-analyst view so getNextUpAlert's customer-level claim rule can
-  // exclude customers already being investigated (or already resolved)
-  // by another analyst — otherwise the prompt could suggest a customer
-  // the analyst just dispositioned (different alert_id, same customer).
+  // Self-fetch the analyst's alerts when the prompt opens. Manager hits
+  // the same endpoint normally; we still gate the prompt to analysts only.
   useEffect(() => {
     if (!open || !isAnalyst || !currentAnalyst) return;
     let cancelled = false;
-    api.get('/alerts')
+    api.get('/alerts', { params: { assigned_to: currentAnalyst } })
       .then(r => { if (!cancelled) setAlerts(r.data || []); })
       .catch(() => { if (!cancelled) setAlerts([]); });
     return () => { cancelled = true; };
@@ -79,21 +74,17 @@ export default function CompletionPrompt({
 
   if (!open || !isAnalyst) return null;
 
-  // restrictToAnalyst=currentAnalyst so we only surface MY next alert
-  // even though the fetch now returns the full institution-wide list.
-  const next = alerts ? getNextUpAlert(alerts, justClosedAlertId, currentAnalyst) : null;
+  const next = alerts ? getNextUpAlert(alerts, justClosedAlertId) : null;
   const loading = alerts === null;
   const queueClear = !loading && !next;
 
   const openNext = () => {
     if (!next) return;
     onClose && onClose();
-    // Open the next alert directly in an investigation tab and route to
-    // the alerts page. We can't rely on `?alert=<id>` deep links — the
-    // Alerts page doesn't read that query param to open tabs (the float's
-    // "Open Alert" button uses the same direct openTab pattern).
-    openTab(next, { level: 'L1' });
-    goTo('alerts');
+    // Route the manager-or-L1 to /employee/alerts?alert=<id> so the
+    // investigation workspace opens for that alert. Same pattern as the
+    // existing in-app deep link.
+    goTo(`alerts?alert=${next.alert_id}`);
   };
   const returnToList = () => {
     onClose && onClose();
