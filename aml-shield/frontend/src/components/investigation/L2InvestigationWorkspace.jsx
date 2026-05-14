@@ -64,6 +64,7 @@ export default function L2InvestigationWorkspace({ l2CaseId, alertId }) {
   const [tabsVisited, setTabsVisited] = useState(new Set());
   const [completion, setCompletion] = useState(null);
   const { goTo: goToTop } = useRoleNavigate();
+  const { signalAlertsChanged } = useInvestigationTabs();
 
   // Track tabs visited for the decision checklist
   useEffect(() => {
@@ -148,7 +149,13 @@ export default function L2InvestigationWorkspace({ l2CaseId, alertId }) {
                 tabsVisited={tabsVisited}
                 readOnly={readOnly}
                 onChanged={reload}
-                onCompletion={(dispositionLabel) => setCompletion({ dispositionLabel })}
+                onCompletion={(dispositionLabel) => {
+                  setCompletion({ dispositionLabel });
+                  // Notify NextUpFloat (and any other listener) that an
+                  // alert just changed state — surfaces refresh immediately
+                  // rather than wait for the next poll tick.
+                  signalAlertsChanged();
+                }}
               />
             )}
           </div>
