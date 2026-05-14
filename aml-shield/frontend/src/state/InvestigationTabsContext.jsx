@@ -14,6 +14,25 @@ export function InvestigationTabsProvider({ children }) {
   const [alertsRefreshNonce, setAlertsRefreshNonce] = useState(0);
   const signalAlertsChanged = () => setAlertsRefreshNonce(n => n + 1);
 
+  // Customer ids the current analyst has personally dispositioned in this
+  // browser session. Consumed by getNextUpAlert to suppress same-customer
+  // re-surfacing — once I close one Meridian Global alert, the Next Priority
+  // float won't immediately promote a sibling Meridian Global alert on the
+  // same customer ("wait, didn't I just close that?"). The customer's
+  // remaining alerts stay in My Alerts and still require disposition under
+  // BSA; they just stop competing for the float / banner. Refresh clears
+  // the set — intentional, so a fresh page load gets a fresh view.
+  const [sessionResolvedCustomerIds, setSessionResolvedCustomerIds] = useState(() => new Set());
+  const markCustomerResolved = (customerId) => {
+    if (!customerId) return;
+    setSessionResolvedCustomerIds(prev => {
+      if (prev.has(customerId)) return prev;
+      const next = new Set(prev);
+      next.add(customerId);
+      return next;
+    });
+  };
+
   useEffect(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null');
@@ -67,8 +86,10 @@ export function InvestigationTabsProvider({ children }) {
     openTab,
     closeTab,
     alertsRefreshNonce,
-    signalAlertsChanged
-  }), [tabs, activeId, alertsRefreshNonce]);
+    signalAlertsChanged,
+    sessionResolvedCustomerIds,
+    markCustomerResolved
+  }), [tabs, activeId, alertsRefreshNonce, sessionResolvedCustomerIds]);
 
   return <InvestigationTabsContext.Provider value={value}>{children}</InvestigationTabsContext.Provider>;
 }

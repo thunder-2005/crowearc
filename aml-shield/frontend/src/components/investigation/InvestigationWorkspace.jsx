@@ -26,7 +26,7 @@ export default function InvestigationWorkspace({ alertId }) {
   // Set by CaseInfoTab on successful disposition (FP / Escalate to L2).
   // Shape: { dispositionLabel: string }
   const [completion, setCompletion] = useState(null);
-  const { signalAlertsChanged } = useInvestigationTabs();
+  const { signalAlertsChanged, markCustomerResolved } = useInvestigationTabs();
   const { goTo } = useRoleNavigate();
 
   useEffect(() => {
@@ -99,6 +99,10 @@ export default function InvestigationWorkspace({ alertId }) {
               onAlertChange={setAlert}
               onCompletion={(dispositionLabel) => {
                 setCompletion({ dispositionLabel });
+                // Mark this customer as "I just resolved an alert on
+                // them" so Next Priority surfaces hide other alerts on
+                // the same customer for the rest of this session.
+                if (alert?.customer_id) markCustomerResolved(alert.customer_id);
                 // Tell NextUpFloat (and any other listener) that an alert
                 // just changed state — surfaces should refresh immediately
                 // rather than wait for their next poll tick.

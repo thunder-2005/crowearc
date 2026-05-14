@@ -9,7 +9,7 @@ import L2InvestigationWorkspace from '../components/investigation/L2Investigatio
 import L2QueuePage from '../components/investigation/L2QueuePage.jsx';
 import ManagerAlertsTable from '../components/alerts/ManagerAlertsTable.jsx';
 import { isAlertClosed, slaSnapshot } from '../utils/alertStatus.js';
-import { getAlertScore, getNextUpAlert, isActionable } from '../utils/alertScoring.js';
+import { getNextUpAlert, hasSurfaceableAlert } from '../utils/alertScoring.js';
 import OutcomeCard from '../components/shared/OutcomeCard.jsx';
 import ReopenRequestModal from '../components/alerts/ReopenRequestModal.jsx';
 
@@ -61,7 +61,7 @@ function usdNoCents(n) { return `$${Number(n || 0).toLocaleString('en-US')}`; }
 
 export default function Alerts() {
   const { isManager, isEmployee, currentAnalyst, isL1, isL2 } = useRole();
-  const { tabs, activeId, setActiveId, openTab, closeTab, alertsRefreshNonce } = useInvestigationTabs();
+  const { tabs, activeId, setActiveId, openTab, closeTab, alertsRefreshNonce, sessionResolvedCustomerIds } = useInvestigationTabs();
   const [alerts, setAlerts] = useState([]);
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('overview');
@@ -109,18 +109,11 @@ export default function Alerts() {
     return () => document.removeEventListener('keydown', handler);
   }, [isL1]);
 
-  const load = () => {
-    const params = {};
-    if (isEmployee && currentAnalyst) {
-      params.assigned_to = currentAnalyst;
-      // L1 sees ONLY their own alerts — no inclusion of bank-wide unassigned.
-      // L2 keeps the historical behaviour (include_unassigned_for) just in
-      // case the L2 fall-through page is reached; their primary surface is
-      // L2QueuePage anyway.
-      if (!isL1) params.include_unassigned_for = 1;
-    }
-    return api.get('/alerts', { params }).then(r => setAlerts(r.data));
-  };
+  // Always fetch the FULL institution-wide alerts list. The Kanban narrows
+  // down to MY alerts client-side below; Next Priority needs the cross-
+  // analyst view so its live-claim rule can suppress customers being
+  // investigated by another analyst right now.
+  const load = () => api.get('/alerts').then(r => setAlerts(r.data));
 
   // Reload when role/identity changes or when an investigation workspace
   // signals an alert just changed state (disposition submitted, etc.) so
@@ -128,10 +121,22 @@ export default function Alerts() {
   // for the next manual navigation.
   useEffect(() => { load(); }, [isEmployee, currentAnalyst, isL1, alertsRefreshNonce]);
 
+  // Narrow the institution-wide list down to what this analyst sees in
+  // their Kanban. L1: own alerts only. L2 catch-all: own + unassigned.
+  // Manager uses ManagerAlertsTable instead, so we don't filter there.
+  const myAlerts = useMemo(() => {
+    if (!isEmployee || !currentAnalyst) return alerts;
+    return alerts.filter(a => {
+      if (a.assigned_to === currentAnalyst) return true;
+      if (!isL1 && (a.assigned_to == null || a.assigned_to === '')) return true;
+      return false;
+    });
+  }, [alerts, isEmployee, currentAnalyst, isL1]);
+
   // Apply chip filters first — filter results feed both the kanban and
   // the Next Up banner so all three reflect the same scope.
   const filteredAlerts = useMemo(() => {
-    return alerts.filter(a => {
+    return myAlerts.filter(a => {
       if (a.linked_sar_status === 'Filed') return false;
       if (filters.priority && a.priority !== filters.priority) return false;
       if (filters.scenarios.length > 0 && !filters.scenarios.includes(a.scenario)) return false;
@@ -139,7 +144,7 @@ export default function Alerts() {
       if (filters.pepCustomer && Number(a.pep_match) !== 1) return false;
       return true;
     });
-  }, [alerts, filters]);
+  }, [myAlerts, filters]);
 
   // Sort according to the toolbar dropdown, then re-bucket into columns.
   const grouped = useMemo(() => {
@@ -176,25 +181,27 @@ export default function Alerts() {
     return hay.includes(searchTrim);
   }, [searchTrim]);
 
-  // Next Up = highest-scoring ACTIONABLE alert in the filtered set,
-  // restricted to the current analyst's own alerts. Uses the shared
-  // getNextUpAlert() so the banner and the global NextUpFloat pick the
-  // *same* alert with the *same* filter (status open + closed_date null
-  // + disposition empty + linked_sar_id null). Previously the banner
-  // had its own duplicate scoring + a looser status-only filter, which
-  // is why it could disagree with the float.
+  // Next Up = highest-scoring actionable alert in my filtered set, with
+  // the institution-wide live-claim rule and the same-session dedupe
+  // applied. Shared with NextUpFloat / CompletionPrompt so all three
+  // surfaces agree on which alert is "next."
   const nextUp = useMemo(() => {
     if (!isL1) return null;
-    return getNextUpAlert(filteredAlerts, null, currentAnalyst);
-  }, [filteredAlerts, isL1, currentAnalyst]);
+    return getNextUpAlert(filteredAlerts, null, currentAnalyst, {
+      allAlerts: alerts,
+      sessionResolvedCustomerIds
+    });
+  }, [filteredAlerts, isL1, currentAnalyst, alerts, sessionResolvedCustomerIds]);
 
-  // "All caught up" vs "no open alerts at all" — only show the banner when
-  // there is actually actionable work to think about. Uses isActionable()
-  // so an alert that's been dispositioned, closed, or SAR-linked is not
-  // counted as "open."
+  // Banner shows only when something is actually surfaceable — same
+  // filter as the actual Next Priority pick, including the live-claim
+  // and session-dedupe rules.
   const hasOpenAfterFilters = useMemo(() =>
-    isL1 && filteredAlerts.some(isActionable),
-  [filteredAlerts, isL1]);
+    isL1 && hasSurfaceableAlert(filteredAlerts, currentAnalyst, {
+      allAlerts: alerts,
+      sessionResolvedCustomerIds
+    }),
+  [filteredAlerts, isL1, currentAnalyst, alerts, sessionResolvedCustomerIds]);
 
   const anyFilterActive = !!filters.priority
     || filters.scenarios.length > 0
@@ -255,7 +262,7 @@ export default function Alerts() {
         <MissingAnalystState />
       ) : (
         <KanbanBoard
-          alerts={alerts}
+          alerts={myAlerts}
           filteredAlerts={filteredAlerts}
           grouped={grouped}
           columns={columns}
