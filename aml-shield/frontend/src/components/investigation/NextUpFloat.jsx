@@ -19,15 +19,18 @@ import { getNextUpAlert, getSlaDescriptor } from '../../utils/alertScoring.js';
 //   - Renders nothing if no next-up alert remains (silent rather than noisy)
 export default function NextUpFloat({ excludeAlertId, onOpen }) {
   const { isL1, currentAnalyst } = useRole();
-  const { activeId } = useInvestigationTabs();
+  const { activeId, alertsRefreshNonce } = useInvestigationTabs();
   const [alerts, setAlerts] = useState(null);
 
   // Refetch when:
   //   - currentAnalyst changes (different user logs in)
   //   - activeId changes (an investigation tab was just closed → the alert
-  //     the analyst was working on may have been completed; the float
-  //     must reflect the new state immediately, not wait for the next
-  //     30s poll tick)
+  //     the analyst was working on may have been completed)
+  //   - alertsRefreshNonce changes (an investigation workspace explicitly
+  //     signalled that an alert just changed state — e.g. disposition
+  //     submitted. We don't wait for the tab to close OR for the next
+  //     poll tick; the float updates immediately so the just-dispositioned
+  //     alert disappears.)
   // Background poll runs every 30s to catch out-of-band changes
   // (manager bulk-closed an alert, another analyst reassigned, etc.).
   useEffect(() => {
@@ -39,7 +42,7 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
     load();
     const id = setInterval(load, 30000);
     return () => { cancelled = true; clearInterval(id); };
-  }, [isL1, currentAnalyst, activeId]);
+  }, [isL1, currentAnalyst, activeId, alertsRefreshNonce]);
 
   // Manager / L2 / unauthenticated → don't render anything.
   if (!isL1 || !currentAnalyst) return null;

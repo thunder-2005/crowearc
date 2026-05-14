@@ -26,6 +26,7 @@ export default function InvestigationWorkspace({ alertId }) {
   // Set by CaseInfoTab on successful disposition (FP / Escalate to L2).
   // Shape: { dispositionLabel: string }
   const [completion, setCompletion] = useState(null);
+  const { signalAlertsChanged } = useInvestigationTabs();
   const { goTo } = useRoleNavigate();
 
   useEffect(() => {
@@ -96,7 +97,13 @@ export default function InvestigationWorkspace({ alertId }) {
             <CaseInfoTab
               alert={alert}
               onAlertChange={setAlert}
-              onCompletion={(dispositionLabel) => setCompletion({ dispositionLabel })}
+              onCompletion={(dispositionLabel) => {
+                setCompletion({ dispositionLabel });
+                // Tell NextUpFloat (and any other listener) that an alert
+                // just changed state — surfaces should refresh immediately
+                // rather than wait for their next poll tick.
+                signalAlertsChanged();
+              }}
             />
           )}
           {rightTab === 'linked' && <LinkedCasesTab alert={alert} />}

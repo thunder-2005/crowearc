@@ -6,6 +6,13 @@ const STORAGE_KEY = 'amlShield.investigationTabs.v1';
 export function InvestigationTabsProvider({ children }) {
   const [tabs, setTabs] = useState([]);
   const [activeId, setActiveId] = useState(null);
+  // Monotonically-increasing counter that any consumer can depend on to
+  // trigger a refetch. Bumped by callers that know an alert just changed
+  // state out of band (disposition submitted, escalation completed, etc.)
+  // so downstream surfaces like the NextUpFloat don't have to wait for
+  // their next polling tick to drop the now-actionless alert.
+  const [alertsRefreshNonce, setAlertsRefreshNonce] = useState(0);
+  const signalAlertsChanged = () => setAlertsRefreshNonce(n => n + 1);
 
   useEffect(() => {
     try {
@@ -58,8 +65,10 @@ export function InvestigationTabsProvider({ children }) {
     activeId,
     setActiveId,
     openTab,
-    closeTab
-  }), [tabs, activeId]);
+    closeTab,
+    alertsRefreshNonce,
+    signalAlertsChanged
+  }), [tabs, activeId, alertsRefreshNonce]);
 
   return <InvestigationTabsContext.Provider value={value}>{children}</InvestigationTabsContext.Provider>;
 }
