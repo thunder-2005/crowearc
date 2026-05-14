@@ -9,7 +9,7 @@ import L2InvestigationWorkspace from '../components/investigation/L2Investigatio
 import L2QueuePage from '../components/investigation/L2QueuePage.jsx';
 import ManagerAlertsTable from '../components/alerts/ManagerAlertsTable.jsx';
 import { isAlertClosed, slaSnapshot } from '../utils/alertStatus.js';
-import { getAlertScore } from '../utils/alertScoring.js';
+import { getAlertScore, getNextUpAlert, isActionable } from '../utils/alertScoring.js';
 import OutcomeCard from '../components/shared/OutcomeCard.jsx';
 import ReopenRequestModal from '../components/alerts/ReopenRequestModal.jsx';
 
@@ -38,7 +38,11 @@ const COLUMN_STATUSES = {
   'Completed':        ['Completed', 'Closed — False Positive', 'False Positive']
 };
 
-const OPEN_STATUSES_FOR_NEXT_UP = new Set(['Not Started', 'In Progress']);
+// (OPEN_STATUSES_FOR_NEXT_UP removed — the Next Up banner now uses
+// the shared isActionable() / getNextUpAlert() from utils/alertScoring.js
+// so the banner and the global NextUpFloat agree on what counts as
+// "actionable" and never surface dispositioned / closed / SAR-linked
+// alerts as the next priority.)
 
 const SCENARIO_OPTIONS = [
   'Structuring',
@@ -57,7 +61,7 @@ function usdNoCents(n) { return `$${Number(n || 0).toLocaleString('en-US')}`; }
 
 export default function Alerts() {
   const { isManager, isEmployee, currentAnalyst, isL1, isL2 } = useRole();
-  const { tabs, activeId, setActiveId, openTab, closeTab } = useInvestigationTabs();
+  const { tabs, activeId, setActiveId, openTab, closeTab, alertsRefreshNonce } = useInvestigationTabs();
   const [alerts, setAlerts] = useState([]);
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('overview');
@@ -118,7 +122,11 @@ export default function Alerts() {
     return api.get('/alerts', { params }).then(r => setAlerts(r.data));
   };
 
-  useEffect(() => { load(); }, [isEmployee, currentAnalyst, isL1]);
+  // Reload when role/identity changes or when an investigation workspace
+  // signals an alert just changed state (disposition submitted, etc.) so
+  // the kanban + Next Up banner reflect the fresh status without waiting
+  // for the next manual navigation.
+  useEffect(() => { load(); }, [isEmployee, currentAnalyst, isL1, alertsRefreshNonce]);
 
   // Apply chip filters first — filter results feed both the kanban and
   // the Next Up banner so all three reflect the same scope.
@@ -168,21 +176,24 @@ export default function Alerts() {
     return hay.includes(searchTrim);
   }, [searchTrim]);
 
-  // Next Up = highest-scoring open alert in the filtered set. Skip support
-  // removed in this PR — the banner now offers one action: Open Alert.
+  // Next Up = highest-scoring ACTIONABLE alert in the filtered set,
+  // restricted to the current analyst's own alerts. Uses the shared
+  // getNextUpAlert() so the banner and the global NextUpFloat pick the
+  // *same* alert with the *same* filter (status open + closed_date null
+  // + disposition empty + linked_sar_id null). Previously the banner
+  // had its own duplicate scoring + a looser status-only filter, which
+  // is why it could disagree with the float.
   const nextUp = useMemo(() => {
     if (!isL1) return null;
-    const candidates = filteredAlerts.filter(a => OPEN_STATUSES_FOR_NEXT_UP.has(a.alert_status));
-    if (candidates.length === 0) return null;
-    return candidates
-      .map(a => ({ alert: a, score: getAlertScore(a) }))
-      .sort((x, y) => y.score - x.score)[0].alert;
-  }, [filteredAlerts, isL1]);
+    return getNextUpAlert(filteredAlerts, null, currentAnalyst);
+  }, [filteredAlerts, isL1, currentAnalyst]);
 
   // "All caught up" vs "no open alerts at all" — only show the banner when
-  // there are open alerts to think about.
+  // there is actually actionable work to think about. Uses isActionable()
+  // so an alert that's been dispositioned, closed, or SAR-linked is not
+  // counted as "open."
   const hasOpenAfterFilters = useMemo(() =>
-    isL1 && filteredAlerts.some(a => OPEN_STATUSES_FOR_NEXT_UP.has(a.alert_status)),
+    isL1 && filteredAlerts.some(isActionable),
   [filteredAlerts, isL1]);
 
   const anyFilterActive = !!filters.priority
