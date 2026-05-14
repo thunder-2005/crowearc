@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Zap, PlayCircle, Clock, GripVertical, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { Zap, PlayCircle, Clock, GripVertical, RotateCcw, CheckCircle2, X } from 'lucide-react';
 import api from '../../api/client.js';
 import { useRole } from '../../state/RoleContext.jsx';
 import { useInvestigationTabs } from '../../state/InvestigationTabsContext.jsx';
@@ -61,6 +61,11 @@ import { getNextUpAlert, getSlaDescriptor } from '../../utils/alertScoring.js';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STORAGE_PREFIX = 'crowe_arc_next_priority_position_';
+// Per-analyst sessionStorage flag set when the analyst dismisses the
+// "You're caught up" empty state. Suppresses only the empty state; if a
+// real next priority arrives we ignore the flag and show the card.
+// Cleared on every mount so a page refresh re-shows the empty state.
+const EMPTY_DISMISS_PREFIX = 'crowe_arc_next_priority_empty_dismissed_';
 const CARD_WIDTH = 320;
 const CARD_HEIGHT_FALLBACK = 160;   // approximate; real height read from ref
 const EDGE_MARGIN = 16;             // px guaranteed between card and viewport edge
@@ -168,6 +173,7 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
   const [alerts, setAlerts] = useState(null);
 
   const storageKey = currentAnalyst ? STORAGE_PREFIX + currentAnalyst : null;
+  const emptyDismissKey = currentAnalyst ? EMPTY_DISMISS_PREFIX + currentAnalyst : null;
 
   // Lazy initializer — synchronous read + clamp on mount. The very first
   // render uses the clamped value, so the card never paints off-screen.
@@ -177,6 +183,14 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
     () => isViewportTooSmall(CARD_WIDTH, CARD_HEIGHT_FALLBACK)
   );
   const [statusMessage, setStatusMessage] = useState('');
+
+  // Per-analyst "I dismissed the You're caught up notice" flag. Always
+  // starts false on mount — a page refresh re-shows the empty state.
+  // We mirror the value into sessionStorage on dismiss so the literal
+  // storage instruction is honoured and other consumers in the same page
+  // session could read it, but the on-mount cleanup effect below clears
+  // any leftover value so refresh behaves like a fresh visit.
+  const [emptyDismissed, setEmptyDismissed] = useState(false);
 
   const cardRef = useRef(null);
   // Mutable scratch space for the in-flight drag — avoids re-renders
@@ -208,6 +222,17 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
     analystAtMountRef.current = currentAnalyst;
     setPosition(loadInitialPosition(currentAnalyst ? STORAGE_PREFIX + currentAnalyst : null));
   }, [currentAnalyst]);
+
+  // Clear any stale "empty dismissed" flag from a prior page session.
+  // sessionStorage normally survives a page refresh, but the product
+  // requirement is that refresh re-shows the empty state — so we wipe
+  // the entry on mount (and whenever the analyst changes, so a new
+  // analyst doesn't inherit the previous analyst's dismissal).
+  useEffect(() => {
+    if (!emptyDismissKey || typeof window === 'undefined') return;
+    try { window.sessionStorage.removeItem(emptyDismissKey); } catch (_) { /* ignore */ }
+    setEmptyDismissed(false);
+  }, [emptyDismissKey]);
 
   // After the card has actually rendered, re-clamp using its REAL height
   // (the lazy initializer used the fallback). useLayoutEffect runs before
@@ -262,6 +287,21 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
     setPosition(null);
     setStatusMessage('Card reset to default position');
   }, [storageKey]);
+
+  // Dismiss the "You're caught up" notice for the rest of this page
+  // session. Re-show conditions:
+  //   - page refresh (the on-mount effect above wipes the flag)
+  //   - logging in as a different analyst (key changes, effect re-fires)
+  //   - a new actionable alert arrives — the render gate ignores the
+  //     flag when `next` is non-null, so the card auto-returns with
+  //     the real alert
+  const dismissEmpty = useCallback(() => {
+    if (emptyDismissKey && typeof window !== 'undefined') {
+      try { window.sessionStorage.setItem(emptyDismissKey, 'true'); } catch (_) { /* ignore */ }
+    }
+    setEmptyDismissed(true);
+    setStatusMessage('Caught-up notice dismissed');
+  }, [emptyDismissKey]);
 
   // Pointer handlers ─────────────────────────────────────────────────────
   const onPointerDown = (e) => {
@@ -374,6 +414,26 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
     sessionResolvedCustomerIds
   });
 
+  // If the user dismissed the caught-up notice AND there's still no
+  // actionable next priority, hide the card. We still keep a minimal
+  // aria-live region in the DOM so the "Caught-up notice dismissed"
+  // announcement reaches screen readers even though the visual card
+  // has gone away. A real alert (next != null) overrides the dismissal
+  // entirely — the card auto-returns with the work.
+  if (!next && emptyDismissed) {
+    return (
+      <span
+        aria-live="polite"
+        style={{
+          position: 'fixed',
+          width: 1, height: 1, padding: 0, margin: -1,
+          overflow: 'hidden', clip: 'rect(0 0 0 0)',
+          whiteSpace: 'nowrap', border: 0
+        }}
+      >{statusMessage}</span>
+    );
+  }
+
   // Derived render values — computed only when there's an alert to show.
   // The empty-state path doesn't read any of these so we can short-circuit.
   const sla = next ? getSlaDescriptor(next) : null;
@@ -451,18 +511,36 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
           Next Priority
         </span>
-        {!viewportTooSmall && useCustomPosition && (
-          <button
-            type="button"
-            data-no-drag
-            onClick={resetPosition}
-            aria-label="Reset card position to default"
-            title="Reset position"
-            className="ml-auto inline-flex items-center text-slate-300 hover:text-slate-600 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-          >
-            <RotateCcw size={12} />
-          </button>
-        )}
+        <div className="ml-auto inline-flex items-center gap-1">
+          {!viewportTooSmall && useCustomPosition && (
+            <button
+              type="button"
+              data-no-drag
+              onClick={resetPosition}
+              aria-label="Reset card position to default"
+              title="Reset position"
+              className="inline-flex items-center text-slate-300 hover:text-slate-600 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+            >
+              <RotateCcw size={12} />
+            </button>
+          )}
+          {/* Dismiss button only appears in the empty state — when a real
+              priority alert is showing, that alert IS the work and must
+              not be hide-able. The button writes its flag to sessionStorage
+              and lives only for this page session. */}
+          {!next && (
+            <button
+              type="button"
+              data-no-drag
+              onClick={dismissEmpty}
+              aria-label="Dismiss caught-up notice"
+              title="Dismiss until next refresh"
+              className="inline-flex items-center text-slate-400 hover:text-slate-600 focus:text-slate-700 focus:outline-none rounded"
+            >
+              <X size={12} />
+            </button>
+          )}
+        </div>
       </div>
 
       {next ? (
