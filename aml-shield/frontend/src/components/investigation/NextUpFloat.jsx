@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Zap, PlayCircle, Clock, GripVertical, RotateCcw } from 'lucide-react';
+import { Zap, PlayCircle, Clock, GripVertical, RotateCcw, CheckCircle2 } from 'lucide-react';
 import api from '../../api/client.js';
 import { useRole } from '../../state/RoleContext.jsx';
 import { useInvestigationTabs } from '../../state/InvestigationTabsContext.jsx';
@@ -361,23 +361,33 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
   };
 
   // Early returns ─────────────────────────────────────────────────────────
+  // Render gates that should keep the card off-screen entirely (different
+  // role, no analyst yet, fetch still in flight). Once alerts have loaded
+  // we ALWAYS render — either with the next alert or with an explicit
+  // "You're caught up" empty state. Returning null after the fetch is
+  // what caused the "card disappears on refresh" complaint.
   if (!isL1 || !currentAnalyst) return null;
   if (alerts === null) return null;
+
   const next = getNextUpAlert(alerts, excludeAlertId, currentAnalyst, {
     allAlerts: alerts,
     sessionResolvedCustomerIds
   });
-  if (!next) return null;
 
-  // Derived render values ────────────────────────────────────────────────
-  const sla = getSlaDescriptor(next);
-  const borderColor = sla.tone === 'red' ? '#DC2626' : sla.tone === 'amber' ? '#F59E0B' : '#2563EB';
-  const slaCls = sla.tone === 'red' ? 'text-red-700' : sla.tone === 'amber' ? 'text-amber-700' : 'text-blue-700';
+  // Derived render values — computed only when there's an alert to show.
+  // The empty-state path doesn't read any of these so we can short-circuit.
+  const sla = next ? getSlaDescriptor(next) : null;
+  const borderColor = !next
+    ? '#16A34A'
+    : sla.tone === 'red' ? '#DC2626' : sla.tone === 'amber' ? '#F59E0B' : '#2563EB';
+  const slaCls = !next
+    ? 'text-green-700'
+    : sla.tone === 'red' ? 'text-red-700' : sla.tone === 'amber' ? 'text-amber-700' : 'text-blue-700';
 
-  const isPep = Number(next.pep_match) === 1;
-  const isSanctions = Number(next.sanctions_match) === 1;
-  const isHighRisk = next.customer_risk_rating === 'Very High' || next.customer_risk_rating === 'High';
-  const amount = `$${Number(next.amount_flagged_inr || 0).toLocaleString('en-US')}`;
+  const isPep = next && Number(next.pep_match) === 1;
+  const isSanctions = next && Number(next.sanctions_match) === 1;
+  const isHighRisk = next && (next.customer_risk_rating === 'Very High' || next.customer_risk_rating === 'High');
+  const amount = next ? `$${Number(next.amount_flagged_inr || 0).toLocaleString('en-US')}` : '';
 
   // Render-time defensive style. If `position` is somehow non-finite, fall
   // back to the default bottom-right anchor — the card stays visible.
@@ -455,48 +465,69 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
         )}
       </div>
 
-      <div className="text-sm font-semibold text-navy-900 truncate" title={next.customer_name}>
-        {next.customer_name}
-      </div>
+      {next ? (
+        <>
+          <div className="text-sm font-semibold text-navy-900 truncate" title={next.customer_name}>
+            {next.customer_name}
+          </div>
 
-      {(isHighRisk || isPep || isSanctions) && (
-        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-          {isHighRisk && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">
-              {next.customer_risk_rating} Risk
-            </span>
+          {(isHighRisk || isPep || isSanctions) && (
+            <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+              {isHighRisk && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">
+                  {next.customer_risk_rating} Risk
+                </span>
+              )}
+              {isPep && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">
+                  PEP
+                </span>
+              )}
+              {isSanctions && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">
+                  Sanctions
+                </span>
+              )}
+            </div>
           )}
-          {isPep && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-700">
-              PEP
-            </span>
-          )}
-          {isSanctions && (
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-700">
-              Sanctions
-            </span>
-          )}
+
+          <div className="text-[11px] text-slate-500 mt-1.5 font-mono">
+            {next.alert_id} · <span className="tabular-nums">{amount}</span>
+          </div>
+
+          <div className={`text-[11px] mt-1 inline-flex items-center gap-1 ${slaCls}`}>
+            <Clock size={11} />
+            <span>{sla.text}</span>
+          </div>
+
+          <button
+            type="button"
+            data-no-drag
+            onClick={() => onOpen ? onOpen(next) : null}
+            className="mt-3 w-full inline-flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded px-3 py-1.5"
+          >
+            <PlayCircle size={12} />
+            Open Alert →
+          </button>
+        </>
+      ) : (
+        /* Empty state — nothing surfaceable for this analyst right now.
+           The card stays visible (this is the fix for the "card
+           disappears on refresh" complaint) but shows a clear "caught
+           up" message instead of silently rendering nothing. */
+        <div className="mt-1">
+          <div className="flex items-start gap-1.5">
+            <CheckCircle2 size={16} className="text-green-600 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-navy-900">You're caught up</div>
+              <div className="text-[11px] text-slate-500 mt-0.5">
+                No priority alerts assigned to you right now. New alerts
+                will appear here as they're routed to your queue.
+              </div>
+            </div>
+          </div>
         </div>
       )}
-
-      <div className="text-[11px] text-slate-500 mt-1.5 font-mono">
-        {next.alert_id} · <span className="tabular-nums">{amount}</span>
-      </div>
-
-      <div className={`text-[11px] mt-1 inline-flex items-center gap-1 ${slaCls}`}>
-        <Clock size={11} />
-        <span>{sla.text}</span>
-      </div>
-
-      <button
-        type="button"
-        data-no-drag
-        onClick={() => onOpen ? onOpen(next) : null}
-        className="mt-3 w-full inline-flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded px-3 py-1.5"
-      >
-        <PlayCircle size={12} />
-        Open Alert →
-      </button>
     </aside>
   );
 }
