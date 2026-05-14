@@ -41,12 +41,32 @@ class RootErrorBoundary extends Component {
                 {this.state.info.componentStack}
               </pre>
             )}
-            <button
-              onClick={() => { this.setState({ error: null, info: null }); window.location.reload(); }}
-              style={{ marginTop: 12, background: '#2563eb', color: 'white', border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 14 }}
-            >
-              Reload
-            </button>
+            <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => { this.setState({ error: null, info: null }); window.location.reload(); }}
+                style={{ background: '#2563eb', color: 'white', border: 'none', borderRadius: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 14 }}
+              >
+                Reload
+              </button>
+              <button
+                onClick={() => {
+                  // Stale investigation-tab state in sessionStorage can put the
+                  // app in a render → crash → reload → crash loop. Wipe both
+                  // session and local storage and reload from a clean slate.
+                  try { sessionStorage.clear(); } catch (_e) { /* ignore */ }
+                  try {
+                    // Preserve the logged-in user, drop everything else.
+                    const user = localStorage.getItem('aml_shield_user');
+                    localStorage.clear();
+                    if (user) localStorage.setItem('aml_shield_user', user);
+                  } catch (_e) { /* ignore */ }
+                  window.location.assign('/');
+                }}
+                style={{ background: '#fff', color: '#1f2937', border: '1px solid #d1d5db', borderRadius: 6, padding: '8px 14px', cursor: 'pointer', fontSize: 14 }}
+              >
+                Reset tabs &amp; reload
+              </button>
+            </div>
           </div>
         </div>
       );

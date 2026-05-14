@@ -151,7 +151,11 @@ function LeftTabBar({ tab, onChange }) {
 function ReadOnlyTransactions({ alert }) {
   const [rows, setRows] = useState(null);
   useEffect(() => {
-    api.get(`/alerts/${alert.alert_id}/transactions`).then(r => setRows(r.data)).catch(() => setRows([]));
+    // Defensive: a non-2xx error JSON or a stale alert_id can leave us with
+    // a non-array body. Coerce to [] so .map() below never blows up the page.
+    api.get(`/alerts/${alert.alert_id}/transactions`)
+      .then(r => setRows(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setRows([]));
   }, [alert.alert_id]);
   if (!rows) return <div className="p-5 text-sm text-slate-400">Loading transactions…</div>;
   if (rows.length === 0) return <div className="p-5 text-sm text-slate-400">No transactions linked to this alert.</div>;
@@ -189,7 +193,9 @@ function ReadOnlyTransactions({ alert }) {
 function ReadOnlyCaseNotes({ alert }) {
   const [notes, setNotes] = useState(null);
   useEffect(() => {
-    api.get(`/case-notes/${alert.alert_id}`).then(r => setNotes(r.data)).catch(() => setNotes([]));
+    api.get(`/case-notes/${alert.alert_id}`)
+      .then(r => setNotes(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setNotes([]));
   }, [alert.alert_id]);
   if (!notes) return <div className="p-5 text-sm text-slate-400">Loading notes…</div>;
   if (notes.length === 0) return <div className="p-5 text-sm text-slate-400">No case notes on this alert.</div>;
@@ -211,7 +217,9 @@ function ReadOnlyCaseNotes({ alert }) {
 function ReadOnlyDocuments({ alert }) {
   const [docs, setDocs] = useState(null);
   useEffect(() => {
-    api.get(`/case-documents/${alert.alert_id}`).then(r => setDocs(r.data)).catch(() => setDocs([]));
+    api.get(`/case-documents/${alert.alert_id}`)
+      .then(r => setDocs(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setDocs([]));
   }, [alert.alert_id]);
   if (!docs) return <div className="p-5 text-sm text-slate-400">Loading documents…</div>;
   if (docs.length === 0) return <div className="p-5 text-sm text-slate-400">No documents uploaded.</div>;
@@ -240,7 +248,9 @@ function ReadOnlyDocuments({ alert }) {
 function ReadOnlyActivityLog({ alert }) {
   const [items, setItems] = useState(null);
   useEffect(() => {
-    api.get(`/audit-trail/alert/${alert.alert_id}`).then(r => setItems(r.data)).catch(() => setItems([]));
+    api.get(`/audit-trail/alert/${alert.alert_id}`)
+      .then(r => setItems(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setItems([]));
   }, [alert.alert_id]);
   if (!items) return <div className="p-5 text-sm text-slate-400">Loading activity log…</div>;
   if (items.length === 0) return <div className="p-5 text-sm text-slate-400">No audit entries.</div>;

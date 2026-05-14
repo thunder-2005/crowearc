@@ -341,8 +341,10 @@ function QcTabContent({ currentAnalyst, openTab, push, onStatsChange }) {
         api.get('/qc-reviews'),
         api.get('/qc-reviews/stats')
       ]);
-      setItems(all || []);
-      onStatsChange?.(stats);
+      // Defensive: API SHOULD return an array, but a mid-deploy proxy error
+      // can return an object — coerce so items.filter() below never blows up.
+      setItems(Array.isArray(all) ? all : []);
+      onStatsChange?.(stats && typeof stats === 'object' ? stats : null);
     } catch (e) {
       push?.('Failed to load QC queue: ' + (e?.response?.data?.error || e.message), 'error');
     } finally {
