@@ -126,10 +126,10 @@ export default function BsaDashboard() {
             icon={Clock}
             tone={
               program?.avg_filing_days == null ? 'default'
-              : program.avg_filing_days > 30 ? 'red'
-              : program.avg_filing_days >= 25 ? 'orange'
+              : program.avg_filing_days > 20 ? 'red'
+              : program.avg_filing_days > 10 ? 'orange'
               : 'green'}
-            sub={program?.avg_filing_days != null ? 'alert → filed' : null}
+            sub={program?.avg_filing_days != null ? 'submission → filed' : null}
           />
           <KpiCard
             label="SARs In Flight"

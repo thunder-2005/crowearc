@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FileCheck, RotateCcw, Shield, Lock, Clock, CheckCircle2 } from 'lucide-react';
+import { FileCheck, RotateCcw, Shield, Mail, CheckCircle2 } from 'lucide-react';
 import api from '../../api/client.js';
 import { useRoleNavigate } from '../../state/useRoleNavigate.js';
 
@@ -7,31 +7,36 @@ import { useRoleNavigate } from '../../state/useRoleNavigate.js';
 // WorklistBand shape but the cards reflect what only James can authorize:
 //
 //   1. SARs Awaiting Final Sign-off
-//   2. Alert Reopen Requests (placeholder — table not built)
+//   2. Alert Reopen Requests
 //   3. OFAC Confirmed Hits
-//   4. Active Legal Holds (placeholder)
-//   5. 314(a) Deadlines (placeholder)
+//   4. Regulatory Correspondence (314(a), legal holds, exams, MRAs, subpoenas)
+//
+// Previous v1 had two separate placeholder cards for Active Legal Holds
+// and 314(a) Deadlines; both are now subsumed under Regulatory Correspondence.
 
 export default function BsaActionQueue() {
   const { goTo } = useRoleNavigate();
   const [signoff, setSignoff] = useState(null);
   const [reopen, setReopen] = useState(null);
   const [ofacStatus, setOfacStatus] = useState(null);
+  const [regCorr, setRegCorr] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const [{ data: a }, { data: b }, { data: c }] = await Promise.all([
+        const [{ data: a }, { data: b }, { data: c }, { data: d }] = await Promise.all([
           api.get('/bsa/awaiting-signoff'),
           api.get('/ofac/status'),
-          api.get('/bsa/reopen-requests')
+          api.get('/bsa/reopen-requests'),
+          api.get('/bsa/regulatory-correspondence/summary')
         ]);
         if (cancelled) return;
         setSignoff(a);
         setOfacStatus(b);
         setReopen(c);
+        setRegCorr(d);
       } catch (_e) { /* keep null */ }
       finally { if (!cancelled) setLoading(false); }
     };
@@ -45,8 +50,12 @@ export default function BsaActionQueue() {
   const ofacConfirmed = Number(ofacStatus?.confirmed_count) || 0;
   const reopenCount = Number(reopen?.count) || 0;
   const reopenOldest = reopen?.oldest_days != null ? Number(reopen.oldest_days) : null;
+  const regOpen = Number(regCorr?.total_open) || 0;
+  const regUrgent = Number(regCorr?.urgent_count) || 0;
+  const regOverdue = Number(regCorr?.overdue_count) || 0;
+  const regNextDue = regCorr?.next_due?.response_due_date || null;
 
-  const allClear = signoffCount === 0 && ofacConfirmed === 0 && reopenCount === 0;
+  const allClear = signoffCount === 0 && ofacConfirmed === 0 && reopenCount === 0 && regOpen === 0;
 
   return (
     <section aria-label="Requires your action">
@@ -58,8 +67,8 @@ export default function BsaActionQueue() {
       </header>
 
       {loading && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          {[0, 1, 2, 3, 4].map(i => (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[0, 1, 2, 3].map(i => (
             <div key={i}
               className="bg-white border border-slate-200 animate-pulse"
               style={{ borderRadius: 10, borderLeftWidth: 4, borderLeftColor: '#E2E8F0', padding: '12px 14px', minHeight: 92 }} />
@@ -78,7 +87,7 @@ export default function BsaActionQueue() {
       )}
 
       {!loading && !allClear && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <ActionCard
             icon={FileCheck}
             label="SARs Awaiting Final Sign-off"
@@ -108,20 +117,20 @@ export default function BsaActionQueue() {
             onClick={() => goTo('customers')}
           />
           <ActionCard
-            icon={Lock}
-            label="Active Legal Holds"
-            count={0}
-            sub="Coming soon"
-            placeholder
-            onClick={() => goTo('sar-repository')}
-          />
-          <ActionCard
-            icon={Clock}
-            label="314(a) Deadlines"
-            count={0}
-            sub="Coming soon"
-            placeholder
-            onClick={() => goTo('dashboard')}
+            icon={Mail}
+            label="Regulatory Correspondence"
+            count={regOpen}
+            sub={regOpen === 0
+              ? 'No items'
+              : regOverdue > 0
+                ? `${regOverdue} overdue · ${regUrgent} urgent`
+                : regUrgent > 0
+                  ? `${regUrgent} urgent` + (regNextDue ? ` · next due ${regNextDue}` : '')
+                  : regNextDue
+                    ? `Next due ${regNextDue}`
+                    : 'Open items'}
+            urgent={regUrgent > 0 || regOverdue > 0}
+            onClick={() => goTo('regulatory-correspondence')}
           />
         </div>
       )}
@@ -129,7 +138,7 @@ export default function BsaActionQueue() {
   );
 }
 
-function ActionCard({ icon: Icon, label, count, sub, urgent, placeholder, onClick }) {
+function ActionCard({ icon: Icon, label, count, sub, urgent, onClick }) {
   const empty = count === 0;
   let border = '#3B82F6';
   let numberClass = 'text-slate-400';
@@ -157,11 +166,6 @@ function ActionCard({ icon: Icon, label, count, sub, urgent, placeholder, onClic
       <div className={`mt-1 text-3xl font-bold tabular-nums ${numberClass}`}>{count}</div>
       <div className="mt-0.5 text-xs text-slate-500 inline-flex items-center gap-1">
         {sub}
-        {placeholder && empty && (
-          <span className="ml-1 px-1.5 py-0.5 text-[9px] uppercase font-semibold bg-slate-100 text-slate-600 rounded">
-            Not built yet
-          </span>
-        )}
       </div>
     </button>
   );

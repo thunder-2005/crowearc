@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, AlertTriangle, Briefcase, Search, FileText,
   FolderOpen, Clock, ShieldCheck, Activity, BarChart3, Users, Settings,
-  IdCard, Inbox, ClipboardCheck, Lock, Gavel, RotateCcw
+  IdCard, Inbox, ClipboardCheck, Lock, Gavel, RotateCcw, Mail
 } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
 import { useRoleNavigate } from '../state/useRoleNavigate.js';
@@ -92,8 +92,7 @@ const BSA_SECTIONS = [
   {
     title: 'REGULATORY',
     items: [
-      { to: 'dashboard',          icon: Lock,     label: 'Legal Holds · Coming soon',
-        match: [] /* never highlight from URL — informational */ },
+      { to: 'regulatory-correspondence', icon: Mail, label: 'Correspondence', badge: 'regCorrUrgent' },
       { to: 'audit-trail',        icon: Activity, label: 'Audit Trail' }
     ]
   }
@@ -199,6 +198,7 @@ export default function Sidebar() {
   const [myAssignedReviews, setMyAssignedReviews] = useState(0);
   const [reopenPendingManager, setReopenPendingManager] = useState(0);
   const [reopenPendingBsa, setReopenPendingBsa] = useState(0);
+  const [regCorrUrgent, setRegCorrUrgent] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -206,16 +206,25 @@ export default function Sidebar() {
       try {
         if (isManager || isBsa) {
           const status = isBsa ? 'pending_bsa' : 'pending_manager';
-          const [{ data: sar }, { data: kyc }, { data: reopen }] = await Promise.all([
+          // BSA sidebar pulls one extra call for the Regulatory Correspondence
+          // badge (urgent + overdue items). Manager doesn't see this section.
+          const reqs = [
             api.get('/sar-approvals/stats'),
             api.get('/kyc-reviews/stats'),
             api.get('/reopen-requests', { params: { status } })
-          ]);
+          ];
+          if (isBsa) reqs.push(api.get('/bsa/regulatory-correspondence/summary'));
+          const [sarR, kycR, reopenR, regR] = await Promise.all(reqs);
           if (!cancelled) {
-            setPendingApprovals(sar.pending || 0);
-            setOverdueReviews(kyc.overdue || 0);
-            if (isBsa) setReopenPendingBsa(reopen.count || 0);
-            else       setReopenPendingManager(reopen.count || 0);
+            setPendingApprovals(sarR.data.pending || 0);
+            setOverdueReviews(kycR.data.overdue || 0);
+            if (isBsa) {
+              setReopenPendingBsa(reopenR.data.count || 0);
+              const s = regR?.data || {};
+              setRegCorrUrgent((s.urgent_count || 0) + (s.overdue_count || 0));
+            } else {
+              setReopenPendingManager(reopenR.data.count || 0);
+            }
           }
         } else if (currentAnalyst) {
           const { data } = await api.get('/kyc-reviews', {
@@ -234,7 +243,7 @@ export default function Sidebar() {
 
   const badges = {
     pendingApprovals, overdueReviews, myAssignedReviews,
-    reopenPendingManager, reopenPendingBsa
+    reopenPendingManager, reopenPendingBsa, regCorrUrgent
   };
   const sections = isBsa
     ? BSA_SECTIONS

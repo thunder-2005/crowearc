@@ -1090,11 +1090,14 @@ router.get('/worklist', async (_req, res, next) => {
 // ─────────────────────────────────────────────── Issue 11: SAR 30-day clock
 //
 // FinCEN 31 CFR 1020.320(b)(3) requires SARs to be filed within 30 days
-// of detecting suspicious activity. There is no detection_date column on
-// alerts today, so alerts.created_date is used as the proxy with a comment.
-// When a real detection_date is added, swap COALESCE(a.detection_date, a.created_date)
-// in below. The join chain is sar_filings → cases → alerts → customers
-// using cases.source_alert_id (the actual FK; cases.alert_id does not exist).
+// of detecting suspicious activity. We anchor to sf.activity_date_from (the
+// start of the suspicious-activity window — the closest proxy for the
+// "detection" the regulation cares about), falling back to cases.created_date
+// (when the investigation was opened) and finally sf.submitted_at. We
+// deliberately do NOT use alerts.created_date — that's when the TM rule
+// fired, which can be months before a human detects a SAR-worthy pattern,
+// and using it produces wildly-overdue numbers on legacy data.
+// All date columns are TEXT — coerce with NULLIF + ::date.
 router.get('/sar-clock', async (_req, res, next) => {
   try {
     const rows = (await pool.query(`
@@ -1104,10 +1107,22 @@ router.get('/sar-clock', async (_req, res, next) => {
              c.customer_id,
              cu.customer_name,
              a.alert_id,
-             a.created_date::date                                      AS detection_date,
+             COALESCE(
+               NULLIF(sf.activity_date_from, '')::date,
+               NULLIF(c.created_date, '')::date,
+               NULLIF(LEFT(sf.submitted_at, 10), '')::date
+             )                                                         AS detection_date,
              sf.submitted_at,
-             (NOW()::date - a.created_date::date)                      AS days_since_detection,
-             (30 - (NOW()::date - a.created_date::date))               AS days_remaining
+             (NOW()::date - COALESCE(
+               NULLIF(sf.activity_date_from, '')::date,
+               NULLIF(c.created_date, '')::date,
+               NULLIF(LEFT(sf.submitted_at, 10), '')::date
+             ))                                                        AS days_since_detection,
+             (30 - (NOW()::date - COALESCE(
+               NULLIF(sf.activity_date_from, '')::date,
+               NULLIF(c.created_date, '')::date,
+               NULLIF(LEFT(sf.submitted_at, 10), '')::date
+             )))                                                       AS days_remaining
         FROM sar_filings sf
         JOIN cases c       ON sf.case_id = c.case_id
         JOIN alerts a      ON c.source_alert_id = a.alert_id
@@ -1119,10 +1134,10 @@ router.get('/sar-clock', async (_req, res, next) => {
     const items = rows.map(r => {
       const daysRemaining = Number(r.days_remaining);
       let urgency;
-      if (daysRemaining < 0)      urgency = 'overdue';
-      else if (daysRemaining <= 3) urgency = 'critical';
-      else if (daysRemaining <= 7) urgency = 'warning';
-      else                         urgency = 'ok';
+      if (daysRemaining < 0)        urgency = 'overdue';
+      else if (daysRemaining <= 3)  urgency = 'critical';
+      else if (daysRemaining <= 10) urgency = 'warning';
+      else                          urgency = 'ok';
       return {
         sar_id: r.sar_id,
         sar_status: r.sar_status,
@@ -1140,7 +1155,7 @@ router.get('/sar-clock', async (_req, res, next) => {
 
     res.json({
       generated_at: new Date().toISOString(),
-      detection_date_source: 'alerts.created_date (proxy; no detection_date column yet)',
+      detection_date_source: 'sar_filings.activity_date_from (with fallback to cases.created_date, sf.submitted_at)',
       overdue: items.filter(i => i.urgency === 'overdue').length,
       due_within_3_days: items.filter(i => i.urgency === 'critical').length,
       due_within_7_days: items.filter(i => i.urgency === 'warning').length,

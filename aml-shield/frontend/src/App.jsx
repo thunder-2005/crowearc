@@ -24,6 +24,7 @@ import Investigations from './pages/Investigations.jsx';
 import BsaDashboard from './pages/BsaDashboard.jsx';
 import ReopenRequestsQueue from './pages/ReopenRequestsQueue.jsx';
 import BsaReopenQueue from './pages/BsaReopenQueue.jsx';
+import BsaRegulatoryCorrespondence from './pages/BsaRegulatoryCorrespondence.jsx';
 import SLAPopup from './components/SLAPopup.jsx';
 import Placeholder from './pages/Placeholder.jsx';
 import Login from './pages/Login.jsx';
@@ -144,6 +145,7 @@ export default function App() {
                 <Route path="retention"             element={<RetentionMonitor />} />
                 <Route path="audit-trail"           element={<AuditLog />} />
                 <Route path="reopen-requests"       element={<BsaReopenQueue />} />
+                <Route path="regulatory-correspondence" element={<BsaRegulatoryCorrespondence />} />
                 <Route path="*"                     element={<Navigate to="/bsa/dashboard" replace />} />
               </Routes>
             </Shell>
