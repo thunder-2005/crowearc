@@ -191,7 +191,7 @@ function isItemActive(item, pathname, prefix) {
 }
 
 export default function Sidebar() {
-  const { role, isManager, isBsa, currentAnalyst, isL1, currentUser } = useRole();
+  const { role, isManager, isBsa, isBsaOfficer, currentAnalyst, isL1, currentUser } = useRole();
   const { makePath, prefix } = useRoleNavigate();
   const location = useLocation();
   const [pendingApprovals, setPendingApprovals] = useState(0);
@@ -251,9 +251,13 @@ export default function Sidebar() {
           <div className="text-[11px] text-slate-400 leading-tight">
             Alert Review &amp; Casework
           </div>
-          {isBsa && (
+          {(isBsaOfficer || isBsa) && (
+            // Teal, deliberately distinct from the manager-indigo and the
+            // employee-green. Follows the logged-in user (isBsaOfficer) so
+            // the badge stays correct even when James Carter is on the
+            // shared manager landing.
             <div className="mt-1 inline-flex items-center px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded"
-                 style={{ backgroundColor: '#0EA5E9', color: '#FFFFFF' }}>
+                 style={{ backgroundColor: '#0D9488', color: '#FFFFFF' }}>
               BSA Officer
             </div>
           )}

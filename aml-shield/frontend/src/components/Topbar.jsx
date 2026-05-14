@@ -60,7 +60,7 @@ function relativeTime(iso) {
 export default function Topbar() {
   const loc = useLocation();
   const { goTo } = useRoleNavigate();
-  const { currentAnalyst, currentUser, analystProfiles, currentAnalystLevel, isManager, isBsa, isL1, signOut } = useRole();
+  const { currentAnalyst, currentUser, analystProfiles, currentAnalystLevel, isManager, isBsa, isBsaOfficer, isL1, signOut } = useRole();
   const toast = useToast();
   const [bellOpen, setBellOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -312,16 +312,26 @@ export default function Topbar() {
         </div>
       </div>
       <div className="flex items-center gap-3 ml-auto">
-        {/* Role badge — driven entirely by URL */}
+        {/* Role badge — BSA Officer is keyed off the logged-in user's role
+            (follows the person across routes); the other badges follow the
+            URL surface the analyst is currently looking at. */}
         <span className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-          isBsa
-            ? 'bg-sky-50 text-sky-700 border-sky-200'
-            : isManager
-              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-              : 'bg-green-50 text-green-700 border-green-200'
+          isBsaOfficer
+            ? 'bg-teal-50 text-teal-700 border-teal-200'
+            : isBsa
+              ? 'bg-sky-50 text-sky-700 border-sky-200'
+              : isManager
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                : 'bg-green-50 text-green-700 border-green-200'
         }`}>
-          {isBsa ? <Briefcase size={12} /> : isManager ? <Briefcase size={12} /> : <User size={12} />}
-          {isBsa ? 'BSA Officer' : isManager ? 'Manager View' : 'Employee View'}
+          {(isBsaOfficer || isBsa || isManager) ? <Briefcase size={12} /> : <User size={12} />}
+          {isBsaOfficer
+            ? 'BSA Officer'
+            : isBsa
+              ? 'BSA Officer'
+              : isManager
+                ? 'Manager View'
+                : 'Employee View'}
         </span>
 
         {/* Bell */}

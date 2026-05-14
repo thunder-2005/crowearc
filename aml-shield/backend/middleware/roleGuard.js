@@ -22,9 +22,14 @@ const roleGuard = (allowedRoles) => {
   };
 };
 
-const requireManager      = roleGuard(['compliance_manager']);
-const requireL2OrManager  = roleGuard(['analyst_l2', 'compliance_manager']);
-const requireAnyAnalyst   = roleGuard(['analyst_l1', 'analyst_l2', 'compliance_manager']);
+// BSA Officer has at-least-manager privileges by program design — anywhere
+// a compliance manager is allowed, the BSA Officer is too. We don't grant
+// any BSA-specific permissions in this guard layer yet; BSA-only gates
+// (retention disposition, dual-approval policy edits, KYC policy approval)
+// will arrive in a follow-up change that adds dedicated middlewares.
+const requireManager      = roleGuard(['compliance_manager', 'bsa_officer']);
+const requireL2OrManager  = roleGuard(['analyst_l2', 'compliance_manager', 'bsa_officer']);
+const requireAnyAnalyst   = roleGuard(['analyst_l1', 'analyst_l2', 'compliance_manager', 'bsa_officer']);
 const requireL1Only       = roleGuard(['analyst_l1']);
 const requireBsaOfficer   = roleGuard(['bsa_officer']);
 const requireBsaOrManager = roleGuard(['bsa_officer', 'compliance_manager']);

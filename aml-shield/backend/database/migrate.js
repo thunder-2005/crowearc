@@ -66,6 +66,64 @@ async function migrate() {
     }
     console.log(`Credentials applied to ${updated}/${CREDENTIALS.length} users`);
 
+    // ─── Role taxonomy: add bsa_officer + CHECK constraint ───────────────
+    // Pin the valid-role taxonomy on the user_profiles row so a future
+    // migration / hand-written INSERT can't introduce e.g. 'bsa-officer'
+    // or 'BSAOfficer' typos that the UI silently treats as employee.
+    // Idempotent — drop+recreate so re-running migrate adapts to schema
+    // edits to the role enum without manual cleanup.
+    await pool.query(`
+      ALTER TABLE user_profiles
+      DROP CONSTRAINT IF EXISTS user_profiles_role_check
+    `);
+    await pool.query(`
+      ALTER TABLE user_profiles
+      ADD CONSTRAINT user_profiles_role_check
+      CHECK (role IN ('analyst_l1', 'analyst_l2', 'compliance_manager', 'bsa_officer'))
+    `);
+    console.log('Role-taxonomy CHECK constraint applied');
+
+    // James Carter is the customer's BSA Officer. The one-shot
+    // load-bsa-extension.js seeder inserts him with role='bsa_officer'
+    // already, but legacy databases (or hand-fixed prod rows) may have
+    // him on a generic analyst/manager role. Force-correct here, and
+    // log an audit row exactly once so the change is reconstructible.
+    const carter = (await pool.query(
+      `SELECT user_id, role FROM user_profiles WHERE name = 'James Carter'`
+    )).rows[0];
+    if (carter && carter.role !== 'bsa_officer') {
+      await pool.query(
+        `UPDATE user_profiles SET role = 'bsa_officer' WHERE name = 'James Carter'`
+      );
+      console.log(`James Carter role corrected: ${carter.role} → bsa_officer`);
+    } else if (carter) {
+      console.log('James Carter already on bsa_officer role');
+    } else {
+      console.log('James Carter not found — load-bsa-extension.js will insert him');
+    }
+
+    // Audit row — once per James-Carter user_id. The (sar_id, action)
+    // pair acts as a dedupe key since the polymorphic entity_id column
+    // is named sar_id.
+    if (carter?.user_id) {
+      const ROLE_ACTION = 'Role taxonomy correction — BSA Officer designation';
+      const existing = await pool.query(
+        `SELECT 1 FROM audit_trail
+          WHERE entity_type = 'user' AND sar_id = $1 AND action = $2
+          LIMIT 1`,
+        [carter.user_id, ROLE_ACTION]
+      );
+      if (existing.rowCount === 0) {
+        await pool.query(
+          `INSERT INTO audit_trail (entity_type, sar_id, action, performed_by, details)
+           VALUES ('user', $1, $2, 'system',
+                   'Added bsa_officer to the valid-role taxonomy and confirmed James Carter''s designation.')`,
+          [carter.user_id, ROLE_ACTION]
+        );
+        console.log('Audit row written for BSA Officer role designation');
+      }
+    }
+
     console.log('Migration successful');
   } catch (err) {
     console.error('Migration failed:', err);

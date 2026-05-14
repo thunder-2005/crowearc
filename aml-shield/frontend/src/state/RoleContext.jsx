@@ -82,6 +82,12 @@ export function RoleProvider({ children }) {
   const isL2 = currentAnalystLevel === 'L2';
   const isL1 = currentAnalystLevel === 'L1';
 
+  // BSA Officer is a USER-LEVEL designation (driven by the persisted
+  // user_profiles.role), not a URL-prefix one like `isBsa`. James Carter
+  // has role='bsa_officer' regardless of which dashboard he's currently
+  // viewing — we want the badge + label to follow the person.
+  const isBsaOfficer = currentUser?.role === 'bsa_officer';
+
   // Kept as a no-op so legacy callers from before the login system don't
   // explode. The active analyst is now driven by which user is logged in.
   const setCurrentAnalyst = useCallback(() => {}, []);
@@ -109,10 +115,11 @@ export function RoleProvider({ children }) {
       isManager: role === 'manager',
       isEmployee: role === 'employee',
       isBsa: role === 'bsa',
+      isBsaOfficer,
       scopeParam: role === 'employee' && currentAnalyst ? { assigned_to: currentAnalyst } : {}
     }),
     [role, setRole, currentUser, currentAnalyst, setCurrentAnalyst, signOut,
-     analysts, analystProfiles, currentAnalystLevel, isL1, isL2]
+     analysts, analystProfiles, currentAnalystLevel, isL1, isL2, isBsaOfficer]
   );
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;
