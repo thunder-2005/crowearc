@@ -410,6 +410,113 @@ router.patch('/bulk-assign', requireManager, async (req, res, next) => {
   }
 });
 
+// ─────────────────────────────────────────────── POST /:id/close-fp
+//
+// L1's atomic False Positive close. Replaces the previous two-PATCH flow
+// (disposition then status) with a single transactional operation:
+//   1. Set alert_status='Pending QC', disposition='False Positive',
+//      closed_date=today, qc_status='pending'.
+//   2. Insert a qc_reviews row in 'pending' state.
+//   3. Notify all active L2 analysts.
+//   4. Write a case note + audit entry.
+// The alert does NOT enter 'Closed — False Positive' until an L2 (or manager)
+// reviews via /api/qc-reviews/:qcId/decision with overall_decision='pass'.
+// On QC fail the same route auto-creates a reopen request.
+//
+// Guard: requireAnyAnalyst — only the assignee can in practice see the
+// disposition button, but the role guard is the minimal floor.
+router.post('/:id/close-fp', requireAnyAnalyst, async (req, res, next) => {
+  const idParam = req.params.id;
+  const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
+  const { performed_by, reason } = req.body || {};
+  if (!performed_by || !String(performed_by).trim()) {
+    return res.status(400).json({ error: 'performed_by required' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const alert = (await client.query(
+      'SELECT * FROM alerts WHERE alert_id = $1 OR id = $2',
+      [idParam, idAsInt]
+    )).rows[0];
+    if (!alert) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Alert not found' }); }
+    if (alert.alert_status === 'Pending QC') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Alert is already pending QC review' });
+    }
+    if (alert.alert_status === 'Closed — False Positive') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Alert is already closed as False Positive' });
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const qcId = 'QC-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+
+    await client.query(`
+      UPDATE alerts
+         SET alert_status = 'Pending QC',
+             disposition = 'False Positive',
+             closed_date = $1,
+             qc_status = 'pending',
+             qc_review_id = $2,
+             last_activity_date = $1
+       WHERE alert_id = $3
+    `, [today, qcId, alert.alert_id]);
+
+    await client.query(`
+      INSERT INTO qc_reviews
+        (qc_id, alert_id, customer_name, original_analyst, original_disposition, original_closed_at, status)
+      VALUES ($1, $2, $3, $4, 'False Positive', NOW(), 'pending')
+    `, [qcId, alert.alert_id, alert.customer_name, performed_by]);
+
+    const reasonText = reason ? String(reason).trim() : '';
+    await client.query(`
+      INSERT INTO case_notes (alert_id, note_text, analyst, timestamp)
+      VALUES ($1, $2, $3, NOW())
+    `, [
+      alert.alert_id,
+      `Alert closed as False Positive by ${performed_by} — pending QC review. Reason: ${reasonText || '(no reason provided)'}`,
+      performed_by
+    ]);
+
+    await logAudit({
+      entity_type: ENTITY_TYPES.ALERT, entity_id: alert.alert_id,
+      action: 'alert.pending_qc',
+      performed_by,
+      details: JSON.stringify({ disposition: 'False Positive', closed_by: performed_by, qc_id: qcId, reason: reasonText || null }),
+      client
+    });
+
+    // Notify every active L2 analyst.
+    const l2s = (await client.query(
+      "SELECT name FROM user_profiles WHERE role = 'analyst_l2' AND status = 'Active'"
+    )).rows;
+    for (const u of l2s) {
+      await client.query(`
+        INSERT INTO notifications (recipient_id, recipient_role, type, title, message, related_id, related_type, tone)
+        VALUES ($1, 'employee', 'qc_review_pending', $2, $3, $4, 'alert', 'warning')
+      `, [
+        u.name,
+        'QC Review Required',
+        `${alert.alert_id} — ${alert.customer_name} closed as FP by ${performed_by}. Requires QC review.`,
+        alert.alert_id
+      ]);
+    }
+
+    await client.query('COMMIT');
+
+    const updated = (await pool.query('SELECT * FROM alerts WHERE alert_id = $1', [alert.alert_id])).rows[0];
+    res.json({ alert: updated, qc_id: qcId });
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_e) { /* ignore */ }
+    next(err);
+  } finally {
+    client.release();
+  }
+});
+
 const CLOSED_ALERT_STATUSES = new Set([
   'Completed', 'Closed', 'Filed', 'False Positive',
   // The seed data uses an em dash for the FP-closed status. Without this

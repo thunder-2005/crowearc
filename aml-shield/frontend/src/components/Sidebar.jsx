@@ -104,7 +104,10 @@ const EMPLOYEE_L2_SECTIONS = [
     title: 'MY WORK',
     items: [
       { to: 'dashboard',            icon: LayoutDashboard, label: 'My Dashboard',  exact: true },
-      { to: 'alerts',               icon: AlertTriangle,   label: 'My Alerts' },
+      // 'My Alerts' is L2's entry to the L2 Queue Page, which also hosts the
+      // QC Review tab. Badge surfaces pending QC reviews so L2 sees the
+      // QC backlog without having to navigate.
+      { to: 'alerts',               icon: AlertTriangle,   label: 'My Alerts', badge: 'qcPending' },
       { to: 'cases',                icon: Briefcase,       label: 'My Cases' },
       { to: 'kyc-reviews/mine',     icon: ClipboardCheck,  label: 'My KYC Reviews', badge: 'myAssignedReviews',
         match: ['kyc-reviews', 'kyc-review'] }
@@ -190,7 +193,8 @@ function isItemActive(item, pathname, prefix) {
 }
 
 export default function Sidebar() {
-  const { role, isManager, isBsa, isBsaOfficer, currentAnalyst, isL1, currentUser } = useRole();
+  const { role, isManager, isBsa, isBsaOfficer, currentAnalyst, isL1, currentAnalystLevel, currentUser } = useRole();
+  const isL2 = currentAnalystLevel === 'L2';
   const { makePath, prefix } = useRoleNavigate();
   const location = useLocation();
   const [pendingApprovals, setPendingApprovals] = useState(0);
@@ -199,6 +203,7 @@ export default function Sidebar() {
   const [reopenPendingManager, setReopenPendingManager] = useState(0);
   const [reopenPendingBsa, setReopenPendingBsa] = useState(0);
   const [regCorrUrgent, setRegCorrUrgent] = useState(0);
+  const [qcPending, setQcPending] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -227,10 +232,20 @@ export default function Sidebar() {
             }
           }
         } else if (currentAnalyst) {
-          const { data } = await api.get('/kyc-reviews', {
+          const reqs = [api.get('/kyc-reviews', {
             params: { assigned_to: currentAnalyst, status: 'in_progress' }
-          });
-          if (!cancelled) setMyAssignedReviews((data || []).length);
+          })];
+          // L2 also gets the QC pending count for the sidebar badge on
+          // "My Alerts" (which is the entry to the L2 Queue + QC tab).
+          if (isL2) reqs.push(api.get('/qc-reviews/stats'));
+          const [kycRes, qcRes] = await Promise.all(reqs);
+          if (!cancelled) {
+            setMyAssignedReviews((kycRes.data || []).length);
+            if (isL2 && qcRes) {
+              const s = qcRes.data || {};
+              setQcPending((s.pending_count || 0) + (s.in_review_count || 0));
+            }
+          }
         }
       } catch (_e) { /* keep last value */ }
     };
@@ -239,11 +254,11 @@ export default function Sidebar() {
     const onFocus = () => load();
     window.addEventListener('focus', onFocus);
     return () => { cancelled = true; clearInterval(id); window.removeEventListener('focus', onFocus); };
-  }, [isManager, isBsa, currentAnalyst]);
+  }, [isManager, isBsa, currentAnalyst, isL2]);
 
   const badges = {
     pendingApprovals, overdueReviews, myAssignedReviews,
-    reopenPendingManager, reopenPendingBsa, regCorrUrgent
+    reopenPendingManager, reopenPendingBsa, regCorrUrgent, qcPending
   };
   const sections = isBsa
     ? BSA_SECTIONS

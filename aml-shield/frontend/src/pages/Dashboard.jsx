@@ -218,6 +218,8 @@ export default function Dashboard() {
 
       {isManager && <OfacStatusWidget />}
 
+      {isManager && <QcReviewSummary />}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card title="Alert Volume Trend" subtitle={isEmployee ? `${currentAnalyst}'s alerts per week` : 'Team alerts per week'} className="lg:col-span-2">
           <div style={{ width: '100%', height: 260 }}>
@@ -2503,6 +2505,48 @@ function ForceSyncConfirmModal({ syncing, onConfirm, onCancel }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────── QC Review Summary (manager only)
+//
+// Three inline stats — pending count, this-month pass rate, this-month
+// failures (which equal the count of QC-triggered reopen requests). The
+// failures number feeds directly into the Reopen Requests pipeline; we're
+// not double-counting, just surfacing the upstream signal.
+function QcReviewSummary() {
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    const tick = () => api.get('/qc-reviews/stats')
+      .then(r => { if (!cancelled) setStats(r.data); })
+      .catch(() => {});
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  const pending     = Number(stats?.pending_count || 0) + Number(stats?.in_review_count || 0);
+  const passRate    = stats?.pass_rate_pct;
+  const failedMonth = Number(stats?.failed_this_month || 0);
+
+  return (
+    <Card title="QC Review Summary" subtitle="L2 quality checks on L1 False Positive closures">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <QcStat label="Pending QC reviews"        value={pending}                                tone={pending > 0 ? 'text-amber-700' : 'text-slate-400'} />
+        <QcStat label="Pass rate (this month)"    value={passRate != null ? `${passRate}%` : '—'} tone="text-slate-700" />
+        <QcStat label="Failed (reopen requested)" value={failedMonth}                            tone={failedMonth > 0 ? 'text-red-700' : 'text-slate-400'} />
+      </div>
+    </Card>
+  );
+}
+
+function QcStat({ label, value, tone }) {
+  return (
+    <div className="border border-slate-200 rounded p-3">
+      <div className="text-[10px] uppercase tracking-wider text-slate-500">{label}</div>
+      <div className={`mt-1 text-2xl font-bold tabular-nums ${tone}`}>{value}</div>
     </div>
   );
 }

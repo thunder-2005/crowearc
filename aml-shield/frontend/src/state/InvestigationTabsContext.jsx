@@ -51,7 +51,9 @@ export function InvestigationTabsProvider({ children }) {
 
   const openTab = (alert, opts = {}) => {
     const level = opts.level || 'L1';
-    const id = opts.l2_case_id || alert.alert_id;
+    // Tab key precedence: QC reviews are keyed by qc_id (so re-opening from
+    // the QC list doesn't collide with an L1 tab on the same alert).
+    const id = opts.qc_id || opts.l2_case_id || alert.alert_id;
     const key = tabKey(level, id);
     setTabs(prev => {
       if (prev.some(t => t.key === key)) return prev;
@@ -60,6 +62,7 @@ export function InvestigationTabsProvider({ children }) {
         level,
         alert_id: alert.alert_id,
         l2_case_id: opts.l2_case_id || null,
+        qc_id:      opts.qc_id || null,
         customer_id: alert.customer_id,
         customer_name: alert.customer_name,
         scenario: alert.scenario,

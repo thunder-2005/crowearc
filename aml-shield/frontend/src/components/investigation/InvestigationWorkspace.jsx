@@ -921,20 +921,17 @@ function CaseInfoTab({ alert, onAlertChange, onCompletion }) {
   const finishFalsePositive = async (reason) => {
     setSubmitting(true);
     try {
-      // Match the seed-data canonical strings: disposition is just
-      // 'False Positive', alert_status uses the em-dash variant. KPIs
-      // and the Closed kanban column both filter on these exact values.
-      await api.patch(`/alerts/${alert.alert_id}/disposition`, {
-        disposition: 'False Positive', performed_by: analyst
+      // Single atomic endpoint — server-side transaction sets the alert to
+      // 'Pending QC' (NOT 'Closed — False Positive' yet), creates a qc_reviews
+      // row in 'pending' state, writes the case note + audit entry, and
+      // notifies all active L2 analysts. The alert only reaches the canonical
+      // 'Closed — False Positive' status after an L2 (or manager) passes QC.
+      const { data } = await api.post(`/alerts/${alert.alert_id}/close-fp`, {
+        performed_by: analyst,
+        reason
       });
-      const { data } = await api.patch(`/alerts/${alert.alert_id}/status`, { alert_status: 'Closed — False Positive' });
-      onAlertChange({ ...alert, ...data });
-      await api.post('/case-notes', {
-        alert_id: alert.alert_id,
-        note_text: `Alert closed as False Positive by ${analyst}. Reason: ${reason || '(no reason provided)'}`,
-        analyst
-      });
-      pushToast('Alert closed as False Positive', 'success');
+      onAlertChange({ ...alert, ...(data.alert || {}) });
+      pushToast('Alert closed as FP — pending QC review by L2', 'success');
       setModal(null);
       closeTab('L1:' + alert.alert_id);
       if (typeof onCompletion === 'function') onCompletion('Closed as false positive');

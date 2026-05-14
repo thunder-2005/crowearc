@@ -7,6 +7,7 @@ import { useInvestigationTabs } from '../state/InvestigationTabsContext.jsx';
 import InvestigationWorkspace from '../components/investigation/InvestigationWorkspace.jsx';
 import L2InvestigationWorkspace from '../components/investigation/L2InvestigationWorkspace.jsx';
 import L2QueuePage from '../components/investigation/L2QueuePage.jsx';
+import QcWorkspace from '../components/investigation/QcWorkspace.jsx';
 import ManagerAlertsTable from '../components/alerts/ManagerAlertsTable.jsx';
 import { isAlertClosed, slaSnapshot } from '../utils/alertStatus.js';
 import { getNextUpAlert, hasSurfaceableAlert } from '../utils/alertScoring.js';
@@ -30,12 +31,15 @@ const ESCALATED_STATUSES = new Set(['Escalated - L2', 'Escalated - SAR']);
 
 // Which raw alert_status values belong in each Kanban column. Used by the
 // sort/filter pipeline to re-group alerts after they've been sorted.
+// 'Pending QC' lives in the Completed column visually — the L1 closed it,
+// it just hasn't been finalized by L2 yet. A QC Pending badge on the card
+// makes the state explicit.
 const COLUMN_STATUSES = {
   'Unassigned':       ['Unassigned'],
   'Not Started':      ['Not Started'],
   'In Progress':      ['In Progress'],
   'Escalated':        ['Escalated - L2', 'Escalated - SAR'],
-  'Completed':        ['Completed', 'Closed — False Positive', 'False Positive']
+  'Completed':        ['Completed', 'Closed — False Positive', 'False Positive', 'Pending QC']
 };
 
 // (OPEN_STATUSES_FOR_NEXT_UP removed — the Next Up banner now uses
@@ -167,6 +171,7 @@ export default function Alerts() {
       if (ESCALATED_STATUSES.has(target)) target = 'Escalated';
       else if (target === 'Closed — False Positive') target = 'Completed';
       else if (target === 'False Positive')           target = 'Completed';
+      else if (target === 'Pending QC')               target = 'Completed';
       const col = g[target];
       if (col) col.push(a);
     }
@@ -251,6 +256,8 @@ export default function Alerts() {
       {activeTab ? (
         activeTab.level === 'L2' ? (
           <L2InvestigationWorkspace key={activeTab.key} l2CaseId={activeTab.l2_case_id} alertId={activeTab.alert_id} />
+        ) : activeTab.level === 'QC' ? (
+          <QcWorkspace key={activeTab.key} qcId={activeTab.qc_id} alertId={activeTab.alert_id} />
         ) : (
           <InvestigationWorkspace key={activeTab.key} alertId={activeTab.alert_id} />
         )
@@ -312,19 +319,30 @@ function TabBar({ tabs, activeId, onSelect, onClose }) {
       {tabs.map(t => {
         const active = t.key === activeId;
         const isL2 = t.level === 'L2';
+        const isQc = t.level === 'QC';
+        const dotColor = isQc ? 'bg-amber-500' : isL2 ? 'bg-purple-500' : 'bg-blue-500';
+        const activeCls = isQc
+          ? 'bg-amber-50 border-amber-200 text-amber-900 font-semibold'
+          : isL2
+            ? 'bg-purple-50 border-purple-200 text-purple-900 font-semibold'
+            : 'bg-white border-slate-200 text-navy-900 font-semibold';
+        const inactiveCls = isQc
+          ? 'bg-amber-100/40 border-transparent text-amber-700 hover:bg-amber-100'
+          : isL2
+            ? 'bg-purple-100/40 border-transparent text-purple-700 hover:bg-purple-100'
+            : 'bg-slate-100 border-transparent text-slate-500 hover:bg-slate-200 hover:text-navy-900';
         return (
           <div
             key={t.key}
             onClick={() => onSelect(t.key)}
             className={`cursor-pointer flex items-center gap-2 px-3 py-2 rounded-t-md text-xs border-t border-l border-r transition ${
-              active
-                ? (isL2 ? 'bg-purple-50 border-purple-200 text-purple-900 font-semibold' : 'bg-white border-slate-200 text-navy-900 font-semibold')
-                : (isL2 ? 'bg-purple-100/40 border-transparent text-purple-700 hover:bg-purple-100' : 'bg-slate-100 border-transparent text-slate-500 hover:bg-slate-200 hover:text-navy-900')
+              active ? activeCls : inactiveCls
             }`}
           >
-            <span className={`inline-block w-2 h-2 rounded-full ${isL2 ? 'bg-purple-500' : 'bg-blue-500'}`} />
+            <span className={`inline-block w-2 h-2 rounded-full ${dotColor}`} />
             {isL2 && <span className="text-[10px] font-bold text-purple-700">L2 —</span>}
-            <span className="font-mono">{isL2 ? (t.l2_case_id || t.alert_id) : t.alert_id}</span>
+            {isQc && <span className="text-[10px] font-bold text-amber-700">QC —</span>}
+            <span className="font-mono">{isQc ? (t.qc_id || t.alert_id) : isL2 ? (t.l2_case_id || t.alert_id) : t.alert_id}</span>
             <span className="text-slate-400">·</span>
             <span className="truncate max-w-[140px]">{t.customer_name}</span>
             <button
@@ -733,6 +751,24 @@ function AlertCard({ alert: a, column, isEmployee, isL1, currentAnalyst, onSelec
           {isEscalated && (
             <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 inline-flex items-center gap-0.5">
               <ArrowUpRight size={9} /> {(!isL1 && a.alert_status === 'Escalated - SAR') ? 'SAR' : 'L2'}
+            </span>
+          )}
+          {/* QC status badges — visible to the closing L1 analyst on their
+              FP-closed cards. L1 cannot act, but can see whether their close
+              passed, failed, or is still being reviewed. */}
+          {(a.alert_status === 'Pending QC' || a.qc_status === 'pending') && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 inline-flex items-center gap-0.5" title="Pending QC review by L2">
+              ⏳ QC Pending
+            </span>
+          )}
+          {a.qc_status === 'passed' && a.alert_status === 'Closed — False Positive' && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-green-100 text-green-700 inline-flex items-center gap-0.5" title="QC review passed by L2">
+              ✓ QC Passed
+            </span>
+          )}
+          {a.qc_status === 'failed' && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-700 inline-flex items-center gap-0.5" title="QC failed — reopen request submitted">
+              ✗ QC Failed
             </span>
           )}
           <Badge value={a.priority} />
