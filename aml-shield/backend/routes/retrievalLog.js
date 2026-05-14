@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../database/db');
+const { requireAnyAnalyst } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -30,7 +31,7 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireAnyAnalyst, async (req, res, next) => {
   try {
     const { sar_id, requested_by, request_purpose } = req.body;
     if (!sar_id || !requested_by) {

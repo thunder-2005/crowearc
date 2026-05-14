@@ -502,7 +502,7 @@ router.patch('/:id/escalate-sar', requireL2OrManager, async (req, res, next) => 
       caseId = await nextSarCaseId();
       await pool.query(`
         INSERT INTO cases (case_id, source_alert_id, linked_sar_id, customer_id, customer_name, scenario, case_status, assigned_to, created_date, updated_date)
-        VALUES ($1, $2, NULL, $3, $4, $5, 'Work In Progress', $6, $7, $8)
+        VALUES ($1, $2, NULL, $3, $4, $5, 'In Progress', $6, $7, $8)
       `, [caseId, alert.alert_id, alert.customer_id, alert.customer_name, alert.scenario,
           lc.assigned_to || performed_by, today, today]);
     }

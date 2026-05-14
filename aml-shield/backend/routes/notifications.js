@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../database/db');
+const { requireAnyAnalyst } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -100,7 +101,7 @@ router.patch('/read-all/user/:userId', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireAnyAnalyst, async (req, res, next) => {
   try {
     const { recipient_id, recipient_role, type, title, message, related_id, related_type, tone } = req.body;
     if (!recipient_role || !type || !title) {

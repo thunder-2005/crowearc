@@ -9,7 +9,7 @@ async function statsForAnalyst(name) {
     [name]
   )).rows[0].c);
   const cases_in_progress = Number((await pool.query(
-    "SELECT COUNT(*) AS c FROM cases WHERE assigned_to = $1 AND case_status IN ('Work In Progress','Pending Review','Not Started')",
+    "SELECT COUNT(*) AS c FROM cases WHERE assigned_to = $1 AND case_status IN ('In Progress','Pending Review','Not Started')",
     [name]
   )).rows[0].c);
   const alerts_closed_this_month = Number((await pool.query(

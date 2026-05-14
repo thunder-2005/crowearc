@@ -2,7 +2,7 @@ const express = require('express');
 const pool = require('../database/db');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
 const { getManagerSetting } = require('../utils/getManagerSetting');
-const { requireManager, requireBsaOfficer } = require('../middleware/roleGuard');
+const { requireManager, requireBsaOfficer, requireAnyAnalyst } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -163,7 +163,7 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/start-review', async (req, res, next) => {
+router.post('/:id/start-review', requireManager, async (req, res, next) => {
   try {
     const idParam = req.params.id;
     const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;
@@ -360,7 +360,7 @@ router.post('/:id/reject', requireManager, async (req, res, next) => {
     if (existing.case_id) {
       await pool.query(
         'UPDATE cases SET case_status = $1, updated_date = $2 WHERE case_id = $3',
-        ['Work In Progress', today, existing.case_id]
+        ['In Progress', today, existing.case_id]
       );
     }
 
@@ -390,7 +390,7 @@ router.get('/:id/comments', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/comments', async (req, res, next) => {
+router.post('/comments', requireAnyAnalyst, async (req, res, next) => {
   try {
     const { sar_id, manager_id, comment_text, highlighted_text, position_start, position_end } = req.body;
     if (!sar_id || !comment_text) return res.status(400).json({ error: 'sar_id and comment_text required' });
@@ -411,7 +411,7 @@ router.post('/comments', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/comments/:id', async (req, res, next) => {
+router.delete('/comments/:id', requireAnyAnalyst, async (req, res, next) => {
   try {
     await pool.query('DELETE FROM sar_review_comments WHERE id = $1', [req.params.id]);
     res.json({ ok: true });

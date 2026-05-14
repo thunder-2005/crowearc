@@ -1,18 +1,11 @@
 const express = require('express');
 const pool = require('../database/db');
 const { logAudit } = require('../utils/audit');
+const { requireManager } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
 const CLOSED_STATUSES_SQL = "('Completed', 'Closed', 'Filed', 'Closed — False Positive')";
-
-function requireManager(req, res, next) {
-  const role = req.headers['x-user-role'];
-  if (role !== 'compliance_manager') {
-    return res.status(403).json({ error: 'Manager role required' });
-  }
-  next();
-}
 
 router.use(requireManager);
 

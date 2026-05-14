@@ -7,13 +7,13 @@ import { useRoleNavigate } from '../state/useRoleNavigate.js';
 import { useInvestigationTabs } from '../state/InvestigationTabsContext.jsx';
 
 const COLUMNS = [
-  'Unassigned', 'Not Started', 'Work In Progress',
+  'Unassigned', 'Not Started', 'In Progress',
   'Pending Review', 'Filed', 'Closed'
 ];
 const ACCENT = {
   'Unassigned':       'border-t-slate-400',
   'Not Started':      'border-t-orange-400',
-  'Work In Progress': 'border-t-blue-500',
+  'In Progress':      'border-t-blue-500',
   'Pending Review':   'border-t-indigo-500',
   'Filed':            'border-t-green-500',
   'Closed':           'border-t-slate-500'

@@ -478,7 +478,9 @@ const STATUS_TONE = {
   'Escalated - L2':  'bg-purple-100 text-purple-700',
   'Escalated - SAR': 'bg-purple-100 text-purple-700',
   // case
-  'Work In Progress':'bg-blue-100 text-blue-700',
+  // ('In Progress' key is already defined above for alert_status; the
+  // case-status STATUS_TONE entry was removed because the canonical case
+  // status is now 'In Progress' as well.)
   'Pending Review':  'bg-indigo-100 text-indigo-700',
   Filed:             'bg-green-100 text-green-700',
   Closed:            'bg-slate-100 text-slate-700',

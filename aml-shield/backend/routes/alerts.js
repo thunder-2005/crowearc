@@ -89,9 +89,10 @@ router.get('/', async (req, res, next) => {
           WHEN 'In Progress'        THEN 3
           WHEN 'Escalated - L2'     THEN 4
           WHEN 'Escalated - SAR'    THEN 4
-          WHEN 'Completed'          THEN 5
-          WHEN 'Closed'             THEN 5
-          WHEN 'False Positive'     THEN 5
+          WHEN 'Completed'               THEN 5
+          WHEN 'Closed'                  THEN 5
+          WHEN 'Closed — False Positive' THEN 5
+          WHEN 'False Positive'          THEN 5
           ELSE 6
         END ASC,
         a.created_date DESC`;

@@ -525,7 +525,7 @@ router.patch('/:id/approve', requireManager, async (req, res, next) => {
       if (!caseId) throw new Error('Could not generate unique case_id after 10000 attempts');
       await pool.query(`
         INSERT INTO cases (case_id, customer_id, customer_name, scenario, case_status, assigned_to, created_date, updated_date)
-        VALUES ($1, $2, $3, 'KYC Review Escalation', 'Work In Progress', $4, $5, $6)
+        VALUES ($1, $2, $3, 'KYC Review Escalation', 'In Progress', $4, $5, $6)
       `, [caseId, existing.customer_id, existing.customer_name, existing.assigned_to || null, today, today]);
       await notify({
         recipient_id: existing.assigned_to, recipient_role: 'employee', type: 'kyc_review_sar_case',

@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../database/db');
 const { logAudit, ENTITY_TYPES } = require('../utils/audit');
-const { requireL2OrManager } = require('../middleware/roleGuard');
+const { requireL2OrManager, requireManager } = require('../middleware/roleGuard');
 const { getManagerSetting } = require('../utils/getManagerSetting');
 const { generateNarrative } = require('../utils/narrativeTemplates');
 
@@ -320,7 +320,7 @@ router.post('/:id/submit', requireL2OrManager, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/:id/approve', requireL2OrManager, async (req, res, next) => {
+router.post('/:id/approve', requireManager, async (req, res, next) => {
   try {
     const idParam = req.params.id;
     const idAsInt = /^\d+$/.test(idParam) ? Number(idParam) : -1;

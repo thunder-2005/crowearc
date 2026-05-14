@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../database/db');
+const { requireManager } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
@@ -824,7 +825,7 @@ router.get('/schedules', async (_req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/schedules', async (req, res, next) => {
+router.post('/schedules', requireManager, async (req, res, next) => {
   try {
     const { report_key, frequency, day_of, format, recipients, created_by } = req.body || {};
     if (!report_key || !frequency || !format || !recipients) {
@@ -844,7 +845,7 @@ router.post('/schedules', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/schedules/:id', async (req, res, next) => {
+router.delete('/schedules/:id', requireManager, async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     const sel = await pool.query('SELECT * FROM report_schedules WHERE id = $1', [id]);
