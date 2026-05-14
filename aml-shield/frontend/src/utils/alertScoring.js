@@ -46,23 +46,89 @@ export function getAlertScore(alert) {
   return slaScore + priorityScore + riskScore + sanctionsBonus;
 }
 
+// Customer-level exclusion set used by the Next Priority surfaces. Two
+// independent rules feed it; both are narrow on purpose (we burned a day
+// learning that a broader rule hides every customer in the seed data).
+//
+//   1. Cross-analyst live claim. A customer is "claimed" against me if
+//      some OTHER analyst has an alert on it that is currently
+//      In Progress / Work in Progress / Escalated. Two analysts shouldn't
+//      both be steered to the same live investigation. Old historical
+//      closures by others do NOT claim — they're done.
+//
+//   2. My same-session dedupe. A customer I personally dispositioned in
+//      this browser session is hidden from my Next Priority for the
+//      remainder of the session. Refresh clears the set. The alerts
+//      themselves stay visible in My Alerts (still need disposition
+//      under BSA), they just stop competing for the float / banner.
+//
+// Each alert is still a separate detection under BSA — this rule
+// only governs which one is promoted to "Next."
+function buildExcludedCustomerIds(allAlerts, restrictToAnalyst, sessionResolvedCustomerIds) {
+  const excluded = new Set();
+  if (sessionResolvedCustomerIds && typeof sessionResolvedCustomerIds.forEach === 'function') {
+    sessionResolvedCustomerIds.forEach(id => { if (id) excluded.add(id); });
+  }
+  if (Array.isArray(allAlerts) && restrictToAnalyst) {
+    for (const a of allAlerts) {
+      if (!a || !a.customer_id) continue;
+      if (a.assigned_to === restrictToAnalyst) continue;
+      const s = a.alert_status || '';
+      const live = s === 'In Progress' || s === 'Work in Progress' || s.startsWith('Escalated');
+      if (live) excluded.add(a.customer_id);
+    }
+  }
+  return excluded;
+}
+
 // Pick the highest-scoring actionable alert excluding a given id (e.g. the
 // alert the analyst is currently looking at). Uses isActionable() — so
 // closed, dispositioned, or SAR-linked alerts never surface even if the
 // status column hasn't been canonicalised yet. Optionally restrict to a
 // specific analyst (defense against an API-side filter slipping through
 // alerts owned by someone else).
-export function getNextUpAlert(alerts, excludeAlertId = null, restrictToAnalyst = null) {
+//
+// `opts.allAlerts`: cross-analyst alerts list, used to compute live claims.
+//   When omitted, `alerts` is used for both — fine when the caller already
+//   has the full institutional view in `alerts`.
+// `opts.sessionResolvedCustomerIds`: Set of customer ids I dispositioned
+//   in this session. When omitted, no session dedupe is applied.
+export function getNextUpAlert(alerts, excludeAlertId = null, restrictToAnalyst = null, opts = {}) {
   if (!Array.isArray(alerts) || alerts.length === 0) return null;
+  const { allAlerts = null, sessionResolvedCustomerIds = null } = opts || {};
+  const excludedCustomers = buildExcludedCustomerIds(
+    allAlerts || alerts,
+    restrictToAnalyst,
+    sessionResolvedCustomerIds
+  );
   const candidates = alerts.filter(a =>
     a.alert_id !== excludeAlertId &&
     isActionable(a) &&
-    (!restrictToAnalyst || a.assigned_to === restrictToAnalyst)
+    (!restrictToAnalyst || a.assigned_to === restrictToAnalyst) &&
+    !excludedCustomers.has(a.customer_id)
   );
   if (candidates.length === 0) return null;
   return candidates
     .map(a => ({ alert: a, score: getAlertScore(a) }))
     .sort((x, y) => y.score - x.score)[0].alert;
+}
+
+// Predicate that matches getNextUpAlert's filter exactly — so the
+// "you have N open" banner and the actual Next Priority surface
+// always agree.
+export function hasSurfaceableAlert(alerts, restrictToAnalyst = null, opts = {}) {
+  if (!Array.isArray(alerts) || alerts.length === 0) return false;
+  const { allAlerts = null, sessionResolvedCustomerIds = null } = opts || {};
+  const excludedCustomers = buildExcludedCustomerIds(
+    allAlerts || alerts,
+    restrictToAnalyst,
+    sessionResolvedCustomerIds
+  );
+  return alerts.some(a =>
+    isActionable(a) &&
+    (!restrictToAnalyst || a.assigned_to === restrictToAnalyst) &&
+    !excludedCustomers.has(a.customer_id)
+  );
 }
 
 // Short human-readable reason this alert is the next priority — used as

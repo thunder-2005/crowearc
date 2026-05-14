@@ -3,6 +3,7 @@ import { CheckCircle2, PlayCircle, Clock, Zap } from 'lucide-react';
 import api from '../../api/client.js';
 import { useRole } from '../../state/RoleContext.jsx';
 import { useRoleNavigate } from '../../state/useRoleNavigate.js';
+import { useInvestigationTabs } from '../../state/InvestigationTabsContext.jsx';
 import { getNextUpAlert, getSlaDescriptor } from '../../utils/alertScoring.js';
 
 // CompletionPrompt — full-screen overlay that surfaces immediately after
@@ -36,17 +37,19 @@ export default function CompletionPrompt({
 }) {
   const { isL1, isL2, currentAnalyst } = useRole();
   const { goTo } = useRoleNavigate();
+  const { openTab, sessionResolvedCustomerIds } = useInvestigationTabs();
   const isAnalyst = isL1 || isL2;
 
   const [alerts, setAlerts] = useState(null);
   const [remaining, setRemaining] = useState(COUNTDOWN_SECONDS);
 
-  // Self-fetch the analyst's alerts when the prompt opens. Manager hits
-  // the same endpoint normally; we still gate the prompt to analysts only.
+  // Self-fetch the FULL alerts list. getNextUpAlert needs the cross-
+  // analyst view to compute the live-claim rule (so the prompt doesn't
+  // suggest a customer somebody else is currently investigating).
   useEffect(() => {
     if (!open || !isAnalyst || !currentAnalyst) return;
     let cancelled = false;
-    api.get('/alerts', { params: { assigned_to: currentAnalyst } })
+    api.get('/alerts')
       .then(r => { if (!cancelled) setAlerts(r.data || []); })
       .catch(() => { if (!cancelled) setAlerts([]); });
     return () => { cancelled = true; };
@@ -74,17 +77,25 @@ export default function CompletionPrompt({
 
   if (!open || !isAnalyst) return null;
 
-  const next = alerts ? getNextUpAlert(alerts, justClosedAlertId) : null;
+  // restrictToAnalyst + the cross-analyst live-claim + session-resolved
+  // filters so the prompt shows the same alert the float would.
+  const next = alerts
+    ? getNextUpAlert(alerts, justClosedAlertId, currentAnalyst, {
+        allAlerts: alerts,
+        sessionResolvedCustomerIds
+      })
+    : null;
   const loading = alerts === null;
   const queueClear = !loading && !next;
 
   const openNext = () => {
     if (!next) return;
     onClose && onClose();
-    // Route the manager-or-L1 to /employee/alerts?alert=<id> so the
-    // investigation workspace opens for that alert. Same pattern as the
-    // existing in-app deep link.
-    goTo(`alerts?alert=${next.alert_id}`);
+    // Open the next alert directly in an investigation tab. We can't rely
+    // on `?alert=<id>` deep links — the Alerts page doesn't read that
+    // query param to open tabs (the float's Open Alert uses openTab too).
+    openTab(next, { level: 'L1' });
+    goTo('alerts');
   };
   const returnToList = () => {
     onClose && onClose();

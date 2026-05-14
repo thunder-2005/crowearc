@@ -64,7 +64,7 @@ export default function L2InvestigationWorkspace({ l2CaseId, alertId }) {
   const [tabsVisited, setTabsVisited] = useState(new Set());
   const [completion, setCompletion] = useState(null);
   const { goTo: goToTop } = useRoleNavigate();
-  const { signalAlertsChanged } = useInvestigationTabs();
+  const { signalAlertsChanged, markCustomerResolved } = useInvestigationTabs();
 
   // Track tabs visited for the decision checklist
   useEffect(() => {
@@ -151,6 +151,10 @@ export default function L2InvestigationWorkspace({ l2CaseId, alertId }) {
                 onChanged={reload}
                 onCompletion={(dispositionLabel) => {
                   setCompletion({ dispositionLabel });
+                  // Mark this customer as "I just resolved an alert on
+                  // them" so Next Priority surfaces hide other alerts on
+                  // the same customer for the rest of this session.
+                  if (l2?.customer_id) markCustomerResolved(l2.customer_id);
                   // Notify NextUpFloat (and any other listener) that an
                   // alert just changed state — surfaces refresh immediately
                   // rather than wait for the next poll tick.

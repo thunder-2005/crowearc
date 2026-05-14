@@ -164,7 +164,7 @@ function describePosition(x, y, w, h) {
 
 export default function NextUpFloat({ excludeAlertId, onOpen }) {
   const { isL1, currentAnalyst } = useRole();
-  const { activeId, alertsRefreshNonce } = useInvestigationTabs();
+  const { activeId, alertsRefreshNonce, sessionResolvedCustomerIds } = useInvestigationTabs();
   const [alerts, setAlerts] = useState(null);
 
   const storageKey = currentAnalyst ? STORAGE_PREFIX + currentAnalyst : null;
@@ -186,11 +186,15 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
   // when the user logs out and a different analyst logs in.
   const analystAtMountRef = useRef(currentAnalyst);
 
-  // Fetch alerts (existing behaviour — unchanged) ─────────────────────────
+  // Fetch the FULL institution-wide alerts list. The cross-analyst live
+  // claim rule in getNextUpAlert needs to see OTHER analysts' alerts on
+  // the same customer to know whether a customer is being investigated
+  // elsewhere; the restrictToAnalyst arg still narrows the surfaced
+  // alert to mine.
   useEffect(() => {
     if (!isL1 || !currentAnalyst) return;
     let cancelled = false;
-    const load = () => api.get('/alerts', { params: { assigned_to: currentAnalyst } })
+    const load = () => api.get('/alerts')
       .then(r => { if (!cancelled) setAlerts(r.data || []); })
       .catch(() => {});
     load();
@@ -359,7 +363,10 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
   // Early returns ─────────────────────────────────────────────────────────
   if (!isL1 || !currentAnalyst) return null;
   if (alerts === null) return null;
-  const next = getNextUpAlert(alerts, excludeAlertId, currentAnalyst);
+  const next = getNextUpAlert(alerts, excludeAlertId, currentAnalyst, {
+    allAlerts: alerts,
+    sessionResolvedCustomerIds
+  });
   if (!next) return null;
 
   // Derived render values ────────────────────────────────────────────────
