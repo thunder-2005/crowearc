@@ -37,14 +37,23 @@ export function InvestigationTabsProvider({ children }) {
     try {
       const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null');
       if (saved) {
-        setTabs(saved.tabs || []);
-        setActiveId(saved.activeId || null);
+        // Defensive: ensure tabs is always an array even if storage was
+        // corrupted by a prior buggy version. Without this an object value
+        // would make tabs.map() throw and blank the page.
+        setTabs(Array.isArray(saved.tabs) ? saved.tabs : []);
+        setActiveId(typeof saved.activeId === 'string' ? saved.activeId : null);
       }
-    } catch (_e) { /* ignore */ }
+    } catch (_e) {
+      // If parsing fails, wipe the bad value so subsequent reloads start clean.
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch (_e2) { /* ignore */ }
+    }
   }, []);
 
   useEffect(() => {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs, activeId }));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      tabs: Array.isArray(tabs) ? tabs : [],
+      activeId
+    }));
   }, [tabs, activeId]);
 
   const tabKey = (level, id) => `${level}:${id}`;

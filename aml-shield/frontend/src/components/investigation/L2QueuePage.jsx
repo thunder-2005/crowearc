@@ -63,9 +63,15 @@ export default function L2QueuePage() {
     setLoading(true);
     try {
       const { data } = await api.get(`/l2/queue/${encodeURIComponent(currentAnalyst)}`);
-      setRows(data);
+      // Defensive: backend MUST return an array, but if a deploy is mid-flight
+      // and the proxy returns an error object or HTML, coerce to [] so the
+      // many rows.map() calls below don't blow up the whole page.
+      setRows(Array.isArray(data) ? data : []);
       const { data: s } = await api.get('/l2/stats/manager');
-      setStats(s);
+      setStats(s && typeof s === 'object' ? s : null);
+    } catch (_e) {
+      // Swallow — leaving rows at whatever was last set is safer than
+      // letting the error bubble and unmount the L2 queue.
     } finally { setLoading(false); }
   };
 
