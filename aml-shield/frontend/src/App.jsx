@@ -1,3 +1,4 @@
+import { Component } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar.jsx';
 import Topbar from './components/Topbar.jsx';
@@ -36,12 +37,56 @@ function Shell({ children }) {
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar />
-        <main className="flex-1 p-6 overflow-x-hidden">{children}</main>
+        <main className="flex-1 p-6 overflow-x-hidden">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
       </div>
       <SLAPopup />
       <NextUpFloatIdle />
     </div>
   );
+}
+
+// Catches render-time exceptions in the page content so we never serve a
+// completely blank screen — without this, any unhandled JSX/runtime error
+// in a child component (a misnamed prop, a bad axios response shape, etc.)
+// silently unmounts the entire route. The fallback shows the error message
+// + a Reload button so analysts can recover without DevTools.
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    // eslint-disable-next-line no-console
+    console.error('[ErrorBoundary]', error, info?.componentStack);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="max-w-2xl mx-auto mt-12 bg-white border border-red-200 rounded-lg shadow-sm p-6">
+          <div className="text-red-700 font-semibold mb-2">Something went wrong rendering this page.</div>
+          <div className="text-sm text-slate-700 mb-3 break-words">
+            {String(this.state.error?.message || this.state.error)}
+          </div>
+          <div className="text-xs text-slate-500 mb-4">
+            The full stack trace is in your browser DevTools console. The rest of the app is still working —
+            navigate via the sidebar.
+          </div>
+          <button
+            onClick={() => { this.setState({ error: null }); window.location.reload(); }}
+            className="text-sm bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-1.5"
+          >
+            Reload page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 /**
