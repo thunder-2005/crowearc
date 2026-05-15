@@ -124,6 +124,14 @@ async function migrate() {
       }
     }
 
+    // ─── Cross-Case Entity Graph (CCEG) — Phase 1 schema ─────────────────
+    // Applied after the base schema so foreign-key references resolve.
+    // Idempotent — every DDL in cceg_schema.sql is CREATE ... IF NOT EXISTS.
+    // See CCEG_PHASE_1_DESIGN.md for scope and deviations.
+    const ccegSql = fs.readFileSync(path.join(__dirname, 'cceg_schema.sql'), 'utf8');
+    await pool.query(ccegSql);
+    console.log('CCEG Phase 1 schema applied');
+
     console.log('Migration successful');
   } catch (err) {
     console.error('Migration failed:', err);
