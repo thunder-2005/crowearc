@@ -103,4 +103,69 @@ router.get('/:id/sars', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ─── Cross-Case Profile (Phase 4 prototype) ─────────────────────────────
+// Surface for the Linked tab on the investigation workspace. Returns the
+// customer's institution-wide footprint in ONE round-trip:
+//   - total prior alerts
+//   - alerts that resulted in a SAR
+//   - first / last alert dates
+//   - top N counterparties by transaction count
+//
+// This is the "Entity Intelligence Panel" surface from the CCEG spec
+// (§7.1) wired to the existing customers/alerts/transactions tables.
+// It does NOT read from the entity_golden_registry — the real CCEG
+// graph backing is a later phase. Don't treat the output as the real
+// graph; the structure is correct, the source is not.
+router.get('/:id/cross-case-profile', async (req, res, next) => {
+  try {
+    const customerId = req.params.id;
+    const limit = Math.min(Number(req.query.limit) || 5, 20);
+
+    // Pull three aggregates concurrently — keeps the round-trip under
+    // ~50ms on the demo dataset (~700 alerts, ~3.5k transactions).
+    const [alertStats, sarCount, counterparties] = await Promise.all([
+      pool.query(`
+        SELECT
+          COUNT(*)::int                                          AS total_alerts,
+          COUNT(*) FILTER (WHERE linked_sar_id IS NOT NULL)::int AS alerts_with_sar,
+          MIN(created_date)                                      AS first_seen,
+          MAX(COALESCE(last_activity_date, created_date))        AS last_seen
+        FROM alerts
+        WHERE customer_id = $1
+      `, [customerId]),
+      pool.query(`
+        SELECT COUNT(*)::int AS sar_count
+        FROM sar_filings
+        WHERE customer_id = $1
+      `, [customerId]),
+      pool.query(`
+        SELECT
+          counterparty                                             AS name,
+          COUNT(*)::int                                            AS txn_count,
+          COUNT(*) FILTER (WHERE is_alerted = 1)::int              AS alerted_txn_count,
+          ROUND(SUM(amount)::numeric, 2)::float                    AS total_amount,
+          COALESCE(MAX(counterparty_country), '')                  AS country
+        FROM transactions
+        WHERE customer_id = $1
+          AND counterparty IS NOT NULL
+          AND TRIM(counterparty) <> ''
+        GROUP BY counterparty
+        ORDER BY COUNT(*) DESC, SUM(amount) DESC
+        LIMIT $2
+      `, [customerId, limit])
+    ]);
+
+    const stats = alertStats.rows[0] || {};
+    res.json({
+      customer_id: customerId,
+      total_alerts: stats.total_alerts || 0,
+      alerts_with_sar: stats.alerts_with_sar || 0,
+      sar_count: sarCount.rows[0]?.sar_count || 0,
+      first_seen: stats.first_seen || null,
+      last_seen: stats.last_seen || null,
+      top_counterparties: counterparties.rows
+    });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

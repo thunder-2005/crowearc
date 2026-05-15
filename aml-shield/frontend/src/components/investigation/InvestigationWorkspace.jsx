@@ -7,7 +7,8 @@ import { useToast } from '../../state/ToastContext.jsx';
 import {
   AlertCircle, Filter, Flame, FileText, MessageSquare, FolderOpen, ListChecks,
   User, Briefcase, ClipboardList, Link2, Upload, Trash2, Download, Eye, X,
-  Send, ArrowRight, Loader2, Clock, ArrowUpRight, AlertTriangle, Lock, RotateCcw
+  Send, ArrowRight, Loader2, Clock, ArrowUpRight, AlertTriangle, Lock, RotateCcw,
+  Network, Building2
 } from 'lucide-react';
 import OutcomeCard from '../shared/OutcomeCard.jsx';
 import OfacScreeningPanel from './OfacScreeningPanel.jsx';
@@ -1201,21 +1202,70 @@ function EscalateL2Modal({ alertId, submitting, onCancel, onConfirm }) {
   );
 }
 
+// Linked tab — a sketch of the spec's "Entity Intelligence Panel" (CCEG
+// Feature Spec §7.1), wired to the existing customers / alerts /
+// transactions tables. The Cross-Case Footprint summary and Top
+// Counterparties are the new surfaces; the historical Alert History /
+// SAR History lists below remain so the existing audit-walkthrough flow
+// is unchanged.
+//
+// Important: this is NOT the real CCEG graph backing. Once the Phase 1
+// goldenRegistry is populated (Phase 2 work) and the graph store is
+// chosen (CCEG_PHASE_1_DESIGN.md §3.1), this tab will switch to the
+// graph-backed source. The visual shape is deliberately aligned with
+// the spec so the switch is contained — only the data source changes,
+// not the analyst's mental model.
 function LinkedCasesTab({ alert }) {
   const { isL1 } = useRole();
   const { openTab } = useInvestigationTabs();
   const [alerts, setAlerts] = useState([]);
   const [sars, setSars] = useState([]);
+  const [profile, setProfile] = useState(null);
 
   useEffect(() => {
     api.get(`/customers/${alert.customer_id}/alerts`).then(r => setAlerts(r.data));
+    api.get(`/customers/${alert.customer_id}/cross-case-profile?limit=5`)
+      .then(r => setProfile(r.data))
+      .catch(() => setProfile({ total_alerts: 0, sar_count: 0, top_counterparties: [] }));
     if (!isL1) {
       api.get(`/customers/${alert.customer_id}/sars`).then(r => setSars(r.data));
     }
   }, [alert.customer_id, isL1]);
 
+  // Prior-alert count for L1 deliberately excludes the alert the analyst
+  // is currently looking at — "you have 3 *other* cases on this customer"
+  // reads better than "you have 4 cases" when one of them is open in front
+  // of them. Manager/L2 see the unfiltered total which matches the SAR/
+  // case-management mental model better.
+  const priorAlertCount = isL1
+    ? Math.max(0, (profile?.total_alerts || 0) - 1)
+    : (profile?.total_alerts || 0);
+
   return (
     <div className="p-4 space-y-4 text-sm">
+      {/* Phase 4 preview banner — disclose that this is a prototype */}
+      <div className="bg-teal-50 border border-teal-200 rounded-md px-3 py-2 text-[11px] text-teal-800 flex items-start gap-2">
+        <Network size={14} className="shrink-0 mt-0.5" />
+        <div>
+          <div className="font-semibold">Cross-Case Entity Profile · preview</div>
+          <div className="text-teal-700 mt-0.5">
+            Sketch of the CCEG entity panel using existing case data.
+            Full graph backing arrives in a later phase.
+          </div>
+        </div>
+      </div>
+
+      {/* Cross-case footprint card */}
+      <CrossCaseFootprint
+        profile={profile}
+        priorAlertCount={priorAlertCount}
+        isL1={isL1}
+      />
+
+      {/* Top counterparties */}
+      <TopCounterparties counterparties={profile?.top_counterparties || []} loading={profile == null} />
+
+      {/* Historical alerts — kept from the original Linked tab */}
       <Section title={`Alert History (${alerts.length})`}>
         {alerts.map(a => (
           <div key={a.alert_id}
@@ -1246,6 +1296,89 @@ function LinkedCasesTab({ alert }) {
         </Section>
       )}
     </div>
+  );
+}
+
+function CrossCaseFootprint({ profile, priorAlertCount, isL1 }) {
+  if (profile == null) {
+    return (
+      <div className="bg-slate-50 rounded-md p-3 animate-pulse" style={{ height: 96 }} />
+    );
+  }
+  const firstSeen = profile.first_seen ? String(profile.first_seen).slice(0, 10) : '—';
+  const lastSeen = profile.last_seen ? String(profile.last_seen).slice(0, 10) : '—';
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-md p-3">
+      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">
+        Cross-Case Footprint
+      </div>
+      <div className="grid grid-cols-2 gap-y-2 gap-x-3 text-xs">
+        <Stat label="Prior alerts" value={priorAlertCount} />
+        {isL1 ? (
+          <Stat
+            label="Escalated past triage"
+            value={profile.alerts_with_sar}
+          />
+        ) : (
+          <Stat
+            label="SARs on file"
+            value={
+              profile.sar_count > 0
+                ? <span className="text-red-700 font-semibold">{profile.sar_count}</span>
+                : profile.sar_count
+            }
+          />
+        )}
+        <Stat label="First seen" value={firstSeen} mono />
+        <Stat label="Last activity" value={lastSeen} mono />
+      </div>
+    </div>
+  );
+}
+
+function TopCounterparties({ counterparties, loading }) {
+  if (loading) {
+    return <div className="bg-slate-50 rounded-md p-3 animate-pulse" style={{ height: 80 }} />;
+  }
+  if (!counterparties || counterparties.length === 0) {
+    return (
+      <Section title="Top Counterparties">
+        <div className="text-xs text-slate-400">No counterparty data on this customer</div>
+      </Section>
+    );
+  }
+  return (
+    <Section title={`Top Counterparties (${counterparties.length})`}>
+      {counterparties.map((c, i) => (
+        <div
+          key={`${c.name}-${i}`}
+          className="flex items-start justify-between gap-2 text-xs border border-slate-100 rounded px-2 py-1.5"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <Building2 size={11} className="text-slate-400 shrink-0" />
+              <span className="font-medium text-navy-900 truncate" title={c.name}>{c.name}</span>
+              {c.alerted_txn_count > 0 && (
+                <span
+                  className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-semibold bg-red-100 text-red-700"
+                  title={`${c.alerted_txn_count} alerted transaction(s)`}
+                >
+                  <Flame size={8} />{c.alerted_txn_count}
+                </span>
+              )}
+            </div>
+            <div className="text-slate-500 mt-0.5">
+              {c.txn_count} txn{c.txn_count === 1 ? '' : 's'}
+              {c.country ? ` · ${c.country}` : ''}
+            </div>
+          </div>
+          <div className="text-right font-mono text-slate-700 shrink-0">
+            ${Number(c.total_amount || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+          </div>
+        </div>
+      ))}
+    </Section>
   );
 }
 
