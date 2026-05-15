@@ -14,6 +14,7 @@ import OutcomeCard from '../shared/OutcomeCard.jsx';
 import OfacScreeningPanel from './OfacScreeningPanel.jsx';
 import RuleExplanationBanner from './RuleExplanationBanner.jsx';
 import CompletionPrompt from './CompletionPrompt.jsx';
+import EntityGraphModal from './EntityGraphModal.jsx';
 import { useRoleNavigate } from '../../state/useRoleNavigate.js';
 import { isAlertClosed, slaSnapshot } from '../../utils/alertStatus.js';
 
@@ -1221,6 +1222,7 @@ function LinkedCasesTab({ alert }) {
   const [alerts, setAlerts] = useState([]);
   const [sars, setSars] = useState([]);
   const [profile, setProfile] = useState(null);
+  const [graphOpen, setGraphOpen] = useState(false);
 
   useEffect(() => {
     api.get(`/customers/${alert.customer_id}/alerts`).then(r => setAlerts(r.data));
@@ -1243,17 +1245,37 @@ function LinkedCasesTab({ alert }) {
 
   return (
     <div className="p-4 space-y-4 text-sm">
-      {/* Phase 4 preview banner — disclose that this is a prototype */}
-      <div className="bg-teal-50 border border-teal-200 rounded-md px-3 py-2 text-[11px] text-teal-800 flex items-start gap-2">
-        <Network size={14} className="shrink-0 mt-0.5" />
-        <div>
-          <div className="font-semibold">Cross-Case Entity Profile · preview</div>
-          <div className="text-teal-700 mt-0.5">
-            Sketch of the CCEG entity panel using existing case data.
-            Full graph backing arrives in a later phase.
+      {/* Phase 4 preview banner — disclose that this is a prototype,
+          and surface the View Network entry point inline so the analyst
+          can jump from the summary card straight into the explorer. */}
+      <div className="bg-teal-50 border border-teal-200 rounded-md px-3 py-2 text-[11px] text-teal-800">
+        <div className="flex items-start gap-2">
+          <Network size={14} className="shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold">Cross-Case Entity Profile · preview</div>
+            <div className="text-teal-700 mt-0.5">
+              Sketch of the CCEG entity panel using existing case data.
+              Full graph backing arrives in a later phase.
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setGraphOpen(true)}
+            className="shrink-0 inline-flex items-center gap-1 bg-teal-600 hover:bg-teal-700 text-white text-[11px] font-semibold rounded px-2.5 py-1"
+            title="Open the entity network graph"
+          >
+            <Network size={11} /> View Network
+          </button>
         </div>
       </div>
+
+      {graphOpen && (
+        <EntityGraphModal
+          customerId={alert.customer_id}
+          customerName={alert.customer_name || alert.customer_id}
+          onClose={() => setGraphOpen(false)}
+        />
+      )}
 
       {/* Cross-case footprint card */}
       <CrossCaseFootprint

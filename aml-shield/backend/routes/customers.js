@@ -168,4 +168,261 @@ router.get('/:id/cross-case-profile', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ─── Cross-Case Entity Graph — graph payload (Phase 4 prototype) ────────
+// Returns nodes + links for a force-directed visualisation rooted at the
+// given customer. Mirrors the spec's "Surface 2 — Full-screen graph
+// explorer" (CCEG §7.2) but reads from the existing customers / alerts /
+// transactions / sar_filings tables, NOT from entity_golden_registry —
+// the real graph backing is gated on Phase 2 + the §3.1 architectural
+// decision. Same disclaimer as the cross-case-profile endpoint applies:
+// the structure is correct, the source is a stopgap.
+//
+// Node id conventions (stable across calls so the client can dedupe):
+//   c-<customer_id>      → Person/Company (focus or hop)
+//   cp-<counterparty>    → Company (counterparty name as key — yes, this
+//                                   is the free-text problem the audit
+//                                   flagged; Phase 2 swaps to canonical
+//                                   counterparty_id)
+//   alert-<alert_id>     → Case
+//   sar-<sar_id>         → SAR (omitted for L1 to match tipping-off
+//                                posture; gated by the x-user-role header)
+//
+// Edge types match the spec's edge taxonomy (§4.3): TRANSACTS_WITH,
+// APPEARS_IN, FILED_BY, CO_OCCURS_WITH (computed).
+router.get('/:id/graph', async (req, res, next) => {
+  try {
+    const customerId = req.params.id;
+    const role = req.headers['x-user-role'];
+    const includeSars = role !== 'analyst_l1';
+
+    // Caps tuned for legibility — a 30-node graph reads; 200 doesn't.
+    const COUNTERPARTY_LIMIT = 8;
+    const CASE_LIMIT = 6;
+    const NEIGHBOUR_LIMIT = 3;
+
+    // ── 1. Focus customer (one node, always present)
+    const focusRes = await pool.query(
+      `SELECT customer_id, customer_name, customer_type,
+              customer_risk_rating, pep_match, sanctions_match,
+              country_of_residence, country_of_incorporation
+         FROM customers WHERE customer_id = $1`,
+      [customerId]
+    );
+    if (focusRes.rowCount === 0) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    const focus = focusRes.rows[0];
+
+    // ── 2. Top counterparties (by transaction count)
+    const cpRes = await pool.query(
+      `SELECT counterparty,
+              COUNT(*)::int AS txn_count,
+              COUNT(*) FILTER (WHERE is_alerted = 1)::int AS alerted_txn_count,
+              ROUND(SUM(amount)::numeric, 2)::float AS total_amount,
+              MAX(counterparty_country) AS country
+         FROM transactions
+        WHERE customer_id = $1
+          AND counterparty IS NOT NULL
+          AND TRIM(counterparty) <> ''
+        GROUP BY counterparty
+        ORDER BY COUNT(*) DESC, SUM(amount) DESC
+        LIMIT $2`,
+      [customerId, COUNTERPARTY_LIMIT]
+    );
+
+    // ── 3. Recent alerts (cases in graph terms) — keep recent + open ones
+    const alertRes = await pool.query(
+      `SELECT alert_id, scenario, alert_status, priority,
+              created_date, linked_sar_id, amount_flagged_inr
+         FROM alerts
+        WHERE customer_id = $1
+        ORDER BY created_date DESC
+        LIMIT $2`,
+      [customerId, CASE_LIMIT]
+    );
+
+    // ── 4. SARs (only for non-L1 callers — tipping-off posture)
+    let sarRows = [];
+    if (includeSars) {
+      const sarRes = await pool.query(
+        `SELECT sar_id, sar_status, filed_date, source_alert_id
+           FROM sar_filings
+          WHERE customer_id = $1
+          ORDER BY COALESCE(filed_date::text, detection_date) DESC
+          LIMIT 10`,
+        [customerId]
+      );
+      sarRows = sarRes.rows;
+    }
+
+    // ── 5. Other customers who share a counterparty (cross-case neighbours)
+    const neighbourRes = await pool.query(
+      `SELECT DISTINCT ON (t2.customer_id)
+              t2.customer_id, c.customer_name, c.customer_type,
+              c.customer_risk_rating, c.pep_match, c.sanctions_match,
+              t2.counterparty AS via_counterparty
+         FROM transactions t1
+         JOIN transactions t2
+           ON LOWER(TRIM(t1.counterparty)) = LOWER(TRIM(t2.counterparty))
+          AND t1.counterparty IS NOT NULL
+          AND TRIM(t1.counterparty) <> ''
+         JOIN customers c ON c.customer_id = t2.customer_id
+        WHERE t1.customer_id = $1
+          AND t2.customer_id <> $1
+        ORDER BY t2.customer_id
+        LIMIT $2`,
+      [customerId, NEIGHBOUR_LIMIT]
+    );
+
+    // ── Build nodes + links ────────────────────────────────────────────
+    const nodes = [];
+    const links = [];
+    const seenNodes = new Set();
+
+    const addNode = (n) => {
+      if (seenNodes.has(n.id)) return;
+      seenNodes.add(n.id);
+      nodes.push(n);
+    };
+
+    // Focus
+    addNode({
+      id: `c-${focus.customer_id}`,
+      type: focus.customer_type === 'Business' ? 'COMPANY' : 'PERSON',
+      label: focus.customer_name,
+      risk: focus.customer_risk_rating,
+      pep: !!focus.pep_match,
+      sanctions: !!focus.sanctions_match,
+      country: focus.country_of_residence || focus.country_of_incorporation,
+      is_focus: true
+    });
+
+    // Counterparties + their TRANSACTS_WITH edges
+    for (const cp of cpRes.rows) {
+      const cpId = `cp-${cp.counterparty}`;
+      addNode({
+        id: cpId,
+        type: 'COMPANY',
+        label: cp.counterparty,
+        country: cp.country || null,
+        is_counterparty: true,
+        alerted_txn_count: cp.alerted_txn_count
+      });
+      links.push({
+        source: `c-${focus.customer_id}`,
+        target: cpId,
+        type: 'TRANSACTS_WITH',
+        txn_count: cp.txn_count,
+        total_amount: cp.total_amount,
+        alerted: cp.alerted_txn_count > 0
+      });
+    }
+
+    // Alerts (cases) + APPEARS_IN edges
+    for (const a of alertRes.rows) {
+      const alertId = `alert-${a.alert_id}`;
+      addNode({
+        id: alertId,
+        type: 'CASE',
+        label: a.alert_id,
+        scenario: a.scenario,
+        priority: a.priority,
+        status: a.alert_status,
+        amount: a.amount_flagged_inr
+      });
+      links.push({
+        source: `c-${focus.customer_id}`,
+        target: alertId,
+        type: 'APPEARS_IN'
+      });
+
+      // FILED_BY edge: alert → SAR (only if SAR included)
+      if (includeSars && a.linked_sar_id) {
+        // Lazily add the SAR node if it didn't come from sarRows
+        const sarId = `sar-${a.linked_sar_id}`;
+        if (!seenNodes.has(sarId)) {
+          addNode({
+            id: sarId,
+            type: 'SAR',
+            label: a.linked_sar_id,
+            status: 'Filed'
+          });
+        }
+        links.push({
+          source: alertId,
+          target: sarId,
+          type: 'FILED_BY'
+        });
+      }
+    }
+
+    // SARs that didn't come through an alert linkage above
+    for (const s of sarRows) {
+      const sarId = `sar-${s.sar_id}`;
+      if (!seenNodes.has(sarId)) {
+        addNode({
+          id: sarId,
+          type: 'SAR',
+          label: s.sar_id,
+          status: s.sar_status,
+          filed_date: s.filed_date
+        });
+        // Connect to the focus customer directly (SUBJECT_OF in spec terms)
+        links.push({
+          source: `c-${focus.customer_id}`,
+          target: sarId,
+          type: 'SUBJECT_OF'
+        });
+      }
+    }
+
+    // Cross-case neighbours (customers who share a counterparty with focus)
+    for (const n of neighbourRes.rows) {
+      const nId = `c-${n.customer_id}`;
+      addNode({
+        id: nId,
+        type: n.customer_type === 'Business' ? 'COMPANY' : 'PERSON',
+        label: n.customer_name,
+        risk: n.customer_risk_rating,
+        pep: !!n.pep_match,
+        sanctions: !!n.sanctions_match,
+        is_neighbour: true
+      });
+      // Hub-via-counterparty edge (computed). The counterparty node may
+      // not be in the limit; we connect through it if it is, otherwise
+      // we draw the direct neighbour→focus edge.
+      const cpHubId = `cp-${n.via_counterparty}`;
+      if (seenNodes.has(cpHubId)) {
+        links.push({
+          source: nId,
+          target: cpHubId,
+          type: 'TRANSACTS_WITH',
+          computed: true
+        });
+      } else {
+        links.push({
+          source: `c-${focus.customer_id}`,
+          target: nId,
+          type: 'CO_OCCURS_WITH',
+          via: n.via_counterparty,
+          computed: true
+        });
+      }
+    }
+
+    res.json({
+      focus_id: `c-${focus.customer_id}`,
+      nodes,
+      links,
+      meta: {
+        counterparty_count: cpRes.rowCount,
+        alert_count: alertRes.rowCount,
+        sar_count: sarRows.length,
+        neighbour_count: neighbourRes.rowCount,
+        sars_included: includeSars
+      }
+    });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;
