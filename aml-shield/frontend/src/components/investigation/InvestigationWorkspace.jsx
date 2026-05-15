@@ -7,7 +7,7 @@ import { useToast } from '../../state/ToastContext.jsx';
 import {
   AlertCircle, Filter, Flame, FileText, MessageSquare, FolderOpen, ListChecks,
   User, Briefcase, ClipboardList, Link2, Upload, Trash2, Download, Eye, X,
-  Send, ArrowRight, Loader2, Clock, ArrowUpRight, AlertTriangle, Lock
+  Send, ArrowRight, Loader2, Clock, ArrowUpRight, AlertTriangle, Lock, RotateCcw
 } from 'lucide-react';
 import OutcomeCard from '../shared/OutcomeCard.jsx';
 import OfacScreeningPanel from './OfacScreeningPanel.jsx';
@@ -80,8 +80,8 @@ export default function InvestigationWorkspace({ alertId }) {
           </div>
         </div>
       )}
-      {alert.reopened_at && <ReopenedAlertBanner alert={alert} />}
       <RuleExplanationBanner alert={alert} variant="full" />
+      {alert.reopened_at && <ReopenedAlertBanner alert={alert} />}
       <div className="flex gap-4 min-w-0 h-[calc(100vh-200px)]">
       <section className="flex-[0.65] min-w-0 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
         <LeftTabBar tab={leftTab} onChange={setLeftTab} />
@@ -136,16 +136,22 @@ export default function InvestigationWorkspace({ alertId }) {
   );
 }
 
-// Amber banner shown above the workspace whenever the analyst is looking
-// at an alert that was previously closed and subsequently reopened. The
-// row stays collapsed by default — clicking expands to show the full
-// chain of custody (original closer, reopen request id, BSA authorizer).
+// Amber banner shown directly below the rule-explanation banner whenever the
+// analyst is looking at an alert that was previously closed and reopened by
+// the BSA Officer (after L1 raised + Manager approved). Matches the
+// 'Returned from L2' banner layout (icon + heading + body lines) but in the
+// amber palette + 4px left-border style used for retrospective state.
+//
+// Collapsed (default): shows only the originally-closed line.
+// Expanded: adds the reopened-by line, the optional request id, and the
+// rich chain-of-custody from the alert_reopen_requests record.
 function ReopenedAlertBanner({ alert }) {
   const [open, setOpen] = useState(false);
   const [history, setHistory] = useState(null);
 
-  // Lazy-load the full request record (with reason text + decisions) when
-  // the analyst first expands the banner.
+  // Lazy-load the full request record (reason text + Manager/BSA notes) the
+  // first time the analyst expands. Failures are non-fatal — the banner
+  // still shows the on-alert fields.
   const expand = async () => {
     if (history || !alert.reopen_request_id) { setOpen(o => !o); return; }
     try {
@@ -154,6 +160,25 @@ function ReopenedAlertBanner({ alert }) {
     } catch (_e) { /* leave null — banner still useful */ }
     setOpen(true);
   };
+
+  // DD MMM YYYY formatter — matches the seed-data display convention used
+  // elsewhere (formatClosedAt in alertStatus.js). Accepts either a YYYY-MM-DD
+  // text date or a full ISO timestamp.
+  const fmtDate = (raw) => {
+    if (!raw) return null;
+    const s = String(raw);
+    const iso = s.length <= 10 ? `${s}T00:00:00` : s;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return s;
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  };
+
+  // Closer name: prefer the explicit closed_by column, then fall back to the
+  // history record's original_closed_by (loaded on expand), then assigned_to.
+  const originalCloser = alert.closed_by || history?.original_closed_by || alert.assigned_to || 'an analyst';
+  const closedDateLabel = fmtDate(alert.closed_date) || '—';
+  const reopenedDateLabel = fmtDate(alert.reopened_at) || '—';
 
   return (
     <div
@@ -164,15 +189,15 @@ function ReopenedAlertBanner({ alert }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2 min-w-0">
-          <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+          <RotateCcw size={16} className="text-amber-600 shrink-0 mt-0.5" />
           <div className="min-w-0">
             <div className="font-semibold text-amber-900">
-              This alert was previously closed and has been reopened
+              🔄 This alert has been reopened
             </div>
-            <div className="text-[11px] text-amber-800 mt-0.5">
-              Reopened {alert.reopened_at ? new Date(alert.reopened_at).toLocaleDateString() : ''}
-              {alert.reopened_by ? ` · authorized by ${alert.reopened_by}` : ''}
-              {alert.reopen_request_id ? ` · request ${alert.reopen_request_id}` : ''}
+            <div className="text-amber-900 mt-0.5">
+              <span className="font-medium">Originally closed as False Positive</span> by{' '}
+              <span className="font-medium">{originalCloser}</span> on{' '}
+              <span className="font-medium">{closedDateLabel}</span>
             </div>
           </div>
         </div>
@@ -184,25 +209,47 @@ function ReopenedAlertBanner({ alert }) {
           {open ? 'Hide details' : 'Show details'}
         </button>
       </div>
+
       {open && (
         <div className="mt-2 pt-2 border-t border-amber-200 text-xs text-amber-900 space-y-1">
-          {history ? (
-            <>
-              <div><span className="font-semibold">Original disposition:</span> {history.original_disposition || '—'}
-                {history.original_closed_by ? ` (by ${history.original_closed_by})` : ''}
-                {history.original_closed_at ? ` on ${(history.original_closed_at || '').slice(0, 10)}` : ''}</div>
-              <div><span className="font-semibold">Requested by:</span> {history.requested_by} on {(history.requested_at || '').slice(0, 10)}</div>
+          <div>
+            <span className="font-medium">Reopened by</span>{' '}
+            <span className="font-medium">{alert.reopened_by || '—'}</span> on{' '}
+            <span className="font-medium">{reopenedDateLabel}</span>
+          </div>
+          {alert.reopen_request_id && (
+            <div className="text-[11px] text-slate-500">
+              Request ID: <span className="font-mono">{alert.reopen_request_id}</span>
+            </div>
+          )}
+          {history && (
+            <div className="mt-2 pt-2 border-t border-amber-200 space-y-1">
+              <div>
+                <span className="font-semibold">Reopen requested by:</span> {history.requested_by}
+                {history.requested_at ? ` on ${fmtDate(history.requested_at) || (history.requested_at || '').slice(0, 10)}` : ''}
+              </div>
               <div><span className="font-semibold">Reason code:</span> {history.reason_code}</div>
-              <div className="bg-white/60 rounded p-2 mt-1 whitespace-pre-wrap">{history.reason_detail}</div>
+              {history.reason_detail && (
+                <div className="bg-white/60 rounded p-2 mt-1 whitespace-pre-wrap">{history.reason_detail}</div>
+              )}
               {history.manager_reviewed_by && (
-                <div><span className="font-semibold">Manager approval:</span> {history.manager_reviewed_by} on {(history.manager_reviewed_at || '').slice(0, 10)}{history.manager_notes ? ` — "${history.manager_notes}"` : ''}</div>
+                <div>
+                  <span className="font-semibold">Manager approval:</span> {history.manager_reviewed_by}
+                  {history.manager_reviewed_at ? ` on ${fmtDate(history.manager_reviewed_at) || (history.manager_reviewed_at || '').slice(0, 10)}` : ''}
+                  {history.manager_notes ? ` — "${history.manager_notes}"` : ''}
+                </div>
               )}
               {history.bsa_reviewed_by && (
-                <div><span className="font-semibold">BSA authorization:</span> {history.bsa_reviewed_by} on {(history.bsa_reviewed_at || '').slice(0, 10)}{history.bsa_notes ? ` — "${history.bsa_notes}"` : ''}</div>
+                <div>
+                  <span className="font-semibold">BSA authorization:</span> {history.bsa_reviewed_by}
+                  {history.bsa_reviewed_at ? ` on ${fmtDate(history.bsa_reviewed_at) || (history.bsa_reviewed_at || '').slice(0, 10)}` : ''}
+                  {history.bsa_notes ? ` — "${history.bsa_notes}"` : ''}
+                </div>
               )}
-            </>
-          ) : (
-            <div className="italic text-amber-700">Reopen request details unavailable.</div>
+            </div>
+          )}
+          {!history && alert.reopen_request_id && (
+            <div className="italic text-amber-700">Loading reopen request details…</div>
           )}
         </div>
       )}
