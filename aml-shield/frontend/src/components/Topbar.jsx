@@ -446,10 +446,12 @@ export default function Topbar() {
                   }`}>{currentAnalystLevel}</span>
                 )}
               </div>
-              <div className="text-xs text-slate-500">
-                {isManager
-                  ? 'Manager View · full oversight'
-                  : `Employee View · ${analystProfiles[currentAnalyst]?.team || 'Analyst'}`}
+              <div className={`text-xs ${isBsaOfficer ? 'text-teal-700 font-medium' : 'text-slate-500'}`}>
+                {isBsaOfficer
+                  ? 'BSA Officer · program oversight'
+                  : isManager
+                    ? 'Manager View · full oversight'
+                    : `Employee View · ${analystProfiles[currentAnalyst]?.team || 'Analyst'}`}
               </div>
             </div>
             <ChevronDown size={14} className="text-slate-400 ml-1" />

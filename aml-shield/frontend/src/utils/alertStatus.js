@@ -26,6 +26,12 @@ const CLOSED_STATUSES = new Set([
 
 export function isAlertClosed(alert) {
   if (!alert) return false;
+  // Reopened alerts retain their original `closed_date` from the prior
+  // closure (the backend doesn't clear it on reopen). If the alert has
+  // been reopened back to In Progress, treat it as open — otherwise the
+  // closed_date check below would incorrectly mark it closed and trigger
+  // the read-only banner + reopen-request button on a live investigation.
+  if (alert.reopened_at && alert.alert_status === 'In Progress') return false;
   const s = alert.alert_status;
   if (s && CLOSED_STATUSES.has(s)) return true;
   if (alert.closed_date) return true;

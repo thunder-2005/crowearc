@@ -804,15 +804,34 @@ function AlertCard({ alert: a, column, isEmployee, isL1, currentAnalyst, onSelec
           <UserPlus size={12} /> Assign to Me
         </button>
       )}
-      {/* L1 owner reopen-request link on closed cards. Gated to alerts the
-          current analyst originally worked on (assigned_to match), and only
-          when the alert has no pending request already pinned. */}
-      {isL1 && closed && a.assigned_to === currentAnalyst && (
-        a.reopen_request_id && !a.reopened_at ? (
-          <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-amber-700 inline-flex items-center gap-1">
-            <RotateCcw size={10} /> Reopen pending
-          </div>
-        ) : (
+      {/* L1 owner reopen-request link on closed cards. Explicit gates per
+          the reopen-state spec — the button must NOT appear when:
+            · alert isn't in a closed terminal status (covers Pending QC, etc.)
+            · qc_status is still 'pending' (QC hasn't decided yet)
+            · the alert has already been reopened back to In Progress
+              (closed_date persists in the row but the alert is live again).
+          The status check would naturally exclude In Progress, but we add the
+          explicit reopened_at clause for defense in depth — keeps the gating
+          obvious if the closed-status set ever expands. */}
+      {(() => {
+        const TERMINAL_FP_STATUSES = ['Completed', 'Closed — False Positive', 'False Positive'];
+        const isTerminalClosed   = TERMINAL_FP_STATUSES.includes(a.alert_status);
+        const qcStillPending     = a.qc_status === 'pending';
+        const reopenedAndLive    = !!a.reopened_at && a.alert_status === 'In Progress';
+        const eligible           = isL1
+          && a.assigned_to === currentAnalyst
+          && isTerminalClosed
+          && !qcStillPending
+          && !reopenedAndLive;
+        if (!eligible) return null;
+        if (a.reopen_request_id && !a.reopened_at) {
+          return (
+            <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-amber-700 inline-flex items-center gap-1">
+              <RotateCcw size={10} /> Reopen pending
+            </div>
+          );
+        }
+        return (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onRequestReopen && onRequestReopen(); }}
@@ -820,8 +839,8 @@ function AlertCard({ alert: a, column, isEmployee, isL1, currentAnalyst, onSelec
           >
             Request to reopen
           </button>
-        )
-      )}
+        );
+      })()}
     </div>
   );
 }

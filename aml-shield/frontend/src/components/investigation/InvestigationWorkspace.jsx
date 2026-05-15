@@ -26,15 +26,19 @@ export default function InvestigationWorkspace({ alertId }) {
   // Set by CaseInfoTab on successful disposition (FP / Escalate to L2).
   // Shape: { dispositionLabel: string }
   const [completion, setCompletion] = useState(null);
-  const { signalAlertsChanged, markCustomerResolved } = useInvestigationTabs();
+  const { signalAlertsChanged, markCustomerResolved, alertsRefreshNonce } = useInvestigationTabs();
   const { goTo } = useRoleNavigate();
 
+  // Refetch when the alert id changes OR when any other surface signals an
+  // alert state change (e.g. BSA Officer authorizes a reopen — the L1's
+  // already-mounted workspace tab would otherwise show the stale closed
+  // snapshot it loaded before the reopen).
   useEffect(() => {
     setLoading(true);
     api.get(`/alerts/${alertId}`)
       .then(r => setAlert(r.data))
       .finally(() => setLoading(false));
-  }, [alertId]);
+  }, [alertId, alertsRefreshNonce]);
 
   if (loading || !alert) {
     return (
