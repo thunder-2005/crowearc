@@ -10,7 +10,12 @@ import { useToast } from '../state/ToastContext.jsx';
 import api from '../api/client.js';
 import { isAlertClosed } from '../utils/alertStatus.js';
 
+// Page title resolution: the consumer below tries a full-path key first
+// (so `/bsa/dashboard` can show "BSA Officer Command Center" instead of the
+// generic "Dashboard"), then falls back to the URL segment key for legacy
+// routes that don't need role-specific titles.
 const TITLES = {
+  // Segment keys — used by /manager/* and /employee/* surfaces.
   'dashboard':       'Dashboard',
   'alerts':          'TM Alerts',
   'cases':           'SAR Cases',
@@ -27,7 +32,19 @@ const TITLES = {
   'reports':         'Reports',
   'analytics':       'Analytics',
   'users':           'Users',
-  'settings':        'Settings'
+  'settings':        'Settings',
+  // Full-path keys — used by /bsa/* surfaces (added after the BSA Command
+  // Center shipped; the generic segment titles above didn't fit).
+  '/bsa/dashboard':                'BSA Officer Command Center',
+  '/bsa/alerts':                   'All Alerts — Read Only',
+  '/bsa/cases':                    'All Cases — Read Only',
+  '/bsa/customers':                'Customer Profiles — Read Only',
+  '/bsa/sar-repository':           'SAR Repository',
+  '/bsa/sar-approvals':            'SAR Final Sign-off Queue',
+  '/bsa/retention':                'Retention Monitor',
+  '/bsa/audit-trail':              'Audit Trail',
+  '/bsa/reopen-requests':          'Alert Reopen Authorizations',
+  '/bsa/regulatory-correspondence':'Regulatory Correspondence'
 };
 
 const NOTIFICATION_ICONS = {
@@ -218,10 +235,14 @@ export default function Topbar() {
     (showSarResults ? searchResults.sars.length : 0);
   const dropdownVisible = searchOpen && searchQuery.trim().length >= 2;
 
-  // Title comes from path segment after /manager or /employee
+  // Title resolution: full path first (so BSA-specific routes can override
+  // the generic segment titles), then segment as fallback.
   const seg = loc.pathname.split('/').filter(Boolean);
   const sectionKey = seg[1] || 'dashboard';
-  const title = TITLES[sectionKey] || 'Crowe ARC';
+  // Normalize the full-path key to strip a trailing :id for routes like
+  // /bsa/sar-approval/SAR-00001 — we want '/bsa/sar-approval' to match.
+  const fullPathKey = seg.length >= 2 ? `/${seg[0]}/${seg[1]}` : loc.pathname;
+  const title = TITLES[fullPathKey] || TITLES[sectionKey] || 'Crowe ARC';
 
   const onNotificationClick = async (n) => {
     if (!n.is_read) {

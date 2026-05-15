@@ -26,12 +26,8 @@ const DEMO_USERS = [
 ];
 
 function landingFor(role) {
-  // BSA Officer shares the manager landing until a dedicated BSA Officer
-  // dashboard ships. Program-level oversight responsibilities overlap
-  // enough that the manager view is the closer fit today; the /bsa/* nav
-  // remains accessible from the manager surface for BSA-specific tasks.
   if (role === 'compliance_manager') return '/manager/dashboard';
-  if (role === 'bsa_officer')        return '/manager/dashboard';
+  if (role === 'bsa_officer')        return '/bsa/dashboard';
   return '/employee/dashboard';
 }
 

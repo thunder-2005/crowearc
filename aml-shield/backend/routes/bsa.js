@@ -1,18 +1,10 @@
 const express = require('express');
 const pool = require('../database/db');
+const { requireBsaOrManager } = require('../middleware/roleGuard');
 
 const router = express.Router();
 
-// Manager / BSA Officer only. Mirrors the requireManager pattern used in
-// other routes — keeps the guard inline since this is a small module.
-function requireBsaOrManager(req, res, next) {
-  const role = req.headers['x-user-role'];
-  if (role !== 'bsa_officer' && role !== 'compliance_manager') {
-    return res.status(403).json({ error: 'BSA Officer or Manager role required' });
-  }
-  next();
-}
-
+// Manager / BSA Officer only — gate applied to every route on this router.
 router.use(requireBsaOrManager);
 
 // GET /api/bsa/program-metrics

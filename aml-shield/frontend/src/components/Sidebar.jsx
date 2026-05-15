@@ -260,7 +260,11 @@ export default function Sidebar() {
     pendingApprovals, overdueReviews, myAssignedReviews,
     reopenPendingManager, reopenPendingBsa, regCorrUrgent, qcPending
   };
-  const sections = isBsa
+  // Pick sidebar by ROLE first (isBsaOfficer follows the logged-in user
+  // even when they're temporarily browsing /manager/*), URL prefix second.
+  // Guarantees James Carter sees the BSA sidebar everywhere — no chance of
+  // accidentally getting the manager sidebar on a deep-link or refresh.
+  const sections = (isBsa || isBsaOfficer)
     ? BSA_SECTIONS
     : isManager
       ? MANAGER_SECTIONS
