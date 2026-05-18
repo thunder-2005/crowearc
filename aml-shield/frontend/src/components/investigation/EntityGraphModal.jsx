@@ -162,6 +162,12 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
   const [filter, setFilter] = useState({ mode: 'all', ids: [] });
   // Right-click context menu state. Coordinates are page-relative.
   const [contextMenu, setContextMenu] = useState(null);
+  // Graph-navigation state. The modal opens centered on the `customerId`
+  // prop, but the analyst can re-center the canvas onto any neighbour
+  // customer they click into. `currentCustomerId` drives the fetch;
+  // `navHistory` holds breadcrumbs so we can render a "Back" chip.
+  const [currentCustomerId, setCurrentCustomerId] = useState(customerId);
+  const [navHistory, setNavHistory] = useState([]);
 
   const containerRef = useRef(null);
   const fgRef = useRef(null);
@@ -240,18 +246,25 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
 
   // Fetch graph payload. Do NOT auto-select the focus — the right panel
   // defaults to the welcome state per spec.
+  // If the prop changes (parent navigation), reset internal navigation
+  // state to the new focus.
+  useEffect(() => {
+    setCurrentCustomerId(customerId);
+    setNavHistory([]);
+  }, [customerId]);
+
   useEffect(() => {
     let cancelled = false;
     setData(null);
     setError(null);
     setSelected(null);
-    api.get(`/customers/${customerId}/graph`)
+    api.get(`/customers/${currentCustomerId}/graph`)
       .then(r => { if (!cancelled) setData(r.data); })
       .catch(err => {
         if (!cancelled) setError(err.response?.data?.error || err.message || 'Failed to load graph');
       });
     return () => { cancelled = true; };
-  }, [customerId]);
+  }, [currentCustomerId]);
 
   // Track container size for the force graph
   useEffect(() => {
@@ -356,6 +369,28 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
   };
   const filterReset = () => {
     setFilter({ mode: 'all', ids: [] });
+  };
+
+  // Re-center the canvas onto a different customer. Pushes the current
+  // focus onto navHistory so the analyst can step back. Also resets the
+  // filter + selection so they don't carry over.
+  const recenterOn = (newCustomerId) => {
+    if (!newCustomerId || newCustomerId === currentCustomerId) return;
+    setNavHistory(prev => [...prev, currentCustomerId]);
+    setCurrentCustomerId(newCustomerId);
+    setFilter({ mode: 'all', ids: [] });
+    setSelected(null);
+  };
+  const navigateBack = () => {
+    setNavHistory(prev => {
+      if (prev.length === 0) return prev;
+      const next = prev.slice(0, -1);
+      const target = prev[prev.length - 1];
+      setCurrentCustomerId(target);
+      setFilter({ mode: 'all', ids: [] });
+      setSelected(null);
+      return next;
+    });
   };
 
   // Close the context menu on any outside click / Escape press.
@@ -564,6 +599,20 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
               </div>
             )}
 
+            {/* Top-left back chip. Appears whenever the analyst has
+                re-centered onto a different customer; clicking pops the
+                navigation history one level. */}
+            {navHistory.length > 0 && (
+              <button
+                type="button"
+                onClick={navigateBack}
+                className="absolute top-3 left-3 z-20 inline-flex items-center gap-1.5 bg-white border border-slate-300 hover:border-blue-400 text-slate-700 text-[11px] font-semibold rounded-md px-2.5 py-1 shadow-sm"
+                title="Return to the previous customer focus"
+              >
+                ← Back
+              </button>
+            )}
+
             {/* Top-right active-filter chip. Shows when keepOnly/exclude is
                 active so the analyst always sees that the canvas is
                 non-default + can reset in one click. */}
@@ -591,12 +640,13 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
             data={data}
             counts={networkCounts}
             customerName={customerName}
-            customerId={customerId}
+            customerId={currentCustomerId}
             userRole={userRole}
             userName={userName}
             rolePrefix={rolePrefix}
             adjacency={adjacency}
             onSelectNode={setSelected}
+            onRecenter={recenterOn}
           />
         </div>
 
@@ -609,6 +659,8 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
             onExclude={() => { filterExclude(contextMenu.node.id); setContextMenu(null); }}
             onReset={() => { filterReset(); setContextMenu(null); }}
             onOpenProfile={() => { openCustomerProfile(contextMenu.node); setContextMenu(null); }}
+            onRecenter={() => { recenterOn(contextMenu.node.customer_id); setContextMenu(null); }}
+            currentCustomerId={currentCustomerId}
             filterActive={filter.mode !== 'all'}
           />
         )}
@@ -618,8 +670,9 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
 }
 
 // Tableau-style context menu shown on right-click of a graph node.
-function NodeContextMenu({ menu, onKeepOnly, onExclude, onReset, onOpenProfile, filterActive }) {
+function NodeContextMenu({ menu, onKeepOnly, onExclude, onReset, onOpenProfile, onRecenter, currentCustomerId, filterActive }) {
   const isCustomer = (menu.node.type === 'PERSON' || menu.node.type === 'COMPANY') && !menu.node.is_counterparty && menu.node.customer_id;
+  const isOtherCustomer = isCustomer && menu.node.customer_id !== currentCustomerId;
   const label = menu.node.label || menu.node.customer_name || menu.node.id;
   return (
     <div
@@ -656,6 +709,16 @@ function NodeContextMenu({ menu, onKeepOnly, onExclude, onReset, onOpenProfile, 
           className="w-full text-left px-3 py-2 hover:bg-slate-50 border-t border-slate-100"
         >
           Reset Filter
+        </button>
+      )}
+      {isOtherCustomer && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={onRecenter}
+          className="w-full text-left px-3 py-2 hover:bg-slate-50 border-t border-slate-100 text-blue-700 font-medium"
+        >
+          Re-center Graph Here →
         </button>
       )}
       {isCustomer && (
@@ -1127,7 +1190,7 @@ function deriveNetworkRecent(data) {
 }
 
 // ─── Side panel ─────────────────────────────────────────────────────────
-function SidePanel({ node, data, counts, customerName, customerId, userRole, userName, rolePrefix, adjacency, onSelectNode }) {
+function SidePanel({ node, data, counts, customerName, customerId, userRole, userName, rolePrefix, adjacency, onSelectNode, onRecenter }) {
   const { alerts: timelineAlerts, sars: timelineSars } = useMemo(
     () => deriveTimeline(data, node),
     [data, node]
@@ -1173,7 +1236,7 @@ function SidePanel({ node, data, counts, customerName, customerId, userRole, use
           ) : node.is_counterparty ? (
             <CounterpartyDetails node={node} data={data} adjacency={adjacency} userRole={userRole} />
           ) : (
-            <CustomerDetails node={node} data={data} adjacency={adjacency} userRole={userRole} rolePrefix={rolePrefix} customerId={customerId} />
+            <CustomerDetails node={node} data={data} adjacency={adjacency} userRole={userRole} rolePrefix={rolePrefix} customerId={customerId} onRecenter={onRecenter} />
           )}
 
           {/* Alert Timeline — appended below the entity details for every
@@ -1314,7 +1377,7 @@ function SummaryStat({ icon: Icon, label, value }) {
 }
 
 // ─── Customer details (focus or neighbour) ──────────────────────────────
-function CustomerDetails({ node, data, adjacency, userRole, rolePrefix, customerId: focusCustomerId }) {
+function CustomerDetails({ node, data, adjacency, userRole, rolePrefix, customerId: focusCustomerId, onRecenter }) {
   // Build the connection summary for neighbours from the existing links payload.
   let neighbourSummary = null;
   if (node.is_neighbour && data?.links) {
@@ -1348,6 +1411,18 @@ function CustomerDetails({ node, data, adjacency, userRole, rolePrefix, customer
             {node.is_focus && <Chip tone="blue">Focus</Chip>}
             {node.is_neighbour && <Chip tone="slate-soft">Neighbour</Chip>}
           </div>
+          {/* Re-center action. Only shown when this is NOT the current
+              focus and the analyst can drill into this customer's own
+              network. */}
+          {onRecenter && node.customer_id && node.customer_id !== focusCustomerId && (
+            <button
+              type="button"
+              onClick={() => onRecenter(node.customer_id)}
+              className="mt-2 inline-flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900 font-medium"
+            >
+              Focus this customer →
+            </button>
+          )}
         </div>
       </div>
 
