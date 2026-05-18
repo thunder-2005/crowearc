@@ -59,7 +59,15 @@ const MANAGER_DEFAULTS = {
   'audit.lock_case_after_sar': true,
   'audit.min_note_length': 100,
   'audit.session_timeout_min': 30,
-  'audit.export_requires_confirm': true
+  'audit.export_requires_confirm': true,
+
+  // C-04: hours since the last successful OFAC SDN sync before the
+  // staleness banner appears. Default of 26 = 24h cadence + 2h grace.
+  // Recommended range 25-48; UI enforces a 24h floor and 168h (one week)
+  // ceiling. The Postgres view ofac_sync_status hard-codes 26 for its
+  // own is_stale flag; the API derives the configurable banner threshold
+  // from this setting.
+  'ofac.staleness_threshold_hours': 26
 };
 
 const EMPLOYEE_DEFAULTS = {

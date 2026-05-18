@@ -9,7 +9,22 @@
     "migrate": "node database/migrate.js",
     "seed": "node database/seed.js",
     "seed:csv": "node database/seed_csv.js",
-    "generate:rules": "node scripts/generateRuleExplanations.js"
+    "generate:rules": "node scripts/generateRuleExplanations.js",
+    "test": "jest --testPathPattern='\\.test\\.js$' --runInBand"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.2.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/uploads/"
+    ],
+    "modulePathIgnorePatterns": [
+      "/uploads/"
+    ]
   },
   "engines": {
     "node": ">=18.0.0"

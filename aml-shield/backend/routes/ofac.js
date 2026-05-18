@@ -1,8 +1,11 @@
 const express = require('express');
 const pool = require('../database/db');
-const { requireManager } = require('../middleware/roleGuard');
+const { requireManager, requireBsaOfficer, requireBsaOrManager } = require('../middleware/roleGuard');
 const { screenName, getScreeningResults } = require('../utils/ofacScreener');
 const { downloadAndStoreSdnList } = require('../utils/ofacDownloader');
+const { runOfacSync } = require('../jobs/ofacSync');
+const { getManagerSetting } = require('../utils/getManagerSetting');
+const { logAudit } = require('../utils/audit');
 
 const router = express.Router();
 
@@ -224,11 +227,132 @@ router.patch('/results/:resultId', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────── POST /sync (manager only)
+//
+// Legacy direct-call sync. Kept for the existing Force Sync button on the
+// Manager Dashboard banner that still calls this. The new path is
+// /sync/trigger which runs through the durable job runner; this one
+// downloads in-band and returns the count synchronously. New code should
+// prefer /sync/trigger.
 
 router.post('/sync', requireManager, async (_req, res, next) => {
   try {
-    const count = await downloadAndStoreSdnList();
-    res.json({ status: 'success', entry_count: count });
+    const result = await downloadAndStoreSdnList();
+    res.json({ status: 'success', entry_count: result.entries_total });
+  } catch (err) { next(err); }
+});
+
+// ─────────────────────────────────────────────── GET /sync-status
+//
+// Manager + BSA Officer dashboards consume this. Returns the most recent
+// successful sync, any currently-running run, and the last 10 runs for the
+// timeline panel. stalenessThresholdHours is read from manager_settings so
+// the threshold is tunable without a code deploy.
+
+router.get('/sync-status', requireBsaOrManager, async (_req, res, next) => {
+  try {
+    const stalenessThresholdHours = Number(
+      await getManagerSetting('ofac.staleness_threshold_hours', 26)
+    ) || 26;
+
+    // Last successful sync — pull straight from the view so the staleness
+    // math stays in one place.
+    const lastSuccess = (await pool.query(
+      'SELECT id, completed_at, entries_total, list_version, hours_since_last_success, is_stale FROM ofac_sync_status'
+    )).rows[0] || null;
+
+    // Any currently-running sync.
+    const running = (await pool.query(`
+      SELECT id, started_at, retry_count
+        FROM ofac_sync_runs
+       WHERE status = 'running'
+       ORDER BY started_at DESC
+       LIMIT 1
+    `)).rows[0] || null;
+
+    // Recent runs — last 10 by started_at desc.
+    const recent = (await pool.query(`
+      SELECT id, started_at, completed_at, status,
+             entries_added, entries_total, list_version,
+             error_message, retry_count, triggered_by
+        FROM ofac_sync_runs
+       ORDER BY started_at DESC
+       LIMIT 10
+    `)).rows;
+
+    res.json({
+      lastSuccessfulSync: lastSuccess
+        ? {
+            id: lastSuccess.id,
+            completedAt: lastSuccess.completed_at,
+            entriesTotal: lastSuccess.entries_total,
+            listVersion: lastSuccess.list_version,
+            hoursSinceSuccess: lastSuccess.hours_since_last_success != null
+              ? Math.round(Number(lastSuccess.hours_since_last_success) * 10) / 10
+              : null
+          }
+        : null,
+      isStale: lastSuccess
+        ? Number(lastSuccess.hours_since_last_success) > stalenessThresholdHours
+        : true,
+      stalenessThresholdHours,
+      currentRunning: running
+        ? {
+            id: running.id,
+            startedAt: running.started_at,
+            retryCount: Number(running.retry_count) || 0
+          }
+        : null,
+      recentRuns: recent.map(r => ({
+        id: r.id,
+        startedAt: r.started_at,
+        completedAt: r.completed_at,
+        status: r.status,
+        entriesAdded: r.entries_added,
+        entriesTotal: r.entries_total,
+        listVersion: r.list_version,
+        errorMessage: r.error_message,
+        retryCount: Number(r.retry_count) || 0,
+        triggeredBy: r.triggered_by
+      }))
+    });
+  } catch (err) { next(err); }
+});
+
+// ─────────────────────────────────────────────── POST /sync/trigger
+//
+// Manual sync trigger — BSA Officer only. Runs the durable job asynchronously
+// and returns immediately. Caller polls /sync-status for progress.
+//
+// TODO(B-2): Once session auth lands, derive performed_by from req.user
+// instead of req.body. Today the frontend stamps x-user-name and the body
+// echoes the same — both are spoofable.
+
+router.post('/sync/trigger', requireBsaOfficer, async (req, res, next) => {
+  try {
+    const performedBy = (req.headers['x-user-name'] || req.body?.performed_by || 'BSA Officer').toString();
+
+    // Fire-and-forget — don't await. The job runs in the background, writes
+    // its own audit + run-row, and the dashboard polls for completion.
+    runOfacSync({ triggered_by: 'manual', performed_by: performedBy })
+      .catch(err => {
+        // runOfacSync swallows its own errors; this only fires on truly
+        // unexpected synchronous throws.
+        // eslint-disable-next-line no-console
+        console.error('[ofac] manual trigger threw unexpectedly:', err.message);
+      });
+
+    await logAudit({
+      entity_type: 'ofac_sync_run',
+      entity_id: 'manual_trigger',
+      action: 'ofac_sync_manual_trigger',
+      performed_by: performedBy,
+      details: 'Manual OFAC sync triggered from BSA Officer dashboard'
+    });
+
+    res.json({
+      status: 'triggered',
+      message: 'OFAC sync initiated. Check sync status for progress.'
+    });
   } catch (err) { next(err); }
 });
 
