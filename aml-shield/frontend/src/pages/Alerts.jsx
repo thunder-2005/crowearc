@@ -10,7 +10,8 @@ import L2QueuePage from '../components/investigation/L2QueuePage.jsx';
 import QcWorkspace from '../components/investigation/QcWorkspace.jsx';
 import ManagerAlertsTable from '../components/alerts/ManagerAlertsTable.jsx';
 import { isAlertClosed, slaSnapshot } from '../utils/alertStatus.js';
-import { getNextUpAlert, hasSurfaceableAlert } from '../utils/alertScoring.js';
+import { getNextUpAlert, hasSurfaceableAlert, rankAlerts, resolveSlaTier } from '../utils/alertScoring.js';
+import { useScoringWeights } from '../hooks/useScoringWeights.js';
 import OutcomeCard from '../components/shared/OutcomeCard.jsx';
 import ReopenRequestModal from '../components/alerts/ReopenRequestModal.jsx';
 
@@ -66,6 +67,10 @@ function usdNoCents(n) { return `$${Number(n || 0).toLocaleString('en-US')}`; }
 export default function Alerts() {
   const { isManager, isEmployee, currentAnalyst, isL1, isL2 } = useRole();
   const { tabs, activeId, setActiveId, openTab, closeTab, alertsRefreshNonce, sessionResolvedCustomerIds } = useInvestigationTabs();
+  // C-05: scoring weights for the composite ranker. Shared with NextUpFloat
+  // through the same hook so the banner, the float, and the within-column
+  // Kanban sort all consume identical weights.
+  const scoringWeights = useScoringWeights();
   const [alerts, setAlerts] = useState([]);
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('overview');
@@ -151,16 +156,38 @@ export default function Alerts() {
   }, [myAlerts, filters]);
 
   // Sort according to the toolbar dropdown, then re-bucket into columns.
+  // C-05: when the toolbar sort is "sla_asc" we now rank by COMPOSITE
+  // urgency (the new C-05 ranker) so the toolbar default surfaces the
+  // SAR-clock-critical alerts at the top within each column. Manual
+  // sort modes (priority, amount, created, customer) preserve their old
+  // semantics so analysts who explicitly pick "sort by amount" still
+  // get a literal amount sort. Within-column composite ordering still
+  // applies as a secondary key for non-default sorts so the highest-
+  // urgency alert remains visible even on a customer-name sort.
   const grouped = useMemo(() => {
+    const compositeOrdered = rankAlerts(filteredAlerts, scoringWeights);
+    const compositeOrder = new Map(compositeOrdered.map((a, i) => [a.alert_id, i]));
+    const compositeRank = (a) => compositeOrder.has(a.alert_id) ? compositeOrder.get(a.alert_id) : Number.MAX_SAFE_INTEGER;
+
     const sortFns = {
-      sla_asc:        (a, b) => new Date(a.sla_deadline || 0) - new Date(b.sla_deadline || 0),
+      sla_asc:        (a, b) => compositeRank(a) - compositeRank(b),
       priority_desc:  (a, b) => {
         const p = { High: 3, Medium: 2, Low: 1 };
-        return (p[b.priority] || 0) - (p[a.priority] || 0);
+        const d = (p[b.priority] || 0) - (p[a.priority] || 0);
+        return d !== 0 ? d : compositeRank(a) - compositeRank(b);
       },
-      amount_desc:    (a, b) => Number(b.amount_flagged_inr || 0) - Number(a.amount_flagged_inr || 0),
-      created_desc:   (a, b) => new Date(b.created_date || 0) - new Date(a.created_date || 0),
-      customer_asc:   (a, b) => (a.customer_name || '').localeCompare(b.customer_name || '')
+      amount_desc:    (a, b) => {
+        const d = Number(b.amount_flagged_inr || 0) - Number(a.amount_flagged_inr || 0);
+        return d !== 0 ? d : compositeRank(a) - compositeRank(b);
+      },
+      created_desc:   (a, b) => {
+        const d = new Date(b.created_date || 0) - new Date(a.created_date || 0);
+        return d !== 0 ? d : compositeRank(a) - compositeRank(b);
+      },
+      customer_asc:   (a, b) => {
+        const d = (a.customer_name || '').localeCompare(b.customer_name || '');
+        return d !== 0 ? d : compositeRank(a) - compositeRank(b);
+      }
     };
     const sortFn = sortFns[sortBy] || sortFns.sla_asc;
     const sorted = [...filteredAlerts].sort(sortFn);
@@ -176,7 +203,7 @@ export default function Alerts() {
       if (col) col.push(a);
     }
     return g;
-  }, [filteredAlerts, sortBy, columns]);
+  }, [filteredAlerts, sortBy, columns, scoringWeights]);
 
   // Search match predicate — used to dim non-matches (not to filter them).
   const searchTrim = searchText.trim().toLowerCase();
@@ -194,9 +221,10 @@ export default function Alerts() {
     if (!isL1) return null;
     return getNextUpAlert(filteredAlerts, null, currentAnalyst, {
       allAlerts: alerts,
-      sessionResolvedCustomerIds
+      sessionResolvedCustomerIds,
+      weights: scoringWeights
     });
-  }, [filteredAlerts, isL1, currentAnalyst, alerts, sessionResolvedCustomerIds]);
+  }, [filteredAlerts, isL1, currentAnalyst, alerts, sessionResolvedCustomerIds, scoringWeights]);
 
   // Banner shows only when something is actually surfaceable — same
   // filter as the actual Next Priority pick, including the live-claim
@@ -299,6 +327,7 @@ export default function Alerts() {
           hasOpenAfterFilters={hasOpenAfterFilters}
           onOpenNextUp={(alert) => startInvestigation(alert)}
           requestReopen={(a) => setReopenFor(a)}
+          scoringWeights={scoringWeights}
         />
       )}
 
@@ -362,7 +391,12 @@ function TabBar({ tabs, activeId, onSelect, onClose }) {
 // L1 analyst and pins it above the kanban. Single action: Open Alert.
 // (Skip / dismiss removed — the banner is informational; if the analyst
 // doesn't want to act they can simply ignore it.)
-function NextUpBanner({ alert, onOpen }) {
+//
+// Banner + NextUpFloat both consume getNextUpAlert() with the same weights
+// object, so the surfaced alert is always identical between them. The
+// 30-second poll in NextUpFloat can put it a tick behind the banner on
+// fresh dispositions, but the choice of WHICH alert is "next" is shared.
+function NextUpBanner({ alert, onOpen, weights }) {
   // No open alerts in scope (e.g. all caught up after filters).
   if (!alert) {
     return (
@@ -376,7 +410,14 @@ function NextUpBanner({ alert, onOpen }) {
     );
   }
 
-  // Urgency colour band.
+  // C-05: SAR-filing 30-day clock drives the banner's prominence. The
+  // alert-investigation timer (sla_deadline / hoursLeft) is still useful
+  // for the right-hand badge but no longer governs banner background.
+  const sarTier = resolveSlaTier(alert, weights);
+  const daysRemaining = alert.days_remaining;
+
+  // Urgency colour band — fall back to the investigation-timer band when
+  // sla_tier is missing (legacy data path with no backend SAR-clock fields).
   const now = Date.now();
   const deadline = alert.sla_deadline ? new Date(alert.sla_deadline).getTime() : null;
   const hoursLeft = deadline ? (deadline - now) / 3600000 : Infinity;
@@ -399,13 +440,29 @@ function NextUpBanner({ alert, onOpen }) {
     sla = `${Math.round(hoursLeft / 24)} days remaining`;
   }
 
+  // C-05: tier-aware background + border. SAR-clock takes precedence
+  // because it's the BSA-legal deadline. 'normal' preserves the pre-C-05
+  // white background exactly so non-urgent banners look unchanged.
+  const tierBg = sarTier === 'breached'
+    ? 'bg-red-100 border border-red-500'
+    : sarTier === 'critical'
+      ? 'bg-red-50 border border-red-400'
+      : sarTier === 'warning'
+        ? 'bg-amber-50 border border-amber-400'
+        : 'bg-white';
+
+  // Also lift the border-left colour to the SAR tier so the banner edge
+  // matches the cards in the Kanban below.
+  if (sarTier === 'critical' || sarTier === 'breached') borderColor = '#DC2626';
+  else if (sarTier === 'warning') borderColor = '#F59E0B';
+
   const isHighRisk = alert.customer_risk_rating === 'Very High' || alert.customer_risk_rating === 'High';
   const isPep = Number(alert.pep_match) === 1;
   const isSanctions = Number(alert.sanctions_match) === 1;
 
   return (
     <div
-      className="bg-white rounded-md flex items-center gap-3 flex-wrap"
+      className={`${tierBg} rounded-md flex items-center gap-3 flex-wrap`}
       style={{ borderLeft: `4px solid ${borderColor}`, padding: '10px 14px', position: 'sticky', top: 0, zIndex: 30, boxShadow: '0 1px 3px rgba(15, 23, 42, 0.06)' }}
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -438,6 +495,25 @@ function NextUpBanner({ alert, onOpen }) {
           {usdNoCents(alert.amount_flagged_inr)}
         </span>
       </div>
+
+      {/* C-05: SAR-clock countdown — distinct from the investigation timer.
+          Red on critical/breached, amber on warning, hidden on normal. */}
+      {(sarTier === 'critical' || sarTier === 'breached' || sarTier === 'warning') && daysRemaining != null && (
+        <div className={`inline-flex items-center gap-1 text-xs shrink-0 ${
+          sarTier === 'breached' ? 'text-red-900 font-bold'
+            : sarTier === 'critical' ? 'text-red-700 font-bold'
+            : 'text-amber-700 font-semibold'
+        }`}>
+          <Clock size={12} />
+          <span>
+            {sarTier === 'breached'
+              ? `SAR overdue ${Math.abs(Number(daysRemaining))}d`
+              : Number(daysRemaining) === 0
+                ? 'SAR due today'
+                : `${Number(daysRemaining)} day${Number(daysRemaining) === 1 ? '' : 's'} to SAR`}
+          </span>
+        </div>
+      )}
 
       <div className={`inline-flex items-center gap-1 text-xs ${slaCls} shrink-0`}>
         <Clock size={12} />
@@ -610,7 +686,8 @@ function KanbanBoard({
   filters, setFilters, sortBy, setSortBy,
   searchText, setSearchText, searchInputRef, matchesSearch,
   anyFilterActive, clearFilters,
-  nextUp, hasOpenAfterFilters, onOpenNextUp, requestReopen
+  nextUp, hasOpenAfterFilters, onOpenNextUp, requestReopen,
+  scoringWeights
 }) {
   const gridCols = columns.length >= 5
     ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-5'
@@ -638,7 +715,7 @@ function KanbanBoard({
         </div>
 
         {isL1 && hasOpenAfterFilters && (
-          <NextUpBanner alert={nextUp} onOpen={onOpenNextUp} />
+          <NextUpBanner alert={nextUp} onOpen={onOpenNextUp} weights={scoringWeights} />
         )}
 
         {isL1 && (
@@ -723,15 +800,47 @@ function AlertCard({ alert: a, column, isEmployee, isL1, currentAnalyst, onSelec
   const closed = isAlertClosed(a);
   const wasReturnedFromL2 = !!a.returned_from_l2_at;
 
+  // C-05: SAR-filing 30-day clock tier driven by backend computed columns.
+  // This is the BSA-legal deadline (31 CFR 1020.320), distinct from the
+  // institution-internal alert investigation SLA that slaSnapshot tracks.
+  // Suppress the indicators on closed / escalated rows where the clock no
+  // longer applies (a SAR has been escalated; a closed-FP alert has no
+  // SAR filing obligation).
+  const sarTier = !closed && !isEscalated ? (a.sla_tier || 'normal') : 'normal';
+  const daysRemaining = a.days_remaining;
+  const showSarBadge = !closed && !isEscalated && daysRemaining != null;
+
+  // Left-border stripe colour. Manager-tunable cutoffs live on the server;
+  // the tier value the SQL classifier emits is what we mirror here so the
+  // card and the float agree at a glance.
+  const SAR_BORDER_CLS = {
+    breached: 'border-l-4 border-red-900',
+    critical: 'border-l-4 border-red-600',
+    warning:  'border-l-4 border-amber-400',
+    normal:   ''
+  };
+  const sarBorder = SAR_BORDER_CLS[sarTier] || '';
+
   // Escalated cards are read-only for the L1 owner: muted styling, no action buttons
   const cardCls = isEscalated
     ? 'bg-slate-100/70 rounded-md border border-slate-200 shadow-sm p-3 cursor-pointer hover:border-purple-400 opacity-90'
-    : breached
-      ? 'bg-white rounded-md border-l-4 border-l-red-500 border border-slate-200 shadow-sm p-3 cursor-pointer hover:border-blue-400'
-      : `bg-white rounded-md border shadow-sm p-3 cursor-pointer hover:border-blue-400 ${isMine ? 'border-blue-300' : 'border-slate-200'}`;
+    : sarBorder
+      ? `bg-white rounded-md border shadow-sm p-3 cursor-pointer hover:border-blue-400 relative ${sarBorder} ${isMine ? 'border-blue-300' : 'border-slate-200'}`
+      : breached
+        ? 'bg-white rounded-md border-l-4 border-l-red-500 border border-slate-200 shadow-sm p-3 cursor-pointer hover:border-blue-400'
+        : `bg-white rounded-md border shadow-sm p-3 cursor-pointer hover:border-blue-400 ${isMine ? 'border-blue-300' : 'border-slate-200'}`;
 
   return (
     <div onClick={onSelect} className={cardCls}>
+      {/* C-05: pulsing edge overlay on critical-tier cards. We pulse a 4px
+          absolutely-positioned strip rather than the whole card to avoid
+          the layout reflow / focus-distraction of pulsing the parent. */}
+      {sarTier === 'critical' && (
+        <span
+          aria-hidden="true"
+          className="absolute top-0 left-0 bottom-0 w-1 bg-red-600 animate-pulse rounded-l-md"
+        />
+      )}
       {wasReturnedFromL2 && !isEscalated && (
         <div className="mb-2 -mx-3 -mt-3 px-2 py-1 bg-yellow-100 text-yellow-800 text-[10px] font-semibold rounded-t-md inline-flex items-center gap-1 w-[calc(100%+1.5rem)] border-b border-yellow-200">
           <RotateCcw size={10} /> Returned by L2
@@ -775,6 +884,23 @@ function AlertCard({ alert: a, column, isEmployee, isL1, currentAnalyst, onSelec
         </div>
       </div>
       <div className="mt-1 text-sm font-medium text-navy-900 truncate">{a.customer_name}</div>
+      {/* C-05: SAR-filing 30-day countdown. Tier classes mirror the
+          tier-derived left-border stripe so the eye lands on the same colour
+          twice — countdown text and edge stripe both red on a critical alert. */}
+      {showSarBadge && (
+        <div className={`text-[11px] mt-0.5 inline-flex items-center gap-1 ${
+          sarTier === 'breached' ? 'text-red-900 font-bold'
+            : sarTier === 'critical' ? 'text-red-700 font-bold'
+            : sarTier === 'warning'  ? 'text-amber-600 font-semibold'
+            : 'text-gray-400'
+        }`}>
+          {sarTier === 'breached'
+            ? <>⚠ SAR overdue {Math.abs(Number(daysRemaining))}d</>
+            : Number(daysRemaining) === 0
+              ? <>SAR due today</>
+              : <>{Number(daysRemaining)} day{Number(daysRemaining) === 1 ? '' : 's'} to SAR</>}
+        </div>
+      )}
       <div className="text-xs text-slate-500 mt-0.5">{a.scenario}</div>
       <div className="text-[11px] text-slate-400 mt-0.5">
         {usd(a.amount_flagged_inr)} · {a.txn_count_flagged} txn · {a.counterparty_country}

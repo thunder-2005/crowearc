@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Zap, PlayCircle, Clock, GripVertical, RotateCcw, CheckCircle2, X } from 'lucide-react';
+import { Zap, PlayCircle, Clock, GripVertical, RotateCcw, CheckCircle2, X, Lock } from 'lucide-react';
 import api from '../../api/client.js';
 import { useRole } from '../../state/RoleContext.jsx';
 import { useInvestigationTabs } from '../../state/InvestigationTabsContext.jsx';
-import { getNextUpAlert, getSlaDescriptor } from '../../utils/alertScoring.js';
+import {
+  getNextUpAlert,
+  getSlaDescriptor,
+  computeTimeUrgencyScore,
+  computeRiskScore,
+  resolveSlaTier,
+  hasCriticalSlaAlert,
+  DEFAULT_SCORING_WEIGHTS
+} from '../../utils/alertScoring.js';
+import { useScoringWeights } from '../../hooks/useScoringWeights.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Floating "Next Priority" / "Next Up" widget — pinned to the bottom-right
@@ -171,6 +180,10 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
   const { isL1, currentAnalyst } = useRole();
   const { activeId, alertsRefreshNonce, sessionResolvedCustomerIds } = useInvestigationTabs();
   const [alerts, setAlerts] = useState(null);
+  // C-05: scoring weights loaded once from /api/settings/manager. Defaults
+  // apply synchronously on first render so the float never blocks waiting
+  // for the fetch — see hooks/useScoringWeights.js.
+  const weights = useScoringWeights();
 
   const storageKey = currentAnalyst ? STORAGE_PREFIX + currentAnalyst : null;
   const emptyDismissKey = currentAnalyst ? EMPTY_DISMISS_PREFIX + currentAnalyst : null;
@@ -411,8 +424,24 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
 
   const next = getNextUpAlert(alerts, excludeAlertId, currentAnalyst, {
     allAlerts: alerts,
-    sessionResolvedCustomerIds
+    sessionResolvedCustomerIds,
+    weights
   });
+
+  // C-05: lockout the dismiss button when the manager-enabled feature flag
+  // is true AND at least one critical-tier alert is in my queue. The check
+  // uses the same exclusion ruleset getNextUpAlert applies, so a customer
+  // I just dispositioned this session won't keep me locked.
+  const lockoutEnabled = weights?.lockoutOnCritical !== false;
+  const hasCritical = lockoutEnabled && hasCriticalSlaAlert(alerts || [], currentAnalyst, {
+    allAlerts: alerts,
+    sessionResolvedCustomerIds,
+    weights
+  });
+  // The dismiss button hides only on the empty-state path AND when locked.
+  // When a real alert is showing, the dismiss button is already absent;
+  // lockout adds an explanatory label so the analyst understands why.
+  const dismissLocked = lockoutEnabled && hasCritical;
 
   // If the user dismissed the caught-up notice AND there's still no
   // actionable next priority, hide the card. We still keep a minimal
@@ -437,12 +466,42 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
   // Derived render values — computed only when there's an alert to show.
   // The empty-state path doesn't read any of these so we can short-circuit.
   const sla = next ? getSlaDescriptor(next) : null;
+  // C-05: SAR-clock tier drives the border + ring + countdown. Falls back
+  // to the alert-investigation SLA tone when the new field is missing.
+  const sarTier = next ? resolveSlaTier(next, weights) : 'normal';
   const borderColor = !next
     ? '#16A34A'
-    : sla.tone === 'red' ? '#DC2626' : sla.tone === 'amber' ? '#F59E0B' : '#2563EB';
+    : sarTier === 'breached' ? '#7F1D1D'
+    : sarTier === 'critical' ? '#DC2626'
+    : sarTier === 'warning'  ? '#F59E0B'
+    : sla.tone === 'red'     ? '#DC2626'
+    : sla.tone === 'amber'   ? '#F59E0B'
+    : '#2563EB';
   const slaCls = !next
     ? 'text-green-700'
     : sla.tone === 'red' ? 'text-red-700' : sla.tone === 'amber' ? 'text-amber-700' : 'text-blue-700';
+  // SAR-clock-prominent countdown rendered in the header. This is the
+  // BSA-legal deadline — louder than the alert-investigation timer.
+  const daysRemaining = next?.days_remaining;
+  const sarCountdownText = next == null
+    ? ''
+    : daysRemaining == null ? ''
+    : sarTier === 'breached'
+      ? `⚠ SLA BREACHED`
+      : Number(daysRemaining) === 0
+        ? `Due today to SLA`
+        : `${Number(daysRemaining)} day${Number(daysRemaining) === 1 ? '' : 's'} to SLA`;
+  const sarCountdownCls = sarTier === 'breached' ? 'text-red-900 font-bold'
+    : sarTier === 'critical' ? 'text-red-700 font-bold'
+    : sarTier === 'warning'  ? 'text-amber-700 font-semibold'
+    : 'text-slate-500';
+
+  // Composite score breakdown percentages. Round to integer so the bar widths
+  // are presentation-stable. Numbers are computed on the raw alert object,
+  // not on a rankAlerts() byproduct, so the float doesn't depend on whether
+  // it received a decorated row.
+  const timePct = next ? Math.round(computeTimeUrgencyScore(next) * 100) : 0;
+  const riskPct = next ? Math.round(computeRiskScore(next) * 100) : 0;
 
   const isPep = next && Number(next.pep_match) === 1;
   const isSanctions = next && Number(next.sanctions_match) === 1;
@@ -456,6 +515,13 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
     ? { top: position.y, left: position.x, bottom: 'auto', right: 'auto' }
     : { bottom: DEFAULT_OFFSET, right: DEFAULT_OFFSET };
 
+  // C-05: tier-driven ring on the float container itself. ring + pulse only
+  // when the surfaced alert is critical-tier; the warning/normal/breached
+  // tiers keep the existing left-border treatment without the ring distraction.
+  const ringCls = next && sarTier === 'critical'
+    ? 'ring-2 ring-red-500 animate-pulse'
+    : '';
+
   return (
     <aside
       ref={cardRef}
@@ -465,7 +531,7 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
-      className="bg-white rounded-lg group"
+      className={`bg-white rounded-lg group ${ringCls}`}
       style={{
         position: 'fixed',
         ...positionalStyle,
@@ -527,8 +593,13 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
           {/* Dismiss button only appears in the empty state — when a real
               priority alert is showing, that alert IS the work and must
               not be hide-able. The button writes its flag to sessionStorage
-              and lives only for this page session. */}
-          {!next && (
+              and lives only for this page session.
+              C-05: when manager-enabled lockout fires AND there's a
+              critical-tier alert in the queue, the dismiss button is
+              suppressed even in the empty state. We render a small lock
+              label instead so the analyst understands the affordance is
+              intentionally absent. */}
+          {!next && !dismissLocked && (
             <button
               type="button"
               data-no-drag
@@ -542,6 +613,16 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
           )}
         </div>
       </div>
+
+      {/* C-05: prominent SAR countdown — the BSA-legal 30-day clock. Shown
+          above the customer name on a real alert so the analyst sees the
+          deadline first. */}
+      {next && sarCountdownText && (
+        <div className={`text-xs mb-1 inline-flex items-center gap-1 ${sarCountdownCls}`}>
+          <Clock size={11} />
+          <span>{sarCountdownText}</span>
+        </div>
+      )}
 
       {next ? (
         <>
@@ -578,6 +659,32 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
             <span>{sla.text}</span>
           </div>
 
+          {/* C-05: composite-score breakdown — teaches the analyst WHY this
+              alert is the next priority. Two bars: time-pressure vs. risk.
+              Widths are inline styles because they're genuinely dynamic. */}
+          <div className="mt-2.5 space-y-1">
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className="text-slate-500 w-[78px] shrink-0">Time pressure</span>
+              <div className="flex-1 h-1.5 bg-gray-200 rounded overflow-hidden">
+                <div
+                  className="h-full bg-red-500 transition-all"
+                  style={{ width: `${timePct}%` }}
+                />
+              </div>
+              <span className="tabular-nums text-slate-600 w-[28px] text-right">{timePct}%</span>
+            </div>
+            <div className="flex items-center gap-2 text-[10px]">
+              <span className="text-slate-500 w-[78px] shrink-0">Risk score</span>
+              <div className="flex-1 h-1.5 bg-gray-200 rounded overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 transition-all"
+                  style={{ width: `${riskPct}%` }}
+                />
+              </div>
+              <span className="tabular-nums text-slate-600 w-[28px] text-right">{riskPct}%</span>
+            </div>
+          </div>
+
           <button
             type="button"
             data-no-drag
@@ -604,6 +711,15 @@ export default function NextUpFloat({ excludeAlertId, onOpen }) {
               </div>
             </div>
           </div>
+          {/* C-05: lockout explainer. The dismiss "×" is absent above; this
+              tells the analyst why. Only renders when the manager-enabled
+              feature is on AND a critical-tier alert sits in queue. */}
+          {dismissLocked && (
+            <div className="mt-2 text-xs text-red-600 inline-flex items-center gap-1">
+              <Lock size={10} />
+              <span>Cannot dismiss — critical SLA alert in queue</span>
+            </div>
+          )}
         </div>
       )}
     </aside>

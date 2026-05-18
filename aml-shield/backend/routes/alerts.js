@@ -37,6 +37,25 @@ router.get('/analysts', async (_req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// C-05: SAR-filing 30-day clock fields appended to every analyst-list row.
+// These power the composite urgency score in the frontend ranker. They are
+// COMPUTED at query time — no new alerts-table columns.
+//
+//   detection_date  → alerts.created_date::date (proxy until B-5 ships the
+//                     immutable detection_date column)
+//   days_remaining  → (created_date + 30d) − today, integer, can be negative
+//   sla_breached    → true when days_remaining < 0
+//   sla_tier        → 'breached' | 'critical' (<=4) | 'warning' (<=10) | 'normal'
+//
+// The 5/10-day cutoffs in the tier classifier here match the DEFAULTS in
+// admin_defaults.js. If a compliance manager tunes those values, the
+// frontend reclassifies on the days_remaining integer using the loaded
+// settings — so the SQL tier is informational, but the frontend ranker
+// will not pin to it. Keeping a default tier here means analysts who
+// haven't loaded the settings yet still see a sensible classification.
+//
+// TODO(B-5): replace created_date with detection_date once that column is
+// immutable and populated on every alert.
 const ALERT_SELECT = `
   SELECT a.*,
          COALESCE(c.customer_risk_rating, a.customer_risk_rating) AS customer_risk_rating,
@@ -48,7 +67,33 @@ const ALERT_SELECT = `
          cs.case_id                                               AS linked_case_id,
          cs.case_status                                           AS linked_case_status,
          sf.sar_id                                                AS linked_sar_id,
-         sf.sar_status                                            AS linked_sar_status
+         sf.sar_status                                            AS linked_sar_status,
+         (NULLIF(a.created_date, '')::date + INTERVAL '30 days')::date
+                                                                  AS sar_filing_deadline,
+         (
+           (NULLIF(a.created_date, '')::date + INTERVAL '30 days')::date
+           - CURRENT_DATE
+         )::integer                                               AS days_remaining,
+         (
+           CURRENT_DATE
+           > (NULLIF(a.created_date, '')::date + INTERVAL '30 days')::date
+         )                                                        AS sla_breached,
+         CASE
+           WHEN CURRENT_DATE
+             > (NULLIF(a.created_date, '')::date + INTERVAL '30 days')::date
+             THEN 'breached'
+           WHEN (
+             (NULLIF(a.created_date, '')::date + INTERVAL '30 days')::date
+             - CURRENT_DATE
+           ) <= 4
+             THEN 'critical'
+           WHEN (
+             (NULLIF(a.created_date, '')::date + INTERVAL '30 days')::date
+             - CURRENT_DATE
+           ) <= 10
+             THEN 'warning'
+           ELSE 'normal'
+         END                                                      AS sla_tier
     FROM alerts a
     LEFT JOIN customers   c  ON c.customer_id = a.customer_id
     LEFT JOIN cases       cs ON cs.source_alert_id = a.alert_id

@@ -67,7 +67,30 @@ const MANAGER_DEFAULTS = {
   // ceiling. The Postgres view ofac_sync_status hard-codes 26 for its
   // own is_stale flag; the API derives the configurable banner threshold
   // from this setting.
-  'ofac.staleness_threshold_hours': 26
+  'ofac.staleness_threshold_hours': 26,
+
+  // ─── C-05: Alert Priority Scoring ────────────────────────────────────
+  // Weights that drive the L1 Next Priority composite score (float + banner
+  // + within-column Kanban sort). Read on the frontend via /api/settings/manager
+  // and passed into rankAlerts(). Defaults are documented in the audit
+  // remediation plan for C-05 — see frontend/src/utils/alertScoring.js.
+  //
+  //   scoring.weight_sla     time-pressure weight ∈ [0.0, 1.0]; the
+  //                          risk-score weight is implicitly 1 − weight_sla.
+  //                          Default 0.60 — time-to-SAR-breach dominates.
+  //   scoring.critical_tier_days  Alerts with ≤ N days to SAR breach
+  //                          surface in the red tier (border stripe + pulse
+  //                          + dismiss-lockout when enabled). Default 5.
+  //   scoring.warning_tier_days   Alerts with ≤ N days (and above critical)
+  //                          surface in the amber tier. Default 10.
+  //   scoring.float_lockout_on_critical  Hide the float's dismiss button
+  //                          while any critical-tier alert is in the queue.
+  //                          Forces analysts to acknowledge before
+  //                          continuing. Default true.
+  'scoring.weight_sla': 0.60,
+  'scoring.critical_tier_days': 5,
+  'scoring.warning_tier_days': 10,
+  'scoring.float_lockout_on_critical': true
 };
 
 const EMPLOYEE_DEFAULTS = {
