@@ -474,18 +474,23 @@ async function checkOfacScreeningCoverage(db, config) {
       `Only ${totalActive} active customer(s) — sample is too small to be meaningful.`);
   }
 
+  // ofac_screening_results.screened_at is TIMESTAMPTZ (populated via NOW()
+  // in ofacScreener.js). Treating it as text — e.g. NULLIF(x, '') — forces
+  // Postgres to implicitly cast '' to timestamp and fail with
+  // "invalid input syntax for type timestamp". Use the column directly
+  // with IS NOT NULL.
   const unscreened = (await db.query(
     `SELECT c.customer_id, c.customer_name, c.customer_risk_rating,
-            MAX(NULLIF(o.screened_at, '')::timestamp) AS last_screened
+            MAX(o.screened_at) AS last_screened
        FROM customers c
        LEFT JOIN ofac_screening_results o
          ON o.entity_id = c.customer_id
         AND o.entity_type = 'customer'
-        AND NULLIF(o.screened_at, '')::timestamp
-            >= NOW() - ($1 || ' days')::interval
+        AND o.screened_at IS NOT NULL
+        AND o.screened_at >= NOW() - ($1 || ' days')::interval
       WHERE (c.exit_status IS NULL OR c.exit_status NOT IN ('exited','closed','inactive'))
       GROUP BY c.customer_id, c.customer_name, c.customer_risk_rating
-     HAVING MAX(NULLIF(o.screened_at, '')::timestamp) IS NULL`,
+     HAVING MAX(o.screened_at) IS NULL`,
     [String(staleness)]
   )).rows;
 
