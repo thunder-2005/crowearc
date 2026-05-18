@@ -49,11 +49,33 @@ const NODE_RADIUS = {
 
 function radiusFor(node) {
   if (node.is_focus) return NODE_RADIUS.FOCUS;
+  // C-10: counterparty nodes scale by log of global txn_count in Phase B
+  // so a node that transacts with many customers visually stands out.
+  if (node.is_counterparty && node.counterparty_id) {
+    const cnt = Number(node.txn_count) || 0;
+    return Math.max(6, Math.min(20, 6 + Math.log(cnt + 1) * 2));
+  }
   if (node.is_counterparty) return NODE_RADIUS.COUNTERPARTY;
   if (node.is_neighbour) return NODE_RADIUS.NEIGHBOUR;
   if (node.type === 'CASE') return NODE_RADIUS.CASE;
   if (node.type === 'SAR') return NODE_RADIUS.SAR;
   return NODE_RADIUS.DEFAULT;
+}
+
+// C-10: a counterparty is a Phase-B first-class entity when the
+// backend handed us a counterparty_id. Phase A nodes stay as circles
+// so the visual upgrade only kicks in once the dedup backfill has run.
+function isPhaseBCounterparty(node) {
+  return !!(node?.is_counterparty && node?.counterparty_id);
+}
+
+function fmtVolumeShort(n) {
+  if (n == null) return '—';
+  const v = Number(n);
+  if (!Number.isFinite(v)) return '—';
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000)     return `$${(v / 1_000).toFixed(0)}K`;
+  return `$${v.toFixed(0)}`;
 }
 
 function fmtMoney(n) {
@@ -352,6 +374,24 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
               <GraphLegend open={legendOpen} onToggle={() => setLegendOpen(o => !o)} />
             )}
 
+            {/* C-10: phase indicator — tells the analyst whether the graph
+                is using string-equality dedup (Phase A) or proper entity
+                FK joins (Phase B). Removable once Phase B is universal. */}
+            {data?.meta?.graphPhase && (
+              <div
+                className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-[10px] font-medium px-2 py-1 rounded ${
+                  data.meta.graphPhase === 'entity_fk'
+                    ? 'bg-teal-100 text-teal-800 border border-teal-300'
+                    : 'bg-slate-100 text-slate-600 border border-slate-300'
+                } pointer-events-none`}
+                title={data.meta.graphPhase === 'entity_fk'
+                  ? 'Graph using counterparty_id FK joins (C-10 Phase B)'
+                  : 'Graph using counterparty_normalised string matching (C-10 Phase A — backfill not yet run)'}
+              >
+                Graph: {data.meta.graphPhase === 'entity_fk' ? 'entity-linked' : 'normalised matching'}
+              </div>
+            )}
+
             {/* Bottom-right one-shot hint */}
             {hintVisible && data && (
               <div
@@ -446,7 +486,11 @@ function linkTouchesSelected(link, selected) {
 
 // ─── Custom node draw ───────────────────────────────────────────────────
 function drawNode(node, ctx, globalScale, selected, hoveredNode, adjacency) {
-  const color = COLORS[node.type] || '#94A3B8';
+  // C-10: Phase B counterparties get the high-risk orange fill when any
+  // risk indicator fires; otherwise they keep the standard COMPANY hue.
+  const phaseB = isPhaseBCounterparty(node);
+  let color = COLORS[node.type] || '#94A3B8';
+  if (phaseB && node.is_high_risk_counterparty) color = '#F97316'; // orange-500
   const r = radiusFor(node);
 
   // Selection dimming
@@ -459,11 +503,43 @@ function drawNode(node, ctx, globalScale, selected, hoveredNode, adjacency) {
   ctx.save();
   ctx.globalAlpha = alpha;
 
-  // Body
+  // Body. Phase B counterparties are drawn as a rotated square (diamond)
+  // to visually distinguish them from customer circles. Everything else
+  // stays a circle.
   ctx.beginPath();
-  ctx.arc(node.x, node.y, r, 0, 2 * Math.PI, false);
+  if (phaseB) {
+    ctx.moveTo(node.x,     node.y - r);
+    ctx.lineTo(node.x + r, node.y);
+    ctx.lineTo(node.x,     node.y + r);
+    ctx.lineTo(node.x - r, node.y);
+    ctx.closePath();
+  } else {
+    ctx.arc(node.x, node.y, r, 0, 2 * Math.PI, false);
+  }
   ctx.fillStyle = color;
   ctx.fill();
+
+  // Hub ring — fires when this counterparty transacts with 3+ ARC
+  // customers. Visible at zoom ≥ 0.4. The single most important AML
+  // signal the graph can show.
+  if (phaseB && Number(node.shared_with_customer_count) >= 3 && globalScale >= 0.4) {
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, r + 4, 0, 2 * Math.PI, false);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#7C3AED'; // violet-600
+    ctx.stroke();
+  }
+
+  // Sanctions / PEP hazard ring (driven by node.risk_indicators in Phase B,
+  // node.pep / node.sanctions on customers as before). Kept distinct from
+  // the hub ring above — different colour, different meaning.
+  if (phaseB && node.risk_indicators?.sanctions_hit) {
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, r + 1, 0, 2 * Math.PI, false);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#DC2626';
+    ctx.stroke();
+  }
 
   // Focus halo (subtle outer ring on the root entity)
   if (node.is_focus) {
@@ -538,6 +614,18 @@ function drawNode(node, ctx, globalScale, selected, hoveredNode, adjacency) {
     }
     ctx.fillStyle = '#0F172A';
     ctx.fillText(label, node.x, y + padY);
+
+    // C-10: zoom-gated sub-label for Phase B counterparties showing
+    // per-focus txn count + volume. Stricter zoom threshold (0.7) than
+    // the primary label (0.6) so it only appears when the analyst is
+    // actually zoomed in on a region.
+    if (phaseB && globalScale >= 0.7) {
+      const subFontSize = Math.max(8, 9 / globalScale);
+      ctx.font = `${subFontSize}px Inter, sans-serif`;
+      ctx.fillStyle = '#64748B';
+      const sub = `${node.txn_count_with_focus ?? 0} txns · ${fmtVolumeShort(node.total_volume)}`;
+      ctx.fillText(sub, node.x, y + h + 2);
+    }
   }
 
   ctx.restore();
@@ -715,7 +803,7 @@ function SidePanel({ node, data, counts, customerName, customerId, userRole, use
       ) : node.type === 'SAR' ? (
         <SarDetails node={node} userRole={userRole} rolePrefix={rolePrefix} />
       ) : node.is_counterparty ? (
-        <CounterpartyDetails node={node} data={data} adjacency={adjacency} />
+        <CounterpartyDetails node={node} data={data} adjacency={adjacency} userRole={userRole} />
       ) : (
         <CustomerDetails node={node} data={data} adjacency={adjacency} userRole={userRole} rolePrefix={rolePrefix} customerId={customerId} />
       )}
@@ -855,7 +943,7 @@ function CustomerDetails({ node, data, adjacency, userRole, rolePrefix, customer
 }
 
 // ─── Counterparty details ───────────────────────────────────────────────
-function CounterpartyDetails({ node, data, adjacency }) {
+function CounterpartyDetails({ node, data, adjacency, userRole }) {
   // Pull the TRANSACTS_WITH link that connects this counterparty to the focus.
   const focusLink = useMemo(() => {
     if (!data?.links) return null;
@@ -898,6 +986,23 @@ function CounterpartyDetails({ node, data, adjacency }) {
         </div>
       </div>
 
+      {/* C-10 Phase B: entity-type badge + risk indicator badges */}
+      {node.counterparty_id && (
+        <Section title="Entity">
+          <div className="flex flex-wrap gap-1 mb-2">
+            <Chip tone="slate">
+              {(node.counterparty_type || 'unknown').replace('_', ' ').toUpperCase()}
+            </Chip>
+            {node.risk_indicators?.pep && <Chip tone="purple">PEP</Chip>}
+            {node.risk_indicators?.sanctions_hit && <Chip tone="red">SANCTIONS HIT</Chip>}
+            {node.risk_indicators?.high_risk_jurisdiction && <Chip tone="orange">HIGH-RISK JURISDICTION</Chip>}
+          </div>
+          <div className="text-[10px] text-slate-500 font-mono break-all">
+            {node.counterparty_id}
+          </div>
+        </Section>
+      )}
+
       {/* Risk row — counterparty country */}
       <Section title="Country & risk">
         <KV k="Country" v={node.country || 'Unknown'} />
@@ -910,13 +1015,42 @@ function CounterpartyDetails({ node, data, adjacency }) {
 
       {/* Transaction summary — pulled from the focus link */}
       <Section title="Transactions with focus customer">
-        <KV k="Total transactions" v={focusLink?.txn_count ?? '—'} />
+        <KV k="Total transactions" v={focusLink?.txn_count ?? node.txn_count_with_focus ?? '—'} />
         <KV k="Total amount"       v={fmtMoney(focusLink?.total_amount)} />
         <KV k="Alerted transactions"
             v={focusLink?.alerted_count > 0
                 ? <span className="text-red-700 font-semibold">{focusLink.alerted_count}</span>
                 : '0'} />
       </Section>
+
+      {/* C-10 Phase B: global stats across all ARC customers */}
+      {node.counterparty_id && (
+        <Section title="Across all customers in this institution">
+          <KV k="Total transactions" v={node.txn_count ?? '—'} />
+          <KV k="Total volume"       v={fmtMoney(node.total_volume)} />
+          <KV k="Customer count"     v={node.shared_with_customer_count >= 99 ? '99+' : (node.shared_with_customer_count ?? '—')} />
+          {Number(node.shared_with_customer_count) >= 3 && (
+            <div className="mt-2 text-[11px] text-violet-800 border border-violet-300 bg-violet-50 rounded px-2.5 py-1.5">
+              ⚠ Network hub — this entity transacts with {node.shared_with_customer_count >= 99 ? '99+' : node.shared_with_customer_count} customers in your institution. Review for potential layering or structuring through a common intermediary.
+            </div>
+          )}
+        </Section>
+      )}
+
+      {/* C-10: BSA-only deep link to the Counterparty Merge page,
+          pre-selecting this counterparty in the All Counterparties tab.
+          Matches the same role-gate pattern used for the SAR node
+          investigation-open link. */}
+      {node.counterparty_id && userRole === 'bsa_officer' && (
+        <Section title="Full profile">
+          <a
+            href={`/bsa/counterparty-merge?id=${encodeURIComponent(node.counterparty_id)}`}
+            className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
+          >
+            View Full Profile →
+          </a>
+        </Section>
+      )}
 
       {/* Customers connected through this counterparty */}
       {customersConnected.length > 0 && (

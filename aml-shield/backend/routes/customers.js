@@ -168,14 +168,64 @@ router.get('/:id/cross-case-profile', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// GRAPH ENDPOINT AUDIT — pre-C-10 refactor
+//
+// The pre-refactor `/api/customers/:id/graph` (this route) builds the
+// CCEG Phase 4 prototype payload from FIVE parallel SQL queries:
+//
+//   1. focus customer   — SELECT … FROM customers WHERE customer_id = $1
+//                         (one row; powers the focus node).
+//   2. top counterparties
+//      — `SELECT counterparty, COUNT(*) AS txn_count, ... FROM transactions
+//          WHERE customer_id = $1 AND counterparty IS NOT NULL AND
+//                TRIM(counterparty) <> ''
+//          GROUP BY counterparty ORDER BY COUNT(*) DESC LIMIT 12`
+//      → GROUPS BY THE RAW FREE-TEXT STRING. That is the audit gap C-10
+//        is fixing — "First Capital LLC" and "First Capital, LLC" become
+//        two distinct entities in the graph.
+//   3. recent alerts    — SELECT … FROM alerts WHERE customer_id = $1 LIMIT 8
+//   4. SARs             — SELECT … FROM sar_filings WHERE customer_id = $1
+//                         (role-gated; L1 doesn't see this query at all).
+//   5. shared-counterparty neighbours
+//      — `... FROM transactions t1 JOIN transactions t2
+//           ON LOWER(TRIM(t1.counterparty)) = LOWER(TRIM(t2.counterparty))
+//          ...`
+//      → joins on a LOWER(TRIM(…)) equality of the raw string. Helpful
+//        as a first pass but punctuation differences ("First Capital LLC"
+//        vs "First Capital, LLC") still partition the same real entity.
+//        This is the query most broken by the free-text problem.
+//
+// Counterparty node IDs are `cp-${counterparty}` — i.e. the literal raw
+// string after the prefix. Two graphs of two customers transacting with
+// the same entity but with different capitalisation will paint two
+// different counterparty nodes, and the shared-counterparty edge that
+// SHOULD bind them gets dropped.
+//
+// Response shape (unchanged across C-10):
+//   {
+//     focus_id: 'c-<customer_id>',
+//     nodes:    [ { id, type, label, ...node-type-specific fields } ],
+//     links:    [ { source, target, type, ...edge-type-specific fields } ],
+//     meta:     { counterparty_count, alert_count, sar_count,
+//                 neighbour_count, sars_included }
+//   }
+//
+// C-10 (Counterparty as First-Class Entity) replaces queries 2 and 5
+// with Phase A (counterparty_normalised generated column — interim fix)
+// or Phase B (counterparty_id FK to the new counterparties table —
+// final state once the dedup backfill has run). Detection is at query
+// time. The response shape stays additive: existing fields preserved,
+// new fields appended.
+// ═══════════════════════════════════════════════════════════════════════════
+
 // ─── Cross-Case Entity Graph — graph payload (Phase 4 prototype) ────────
 // Returns nodes + links for a force-directed visualisation rooted at the
 // given customer. Mirrors the spec's "Surface 2 — Full-screen graph
-// explorer" (CCEG §7.2) but reads from the existing customers / alerts /
-// transactions / sar_filings tables, NOT from entity_golden_registry —
-// the real graph backing is gated on Phase 2 + the §3.1 architectural
-// decision. Same disclaimer as the cross-case-profile endpoint applies:
-// the structure is correct, the source is a stopgap.
+// explorer" (CCEG §7.2). Same disclaimer as the cross-case-profile
+// endpoint applies: the structure is correct, the source layer is the
+// existing customers / alerts / transactions / sar_filings tables until
+// CCEG Phase 2 lands.
 //
 // Node id conventions (stable across calls so the client can dedupe):
 //   c-<customer_id>      → Person/Company (focus or hop)
@@ -231,22 +281,67 @@ router.get('/:id/graph', async (req, res, next) => {
     }
     const focus = focusRes.rows[0];
 
-    // ── 2. Top counterparties (by transaction count)
-    const cpRes = await pool.query(
-      `SELECT counterparty,
-              COUNT(*)::int AS txn_count,
-              COUNT(*) FILTER (WHERE is_alerted = 1)::int AS alerted_txn_count,
-              ROUND(SUM(amount)::numeric, 2)::float AS total_amount,
-              MAX(counterparty_country) AS country
-         FROM transactions
-        WHERE customer_id = $1
-          AND counterparty IS NOT NULL
-          AND TRIM(counterparty) <> ''
-        GROUP BY counterparty
-        ORDER BY COUNT(*) DESC, SUM(amount) DESC
-        LIMIT $2`,
-      [customerId, COUNTERPARTY_LIMIT]
-    );
+    // ── Phase A vs Phase B detection ────────────────────────────────────
+    // Phase B (counterparty_id FK is populated) is preferred. Probe the
+    // counterparties table for any row with a non-zero transaction_count
+    // — that's the marker the backfill has run. Failure of either query
+    // (e.g. migration 004 not yet applied) falls back to Phase A.
+    let graphPhase = 'normalised';
+    try {
+      const probe = await pool.query(
+        `SELECT 1 FROM counterparties WHERE transaction_count > 0 LIMIT 1`
+      );
+      if (probe.rowCount > 0) graphPhase = 'entity_fk';
+    } catch (_e) { /* counterparties table missing → Phase A */ }
+
+    // ── 2. Top counterparties (by transaction count) — phase-aware
+    // Phase A groups by counterparty_normalised (the STORED generated
+    // column from migration 004 — dedups capitalisation / punctuation
+    // differences immediately, no backfill required).
+    // Phase B groups by the FK and joins counterparties for canonical
+    // display + global stats + risk indicators.
+    const cpRes = graphPhase === 'entity_fk'
+      ? await pool.query(
+          `SELECT cp.id                                                 AS counterparty_id,
+                  cp.canonical_name                                     AS canonical_name,
+                  cp.counterparty_type                                  AS counterparty_type,
+                  cp.risk_indicators                                    AS risk_indicators,
+                  cp.transaction_count                                  AS global_txn_count,
+                  cp.total_volume                                       AS global_total_volume,
+                  COUNT(t.*)::int                                       AS txn_count,
+                  COUNT(t.*) FILTER (WHERE t.is_alerted = 1)::int       AS alerted_txn_count,
+                  ROUND(COALESCE(SUM(t.amount), 0)::numeric, 2)::float  AS total_amount,
+                  MAX(t.counterparty_country)                           AS country,
+                  (SELECT COUNT(DISTINCT customer_id) FROM transactions
+                    WHERE counterparty_id = cp.id)::int                 AS shared_with_customer_count
+             FROM transactions t
+             JOIN counterparties cp ON cp.id = t.counterparty_id
+            WHERE t.customer_id = $1
+              AND cp.is_merged_away = FALSE
+            GROUP BY cp.id, cp.canonical_name, cp.counterparty_type,
+                     cp.risk_indicators, cp.transaction_count, cp.total_volume
+            ORDER BY COUNT(t.*) DESC, SUM(t.amount) DESC
+            LIMIT $2`,
+          [customerId, COUNTERPARTY_LIMIT]
+        )
+      : await pool.query(
+          `SELECT counterparty_normalised                                AS normalised_name,
+                  MIN(counterparty)                                      AS display_name,
+                  COUNT(*)::int                                          AS txn_count,
+                  COUNT(*) FILTER (WHERE is_alerted = 1)::int            AS alerted_txn_count,
+                  ROUND(SUM(amount)::numeric, 2)::float                  AS total_amount,
+                  MAX(counterparty_country)                              AS country,
+                  MAX(counterparty_id)                                   AS counterparty_id
+             FROM transactions
+            WHERE customer_id = $1
+              AND counterparty IS NOT NULL
+              AND TRIM(counterparty) <> ''
+              AND counterparty_normalised IS NOT NULL
+            GROUP BY counterparty_normalised
+            ORDER BY COUNT(*) DESC, SUM(amount) DESC
+            LIMIT $2`,
+          [customerId, COUNTERPARTY_LIMIT]
+        );
 
     // ── 3. Recent alerts (cases in graph terms) — keep recent + open ones.
     // rule_explanation is selected so the alert detail panel can show a
@@ -279,29 +374,54 @@ router.get('/:id/graph', async (req, res, next) => {
     }
 
     // ── 5. Other customers who share a counterparty (cross-case neighbours).
-    // Country pulled in so the FATF/sanctioned-jurisdiction ring can render
-    // on neighbour nodes too — not just focus + counterparties.
-    // Extra customer columns mirror the focus payload so neighbour detail
-    // panels can show the same profile fields.
-    const neighbourRes = await pool.query(
-      `SELECT DISTINCT ON (t2.customer_id)
-              t2.customer_id, c.customer_name, c.customer_type,
-              c.customer_risk_rating, c.pep_match, c.sanctions_match,
-              c.country_of_residence, c.country_of_incorporation,
-              c.customer_since_date, c.cdd_level, c.job_title, c.industry,
-              t2.counterparty AS via_counterparty
-         FROM transactions t1
-         JOIN transactions t2
-           ON LOWER(TRIM(t1.counterparty)) = LOWER(TRIM(t2.counterparty))
-          AND t1.counterparty IS NOT NULL
-          AND TRIM(t1.counterparty) <> ''
-         JOIN customers c ON c.customer_id = t2.customer_id
-        WHERE t1.customer_id = $1
-          AND t2.customer_id <> $1
-        ORDER BY t2.customer_id
-        LIMIT $2`,
-      [customerId, NEIGHBOUR_LIMIT]
-    );
+    // Phase B: join via counterparty_id — the proper entity equality.
+    // Phase A: fall back to counterparty_normalised equality — strictly
+    // better than the pre-C-10 LOWER(TRIM(...)) join (handles punctuation
+    // differences too), but still text-based.
+    // Phase B additionally returns the canonical name + the canonical
+    // counterparty id so the neighbour edge can hop through the proper
+    // counterparty node.
+    const neighbourRes = graphPhase === 'entity_fk'
+      ? await pool.query(
+          `SELECT DISTINCT ON (t2.customer_id)
+                  t2.customer_id, c.customer_name, c.customer_type,
+                  c.customer_risk_rating, c.pep_match, c.sanctions_match,
+                  c.country_of_residence, c.country_of_incorporation,
+                  c.customer_since_date, c.cdd_level, c.job_title, c.industry,
+                  cp.canonical_name           AS via_counterparty,
+                  cp.id                       AS via_counterparty_id
+             FROM transactions t1
+             JOIN transactions t2 ON t1.counterparty_id = t2.counterparty_id
+             JOIN counterparties cp ON cp.id = t1.counterparty_id
+             JOIN customers c ON c.customer_id = t2.customer_id
+            WHERE t1.customer_id = $1
+              AND t2.customer_id <> $1
+              AND t1.counterparty_id IS NOT NULL
+              AND cp.is_merged_away = FALSE
+            ORDER BY t2.customer_id
+            LIMIT $2`,
+          [customerId, NEIGHBOUR_LIMIT]
+        )
+      : await pool.query(
+          `SELECT DISTINCT ON (t2.customer_id)
+                  t2.customer_id, c.customer_name, c.customer_type,
+                  c.customer_risk_rating, c.pep_match, c.sanctions_match,
+                  c.country_of_residence, c.country_of_incorporation,
+                  c.customer_since_date, c.cdd_level, c.job_title, c.industry,
+                  t2.counterparty                 AS via_counterparty,
+                  t2.counterparty_normalised      AS via_counterparty_normalised
+             FROM transactions t1
+             JOIN transactions t2
+               ON t1.counterparty_normalised = t2.counterparty_normalised
+              AND t1.counterparty_normalised IS NOT NULL
+              AND TRIM(t1.counterparty_normalised) <> ''
+             JOIN customers c ON c.customer_id = t2.customer_id
+            WHERE t1.customer_id = $1
+              AND t2.customer_id <> $1
+            ORDER BY t2.customer_id
+            LIMIT $2`,
+          [customerId, NEIGHBOUR_LIMIT]
+        );
 
     // ── Build nodes + links ────────────────────────────────────────────
     const nodes = [];
@@ -334,19 +454,45 @@ router.get('/:id/graph', async (req, res, next) => {
       is_focus: true
     });
 
-    // Counterparties + their TRANSACTS_WITH edges. The link payload now
-    // carries `alerted_count` (not just the boolean flag) so the edge-hover
-    // tooltip can render "N alerted" without a second round-trip.
+    // Counterparties + their TRANSACTS_WITH edges. In Phase B the node id
+    // is `cp-<uuid>` (canonical FK); in Phase A it's `cp-<normalised>` so
+    // it's stable across calls and dedups capitalisation. Phase B adds
+    // the rich entity fields the frontend uses for the diamond visual,
+    // hub ring, and details panel.
     for (const cp of cpRes.rows) {
-      const cpId = `cp-${cp.counterparty}`;
+      const isPhaseB = graphPhase === 'entity_fk' && cp.counterparty_id;
+      const cpKey = isPhaseB ? cp.counterparty_id : (cp.normalised_name || cp.display_name || 'unknown');
+      const cpId = `cp-${cpKey}`;
+      const label = isPhaseB ? cp.canonical_name : (cp.display_name || cp.normalised_name || 'Unknown');
+      const risk = isPhaseB && cp.risk_indicators
+        ? (typeof cp.risk_indicators === 'string' ? JSON.parse(cp.risk_indicators) : cp.risk_indicators)
+        : {};
+      const isHighRisk = !!(risk.pep || risk.sanctions_hit || risk.high_risk_jurisdiction);
+
       addNode({
         id: cpId,
         type: 'COMPANY',
-        label: cp.counterparty,
+        label,
         country: cp.country || null,
         is_high_risk_country: isHighRiskCountry(cp.country),
         is_counterparty: true,
-        alerted_txn_count: cp.alerted_txn_count
+        alerted_txn_count: cp.alerted_txn_count,
+        // C-10 first-class entity fields. In Phase A these mostly collapse
+        // to the same values as txn_count, but the shape is identical so
+        // the frontend doesn't branch on phase.
+        counterparty_id: cp.counterparty_id || null,
+        counterparty_type: cp.counterparty_type || 'unknown',
+        txn_count: isPhaseB ? Number(cp.global_txn_count) || cp.txn_count : cp.txn_count,
+        txn_count_with_focus: cp.txn_count,
+        total_volume: isPhaseB ? Number(cp.global_total_volume) || cp.total_amount : cp.total_amount,
+        risk_indicators: risk,
+        is_high_risk_counterparty: isHighRisk,
+        // shared_with_customer_count is capped at 99 for display (avoids
+        // leaking the institution-wide customer count when the entity is
+        // very popular).
+        shared_with_customer_count: isPhaseB
+          ? Math.min(99, Number(cp.shared_with_customer_count) || 0)
+          : 0
       });
       links.push({
         source: `c-${focus.customer_id}`,
@@ -462,8 +608,13 @@ router.get('/:id/graph', async (req, res, next) => {
       });
       // Hub-via-counterparty edge (computed). The counterparty node may
       // not be in the limit; we connect through it if it is, otherwise
-      // we draw the direct neighbour→focus edge.
-      const cpHubId = `cp-${n.via_counterparty}`;
+      // we draw the direct neighbour→focus edge. Phase B uses the
+      // canonical counterparty id; Phase A falls back to the normalised
+      // name (matching the addNode call above).
+      const hubKey = graphPhase === 'entity_fk' && n.via_counterparty_id
+        ? n.via_counterparty_id
+        : (n.via_counterparty_normalised || n.via_counterparty || 'unknown');
+      const cpHubId = `cp-${hubKey}`;
       if (seenNodes.has(cpHubId)) {
         links.push({
           source: nId,
@@ -491,7 +642,11 @@ router.get('/:id/graph', async (req, res, next) => {
         alert_count: alertRes.rowCount,
         sar_count: sarRows.length,
         neighbour_count: neighbourRes.rowCount,
-        sars_included: includeSars
+        sars_included: includeSars,
+        // C-10: tells the frontend which dedup layer the graph was built
+        // from. 'normalised' = interim string-equality on the generated
+        // column; 'entity_fk' = proper counterparty_id join.
+        graphPhase
       }
     });
   } catch (err) { next(err); }
