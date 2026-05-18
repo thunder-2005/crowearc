@@ -154,6 +154,14 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
   const [legendOpen, setLegendOpen] = useState(true);
   const [hintVisible, setHintVisible] = useState(true);
+  // Tableau-style filter modes.
+  //   mode='all'      — full graph (default).
+  //   mode='keepOnly' — show only the first-order neighbourhood of one node.
+  //   mode='exclude'  — hide the listed nodes (and edges touching them).
+  // Excluded ids accumulate; Reset returns to 'all'.
+  const [filter, setFilter] = useState({ mode: 'all', ids: [] });
+  // Right-click context menu state. Coordinates are page-relative.
+  const [contextMenu, setContextMenu] = useState(null);
 
   const containerRef = useRef(null);
   const fgRef = useRef(null);
@@ -176,9 +184,31 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
   // are dropped so the layout doesn't try to render dangling edges.
   const displayData = useMemo(() => {
     if (!data) return null;
+    // Step 1: always drop CASE nodes (they live in the right-panel timeline).
     const hiddenIds = new Set(
       (data.nodes || []).filter(n => n.type === 'CASE').map(n => n.id)
     );
+
+    // Step 2: apply the Tableau-style filter on top.
+    const filterIds = new Set(filter.ids || []);
+    if (filter.mode === 'exclude' && filterIds.size > 0) {
+      for (const id of filterIds) hiddenIds.add(id);
+    } else if (filter.mode === 'keepOnly' && filterIds.size > 0) {
+      // Keep the listed nodes + every node connected to them by a direct
+      // (CASE-free) link. The result is the "first-order neighbourhood".
+      const keep = new Set(filterIds);
+      for (const l of data.links || []) {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        if (hiddenIds.has(s) || hiddenIds.has(t)) continue;
+        if (filterIds.has(s)) keep.add(t);
+        if (filterIds.has(t)) keep.add(s);
+      }
+      for (const n of data.nodes || []) {
+        if (!keep.has(n.id) && !hiddenIds.has(n.id)) hiddenIds.add(n.id);
+      }
+    }
+
     return {
       ...data,
       nodes: (data.nodes || []).filter(n => !hiddenIds.has(n.id)),
@@ -188,7 +218,7 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
         return !hiddenIds.has(s) && !hiddenIds.has(t);
       })
     };
-  }, [data]);
+  }, [data, filter]);
 
   // Adjacency map keyed by node id → Set of connected node ids. Used by the
   // dim-others-on-select rule so a click on a node highlights its first-order
@@ -286,14 +316,63 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
   const zoomOut = () => { if (fgRef.current) try { fgRef.current.zoom(fgRef.current.zoom() * 0.7, 300); } catch (_) { /* ignore */ } };
   const fitAll  = () => { if (fgRef.current) try { fgRef.current.zoomToFit(400, 80); } catch (_) { /* ignore */ } };
 
-  // Double-click on a customer node opens their profile in a new tab.
-  const onNodeDouble = (node) => {
+  // Right-click on any node now opens the filter context menu (Keep Only /
+  // Exclude / Reset / Open Profile). The previous behaviour — opening the
+  // customer profile in a new tab — is preserved as a context-menu item so
+  // no functionality is lost.
+  const onNodeContext = (node, event) => {
+    if (!node) return;
+    // react-force-graph-2d forwards the native event as the 2nd arg.
+    // Use page coordinates so the menu lands at the cursor regardless of
+    // the modal's scroll position.
+    const x = event?.pageX ?? event?.clientX ?? 0;
+    const y = event?.pageY ?? event?.clientY ?? 0;
+    setContextMenu({ x, y, node });
+  };
+
+  const openCustomerProfile = (node) => {
     if (!node || !node.customer_id) return;
     if (node.type !== 'PERSON' && node.type !== 'COMPANY') return;
-    if (node.is_counterparty) return;  // counterparties have no profile route
+    if (node.is_counterparty) return;
     const url = `${rolePrefix}/customers/${encodeURIComponent(node.customer_id)}`;
     try { window.open(url, '_blank', 'noopener'); } catch (_) { /* ignore */ }
   };
+
+  // Filter actions wired to the context menu.
+  const filterKeepOnly = (nodeId) => {
+    setFilter({ mode: 'keepOnly', ids: [nodeId] });
+    setSelected(null);
+  };
+  const filterExclude = (nodeId) => {
+    setFilter(prev => {
+      if (prev.mode === 'exclude') {
+        // Additive: union the new id into the existing exclude set.
+        const ids = Array.from(new Set([...prev.ids, nodeId]));
+        return { mode: 'exclude', ids };
+      }
+      return { mode: 'exclude', ids: [nodeId] };
+    });
+    setSelected(null);
+  };
+  const filterReset = () => {
+    setFilter({ mode: 'all', ids: [] });
+  };
+
+  // Close the context menu on any outside click / Escape press.
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    const t = setTimeout(() => {
+      window.addEventListener('click', close);
+      window.addEventListener('keydown', onKey);
+    }, 0);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('click', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [contextMenu]);
 
   const isEmpty = data && data.nodes.length <= 1 && data.links.length === 0;
 
@@ -421,7 +500,7 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
                   onBackgroundClick={() => setSelected(null)}
                   onLinkHover={(link) => setHoveredLink(link || null)}
                   onNodeDragEnd={(node) => { node.fx = node.x; node.fy = node.y; }}
-                  onNodeRightClick={onNodeDouble}
+                  onNodeRightClick={onNodeContext}
                   cooldownTicks={200}
                   warmupTicks={80}
                   d3VelocityDecay={0.4}
@@ -481,7 +560,27 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
                 className="absolute bottom-4 right-4 text-[10px] text-slate-600 border border-slate-200 rounded px-2 py-1 pointer-events-none transition-opacity duration-500 shadow-sm"
                 style={{ background: 'rgba(255,255,255,0.95)', opacity: hintVisible ? 1 : 0 }}
               >
-                Click a node to explore
+                Click a node to explore · Right-click for filter
+              </div>
+            )}
+
+            {/* Top-right active-filter chip. Shows when keepOnly/exclude is
+                active so the analyst always sees that the canvas is
+                non-default + can reset in one click. */}
+            {filter.mode !== 'all' && (
+              <div className="absolute top-3 right-3 z-20 inline-flex items-center gap-2 bg-blue-50 border border-blue-300 text-blue-800 text-[11px] font-semibold rounded-md px-2.5 py-1 shadow-sm">
+                {filter.mode === 'keepOnly' ? (
+                  <span>Filter: Keep Only · 1 node + neighbours</span>
+                ) : (
+                  <span>Filter: Excluding {filter.ids.length} node{filter.ids.length === 1 ? '' : 's'}</span>
+                )}
+                <button
+                  type="button"
+                  onClick={filterReset}
+                  className="text-blue-700 hover:text-blue-900 underline text-[11px]"
+                >
+                  Reset
+                </button>
               </div>
             )}
           </div>
@@ -500,7 +599,75 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
             onSelectNode={setSelected}
           />
         </div>
+
+        {/* Right-click context menu. Rendered at the top level so its
+            page-absolute positioning sits above the canvas + side panel. */}
+        {contextMenu && (
+          <NodeContextMenu
+            menu={contextMenu}
+            onKeepOnly={() => { filterKeepOnly(contextMenu.node.id); setContextMenu(null); }}
+            onExclude={() => { filterExclude(contextMenu.node.id); setContextMenu(null); }}
+            onReset={() => { filterReset(); setContextMenu(null); }}
+            onOpenProfile={() => { openCustomerProfile(contextMenu.node); setContextMenu(null); }}
+            filterActive={filter.mode !== 'all'}
+          />
+        )}
       </div>
+    </div>
+  );
+}
+
+// Tableau-style context menu shown on right-click of a graph node.
+function NodeContextMenu({ menu, onKeepOnly, onExclude, onReset, onOpenProfile, filterActive }) {
+  const isCustomer = (menu.node.type === 'PERSON' || menu.node.type === 'COMPANY') && !menu.node.is_counterparty && menu.node.customer_id;
+  const label = menu.node.label || menu.node.customer_name || menu.node.id;
+  return (
+    <div
+      role="menu"
+      onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.preventDefault()}
+      className="fixed z-[60] bg-white border border-slate-200 rounded-md shadow-lg text-xs text-slate-700"
+      style={{ top: menu.y + 4, left: menu.x + 4, minWidth: 200 }}
+    >
+      <div className="px-3 py-2 border-b border-slate-100 text-[10px] uppercase tracking-wider text-slate-400 truncate" title={label}>
+        {label}
+      </div>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={onKeepOnly}
+        className="w-full text-left px-3 py-2 hover:bg-slate-50"
+      >
+        Keep Only
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={onExclude}
+        className="w-full text-left px-3 py-2 hover:bg-slate-50"
+      >
+        Exclude
+      </button>
+      {filterActive && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={onReset}
+          className="w-full text-left px-3 py-2 hover:bg-slate-50 border-t border-slate-100"
+        >
+          Reset Filter
+        </button>
+      )}
+      {isCustomer && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={onOpenProfile}
+          className="w-full text-left px-3 py-2 hover:bg-slate-50 border-t border-slate-100 text-blue-700"
+        >
+          Open Customer Profile ↗
+        </button>
+      )}
     </div>
   );
 }
@@ -573,12 +740,13 @@ function drawNode(node, ctx, globalScale, selected, hoveredNode, adjacency) {
   if (phaseB && node.is_high_risk_counterparty) color = '#F97316'; // orange-500
   const r = radiusFor(node);
 
-  // Selection dimming
+  // Selection dimming — when a node is clicked, non-neighbour nodes fade
+  // heavily so the first-order neighbourhood pops. Tableau-style focus.
   let alpha = 1;
   if (selected) {
     const isSelected   = selected.id === node.id;
     const isConnected  = adjacency.get(selected.id)?.has(node.id);
-    alpha = (isSelected || isConnected) ? 1 : 0.3;
+    alpha = (isSelected || isConnected) ? 1 : 0.1;
   }
   ctx.save();
   ctx.globalAlpha = alpha;
