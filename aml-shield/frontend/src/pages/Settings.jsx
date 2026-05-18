@@ -12,6 +12,7 @@ import {
 const MANAGER_SECTIONS = [
   { k: 'alerts',     label: 'Alert & SLA Configuration',    icon: SlidersHorizontal },
   { k: 'scenarios',  label: 'Scenario Configuration',       icon: Shield },
+  { k: 'scoring',    label: 'Alert Priority Scoring',       icon: AlertTriangle },
   { k: 'team',       label: 'Team & Workload Management',   icon: UsersIcon },
   { k: 'sar',        label: 'SAR & Retention',              icon: FileText },
   { k: 'report',     label: 'Reporting & Notifications',    icon: Bell },
@@ -40,6 +41,7 @@ const EMPLOYEE_SECTIONS = [
 const SECTION_KEY_PREFIX = {
   alerts:     ['sla.', 'max_alerts_per_analyst', 'alert_aging_highlight_days'],
   scenarios:  ['scenarios.'],
+  scoring:    ['scoring.'],
   team:       ['team.'],
   sar:        ['sar.'],
   report:     ['report.'],
@@ -365,6 +367,62 @@ function ManagerSectionContent({ sectionK, values, setValue }) {
           </div>
         );
       })}
+    </div>
+  );
+
+  if (sectionK === 'scoring') return (
+    <div className="space-y-6">
+      <div className="text-xs text-slate-500 leading-snug">
+        These settings control how ARC ranks which alert an analyst should
+        work on next. Increasing the SLA weight ensures time-critical alerts
+        surface before high-risk but time-flexible alerts. Changes take effect
+        on the analyst's next page load.
+      </div>
+      <Group title="Composite Score Weights">
+        <SliderField
+          label="SLA weight"
+          value={Math.round(Number(values['scoring.weight_sla'] ?? 0.6) * 100)}
+          onChange={v => setValue('scoring.weight_sla', Math.max(0, Math.min(1, Number(v) / 100)))}
+          min={0}
+          max={100}
+          suffix="%"
+        />
+        <div className="text-xs text-slate-500 -mt-2">
+          Risk weight: {Math.round((1 - Number(values['scoring.weight_sla'] ?? 0.6)) * 100)}% (derived as 100% − SLA weight)
+        </div>
+      </Group>
+      <Group title="SLA Urgency Tiers">
+        <NumberField
+          label="Critical-tier threshold (days remaining)"
+          value={values['scoring.critical_tier_days']}
+          onChange={v => {
+            const n = Number(v);
+            const warning = Number(values['scoring.warning_tier_days'] ?? 10);
+            // Critical must be strictly less than warning. Clamp on the way out.
+            if (Number.isFinite(n)) setValue('scoring.critical_tier_days', Math.max(1, Math.min(14, Math.min(n, warning - 1))));
+          }}
+          min={1}
+          max={14}
+        />
+        <NumberField
+          label="Warning-tier threshold (days remaining)"
+          value={values['scoring.warning_tier_days']}
+          onChange={v => {
+            const n = Number(v);
+            const critical = Number(values['scoring.critical_tier_days'] ?? 5);
+            if (Number.isFinite(n)) setValue('scoring.warning_tier_days', Math.max(2, Math.min(20, Math.max(n, critical + 1))));
+          }}
+          min={2}
+          max={20}
+        />
+      </Group>
+      <Group title="Float Lockout">
+        <ToggleField
+          label="Prevent analysts from dismissing the priority float when a critical-SLA alert is in queue"
+          checked={values['scoring.float_lockout_on_critical']}
+          onChange={v => setValue('scoring.float_lockout_on_critical', v)}
+        />
+      </Group>
     </div>
   );
 
