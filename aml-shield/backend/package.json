@@ -9,6 +9,7 @@
     "migrate": "node database/migrate.js",
     "seed": "node database/seed.js",
     "seed:csv": "node database/seed_csv.js",
+    "reseed": "node scripts/reseedData.js",
     "generate:rules": "node scripts/generateRuleExplanations.js",
     "test": "jest --testPathPattern='\\.test\\.js$' --runInBand"
   },
