@@ -33,6 +33,7 @@ const investigationsRouter = require('./routes/investigations');
 const bsaRouter = require('./routes/bsa');
 const reopenRequestsRouter = require('./routes/reopenRequests');
 const qcReviewsRouter = require('./routes/qcReviews');
+const examReadinessRouter = require('./routes/examReadiness');
 const slaMonitor = require('./jobs/slaMonitor');
 const kycReviewMonitor = require('./jobs/kycReviewMonitor');
 const ofacSync = require('./jobs/ofacSync');
@@ -88,6 +89,7 @@ app.use('/api/investigations', investigationsRouter);
 app.use('/api/bsa', bsaRouter);
 app.use('/api/reopen-requests', reopenRequestsRouter);
 app.use('/api/qc-reviews', qcReviewsRouter);
+app.use('/api/exam-readiness', examReadinessRouter);
 
 app.use((err, _req, res, _next) => {
   console.error('[error]', err);

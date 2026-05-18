@@ -26,6 +26,7 @@ import BsaDashboard from './pages/BsaDashboard.jsx';
 import ReopenRequestsQueue from './pages/ReopenRequestsQueue.jsx';
 import BsaReopenQueue from './pages/BsaReopenQueue.jsx';
 import BsaRegulatoryCorrespondence from './pages/BsaRegulatoryCorrespondence.jsx';
+import ExamReadiness from './pages/ExamReadiness.jsx';
 import SLAPopup from './components/SLAPopup.jsx';
 import Placeholder from './pages/Placeholder.jsx';
 import Login from './pages/Login.jsx';
@@ -191,6 +192,7 @@ export default function App() {
                 <Route path="audit-trail"           element={<AuditLog />} />
                 <Route path="reopen-requests"       element={<BsaReopenQueue />} />
                 <Route path="regulatory-correspondence" element={<BsaRegulatoryCorrespondence />} />
+                <Route path="exam-readiness"        element={<ExamReadiness />} />
                 <Route path="*"                     element={<Navigate to="/bsa/dashboard" replace />} />
               </Routes>
             </Shell>
