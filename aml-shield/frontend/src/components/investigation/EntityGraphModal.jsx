@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
+import EntityAlertTimeline from './EntityAlertTimeline.jsx';
 import {
   X, Network, Loader2, Flame, ZoomIn, ZoomOut, Maximize2,
   ChevronDown, ChevronRight, ExternalLink, Building2, FileText, ShieldAlert,
@@ -101,6 +102,45 @@ function rolePrefixFor(role) {
 function initialsOf(name) {
   return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(s => s[0]).join('').toUpperCase();
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TIMELINE AUDIT — pre-addition
+//
+// What the modal already does (read from the actual code, not the spec):
+//
+//   1. Right-side panel JSX lives inside <SidePanel>. When the user has not
+//      clicked a node, <WelcomeState> renders ("IN THIS NETWORK" counts +
+//      flagged entities). When `selected` is set, the panel routes by
+//      node.type to one of: AlertDetails / SarDetails / CounterpartyDetails
+//      / CustomerDetails.
+//   2. selectedNode is the local state `selected` (line 108) — set by
+//      onNodeClick={(node) => setSelected(node)}. A selected customer node
+//      carries the customer columns (customer_id, customer_name, risk,
+//      pep, sanctions, country, …) but NOT its alert list — the alerts
+//      live as separate nodes connected by APPEARS_IN links.
+//   3. Graph data flows in via a single fetch in the mount effect (around
+//      line 145). state name is `data`, holding { focus_id, nodes, links,
+//      meta }. The component does NOT re-fetch on node selection.
+//   4. Alert nodes are `node.type === 'CASE'` (the backend graph endpoint's
+//      taxonomy). Each carries alert_id, scenario, alert_status, priority,
+//      created_date, linked_sar_id, amount_flagged_inr, rule_explanation
+//      from routes/customers.js graph query. SAR nodes are `node.type ===
+//      'SAR'` and carry sar_id, sar_status, filed_date, filing_type,
+//      amount. The task spec's `n.type === 'alert' / 'sar' / 'customer' /
+//      'counterparty'` filter language must be translated to the real
+//      conventions: 'CASE', 'SAR', 'PERSON'|'COMPANY' (without
+//      is_counterparty), and `is_counterparty === true`.
+//   5. An onNodeClick handler already exists and only does setSelected
+//      (the timeline mounts inside the SidePanel branches; no new click
+//      hook required).
+//
+// What the timeline addition needs from the backend that isn't there yet:
+//   * Alert nodes: assigned_to, disposition.
+//   * SAR nodes:   narrative_summary (truncated to 120 chars; gated server-
+//     side by virtue of L1 not getting SAR nodes at all).
+// Those four columns are appended to the existing SELECTs in routes/
+// customers.js. No restructuring of the graph response envelope.
+// ═══════════════════════════════════════════════════════════════════════════
 
 export default function EntityGraphModal({ customerId, customerName, onClose }) {
   const [data, setData] = useState(null);
@@ -793,23 +833,150 @@ function describeLink(link, data) {
   return null;
 }
 
+// ─── Timeline data derivation ───────────────────────────────────────────
+// Build the alert/SAR arrays the EntityAlertTimeline expects, given the
+// already-fetched graph data and the currently-selected node. Pure;
+// returns empty arrays when the inputs are missing.
+//
+// Node-type → derivation rules (matching the actual backend taxonomy
+// 'CASE' / 'SAR' / customer (PERSON|COMPANY without is_counterparty) /
+// counterparty (is_counterparty: true)):
+//
+//   * Alert (CASE)   → single-event "showing selected" stream.
+//   * SAR            → single-event "showing selected" stream.
+//   * Customer       → alerts + SARs directly linked to that customer.
+//   * Counterparty   → alerts + SARs of every neighbour customer
+//                      connected to the counterparty.
+function deriveTimeline(data, node) {
+  const empty = { alerts: [], sars: [] };
+  if (!data || !node) return empty;
+  const links = data.links || [];
+  const nodes = data.nodes || [];
+
+  if (node.type === 'CASE') return { alerts: [node], sars: [] };
+  if (node.type === 'SAR')  return { alerts: [], sars: [node] };
+
+  const neighboursOf = (rootId) => {
+    const out = new Set();
+    for (const l of links) {
+      const s = typeof l.source === 'object' ? l.source.id : l.source;
+      const t = typeof l.target === 'object' ? l.target.id : l.target;
+      if (s === rootId) out.add(t);
+      else if (t === rootId) out.add(s);
+    }
+    return out;
+  };
+
+  if (!node.is_counterparty) {
+    const linked = neighboursOf(node.id);
+    const alerts = nodes.filter(n => n.type === 'CASE' && linked.has(n.id));
+    const sars   = nodes.filter(n => n.type === 'SAR'  && linked.has(n.id));
+    return { alerts, sars };
+  }
+
+  const directLinks = neighboursOf(node.id);
+  const customerIds = new Set();
+  for (const id of directLinks) {
+    const n = nodes.find(x => x.id === id);
+    if (n && (n.type === 'PERSON' || n.type === 'COMPANY') && !n.is_counterparty) {
+      customerIds.add(id);
+    }
+  }
+  const linkedEventIds = new Set();
+  for (const c of customerIds) {
+    for (const id of neighboursOf(c)) linkedEventIds.add(id);
+  }
+  const alerts = nodes.filter(n => n.type === 'CASE' && linkedEventIds.has(n.id));
+  const sars   = nodes.filter(n => n.type === 'SAR'  && linkedEventIds.has(n.id));
+  return { alerts, sars };
+}
+
+// 5 most recent alerts/SARs across the whole network — feeds the default
+// panel state when nothing is selected.
+function deriveNetworkRecent(data) {
+  if (!data) return { alerts: [], sars: [] };
+  const events = (data.nodes || []).filter(n => n.type === 'CASE' || n.type === 'SAR');
+  events.sort((a, b) => {
+    const at = a.filed_date || a.created_date || 0;
+    const bt = b.filed_date || b.created_date || 0;
+    return new Date(bt).getTime() - new Date(at).getTime();
+  });
+  const top = events.slice(0, 5);
+  return {
+    alerts: top.filter(n => n.type === 'CASE'),
+    sars:   top.filter(n => n.type === 'SAR')
+  };
+}
+
 // ─── Side panel ─────────────────────────────────────────────────────────
 function SidePanel({ node, data, counts, customerName, customerId, userRole, userName, rolePrefix, adjacency, onSelectNode }) {
+  const { alerts: timelineAlerts, sars: timelineSars } = useMemo(
+    () => deriveTimeline(data, node),
+    [data, node]
+  );
+  const networkRecent = useMemo(() => deriveNetworkRecent(data), [data]);
+  const selectedEntityType = node?.is_counterparty
+    ? 'counterparty'
+    : (node?.type === 'CASE' || node?.type === 'SAR')
+      ? 'event'
+      : 'customer';
+  const selectedEntityLabel = node?.label || node?.customer_name || node?.alert_id || node?.sar_id || '';
+
   return (
     <aside
       className="border-l border-slate-200 overflow-y-auto text-slate-700 bg-white"
       style={{ flex: '0 0 30%', maxWidth: '30%' }}
     >
       {!node ? (
-        <WelcomeState counts={counts} customerName={customerName} data={data} onSelectNode={onSelectNode} />
-      ) : node.type === 'CASE' ? (
-        <AlertDetails node={node} userRole={userRole} userName={userName} rolePrefix={rolePrefix} customerId={customerId} />
-      ) : node.type === 'SAR' ? (
-        <SarDetails node={node} userRole={userRole} rolePrefix={rolePrefix} />
-      ) : node.is_counterparty ? (
-        <CounterpartyDetails node={node} data={data} adjacency={adjacency} userRole={userRole} />
+        <>
+          <WelcomeState counts={counts} customerName={customerName} data={data} onSelectNode={onSelectNode} />
+          {(networkRecent.alerts.length > 0 || networkRecent.sars.length > 0) && (
+            <div className="px-5 pb-5">
+              <div className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-2">
+                Recent Network Activity
+              </div>
+              <EntityAlertTimeline
+                alerts={networkRecent.alerts}
+                sarAlerts={networkRecent.sars}
+                entityType="customer"
+                entityLabel=""
+                userRole={userRole}
+                compact={true}
+              />
+            </div>
+          )}
+        </>
       ) : (
-        <CustomerDetails node={node} data={data} adjacency={adjacency} userRole={userRole} rolePrefix={rolePrefix} customerId={customerId} />
+        <>
+          {node.type === 'CASE' ? (
+            <AlertDetails node={node} userRole={userRole} userName={userName} rolePrefix={rolePrefix} customerId={customerId} />
+          ) : node.type === 'SAR' ? (
+            <SarDetails node={node} userRole={userRole} rolePrefix={rolePrefix} />
+          ) : node.is_counterparty ? (
+            <CounterpartyDetails node={node} data={data} adjacency={adjacency} userRole={userRole} />
+          ) : (
+            <CustomerDetails node={node} data={data} adjacency={adjacency} userRole={userRole} rolePrefix={rolePrefix} customerId={customerId} />
+          )}
+
+          {/* Alert Timeline — appended below the entity details for every
+              node type. When the selected node is itself a CASE or SAR,
+              the timeline shows just that single event with a "Showing
+              selected event" hint. */}
+          <div className="mx-5 mt-4 pt-4 border-t border-gray-100 pb-5">
+            {selectedEntityType === 'event' && (
+              <div className="text-[10px] uppercase tracking-wider text-slate-400 mb-2">
+                Showing selected event
+              </div>
+            )}
+            <EntityAlertTimeline
+              alerts={timelineAlerts}
+              sarAlerts={timelineSars}
+              entityType={selectedEntityType === 'counterparty' ? 'counterparty' : 'customer'}
+              entityLabel={selectedEntityLabel}
+              userRole={userRole}
+            />
+          </div>
+        </>
       )}
     </aside>
   );
