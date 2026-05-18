@@ -300,6 +300,9 @@ router.get('/:id/graph', async (req, res, next) => {
     // differences immediately, no backfill required).
     // Phase B groups by the FK and joins counterparties for canonical
     // display + global stats + risk indicators.
+    // Directional flow aggregates power the arrow direction on the canvas.
+    // txn_type = 'Debit' is money leaving the customer (outflow → customer
+    // SENDS); 'Credit' is money arriving (inflow → customer RECEIVES).
     const cpRes = graphPhase === 'entity_fk'
       ? await pool.query(
           `SELECT cp.id                                                 AS counterparty_id,
@@ -311,6 +314,10 @@ router.get('/:id/graph', async (req, res, next) => {
                   COUNT(t.*)::int                                       AS txn_count,
                   COUNT(t.*) FILTER (WHERE t.is_alerted = 1)::int       AS alerted_txn_count,
                   ROUND(COALESCE(SUM(t.amount), 0)::numeric, 2)::float  AS total_amount,
+                  ROUND(COALESCE(SUM(t.amount) FILTER (WHERE t.txn_type = 'Debit'),  0)::numeric, 2)::float AS outflow_amount,
+                  ROUND(COALESCE(SUM(t.amount) FILTER (WHERE t.txn_type = 'Credit'), 0)::numeric, 2)::float AS inflow_amount,
+                  COUNT(t.*) FILTER (WHERE t.txn_type = 'Debit')::int   AS outflow_count,
+                  COUNT(t.*) FILTER (WHERE t.txn_type = 'Credit')::int  AS inflow_count,
                   MAX(t.counterparty_country)                           AS country,
                   (SELECT COUNT(DISTINCT customer_id) FROM transactions
                     WHERE counterparty_id = cp.id)::int                 AS shared_with_customer_count
@@ -334,6 +341,10 @@ router.get('/:id/graph', async (req, res, next) => {
                   COUNT(*)::int                                          AS txn_count,
                   COUNT(*) FILTER (WHERE is_alerted = 1)::int            AS alerted_txn_count,
                   ROUND(SUM(amount)::numeric, 2)::float                  AS total_amount,
+                  ROUND(COALESCE(SUM(amount) FILTER (WHERE txn_type = 'Debit'),  0)::numeric, 2)::float AS outflow_amount,
+                  ROUND(COALESCE(SUM(amount) FILTER (WHERE txn_type = 'Credit'), 0)::numeric, 2)::float AS inflow_amount,
+                  COUNT(*) FILTER (WHERE txn_type = 'Debit')::int        AS outflow_count,
+                  COUNT(*) FILTER (WHERE txn_type = 'Credit')::int       AS inflow_count,
                   MAX(counterparty_country)                              AS country
              FROM transactions
             WHERE customer_id = $1
@@ -500,14 +511,41 @@ router.get('/:id/graph', async (req, res, next) => {
           ? Math.min(99, Number(cp.shared_with_customer_count) || 0)
           : 0
       });
+      // Money-flow direction. If the customer net-sends to the
+      // counterparty (debits > credits) the arrow points customer →
+      // counterparty. If they net-receive (credits > debits) the arrow
+      // is flipped so the visible direction matches the money movement.
+      // When the two sides are within 5% of each other we treat it as
+      // bidirectional and keep the default customer → counterparty
+      // orientation (the magnitude is roughly equal, no clear flow
+      // story to tell visually).
+      const outflowAmt = Number(cp.outflow_amount) || 0;
+      const inflowAmt  = Number(cp.inflow_amount)  || 0;
+      const flowTotal  = outflowAmt + inflowAmt;
+      const flowBias   = flowTotal === 0 ? 0 : (outflowAmt - inflowAmt) / flowTotal;
+      const direction  = flowBias >  0.05 ? 'outflow'
+                       : flowBias < -0.05 ? 'inflow'
+                       : 'bidirectional';
+      const customerNodeId = `c-${focus.customer_id}`;
+      const linkSource = direction === 'inflow' ? cpId : customerNodeId;
+      const linkTarget = direction === 'inflow' ? customerNodeId : cpId;
+
       links.push({
-        source: `c-${focus.customer_id}`,
-        target: cpId,
+        source: linkSource,
+        target: linkTarget,
         type: 'TRANSACTS_WITH',
         txn_count: cp.txn_count,
         total_amount: cp.total_amount,
         alerted_count: cp.alerted_txn_count,
-        alerted: cp.alerted_txn_count > 0
+        alerted: cp.alerted_txn_count > 0,
+        // Direction metadata — frontend uses these to size arrows /
+        // particles and to render the right-panel "Sends $X · Receives
+        // $Y" pair.
+        direction,
+        outflow_amount: outflowAmt,
+        inflow_amount: inflowAmt,
+        outflow_count: Number(cp.outflow_count) || 0,
+        inflow_count:  Number(cp.inflow_count)  || 0
       });
     }
 

@@ -23,9 +23,12 @@ const ForceGraph2D = lazy(() => import('react-force-graph-2d'));
 // panel also gates the "Open Investigation" button by role.
 // ─────────────────────────────────────────────────────────────────────────
 
+// Person → bright blue (sky-500), Company / Counterparty → yellow
+// (yellow-500). ACCOUNT / CASE colours retained for downstream surfaces
+// that still reference them (CASE no longer renders on the canvas).
 const COLORS = {
-  PERSON:  '#1D9E75',
-  COMPANY: '#BA7517',
+  PERSON:  '#0EA5E9',
+  COMPANY: '#EAB308',
   ACCOUNT: '#185FA5',
   CASE:    '#534AB7',
   SAR:     '#A32D2D'
@@ -396,8 +399,23 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
                   linkColor={(l) => linkColor(l, selected)}
                   linkWidth={(l) => linkWidth(l)}
                   linkLineDash={(l) => l.computed ? [3, 3] : null}
-                  linkDirectionalArrowLength={3}
-                  linkDirectionalArrowRelPos={0.85}
+                  // Money-flow direction. Larger arrows (6px) sit at the
+                  // target end so the eye lands on the receiving entity.
+                  // Particles animate in the same direction; their count
+                  // is log-scaled to the transaction count so high-volume
+                  // edges visibly shimmer. Bidirectional (near-zero net
+                  // flow) edges get a single particle in each direction.
+                  linkDirectionalArrowLength={(l) => l.type === 'TRANSACTS_WITH' ? 6 : 3}
+                  linkDirectionalArrowRelPos={0.92}
+                  linkDirectionalParticles={(l) => {
+                    if (l.type !== 'TRANSACTS_WITH') return 0;
+                    if (l.direction === 'bidirectional') return 2;
+                    const cnt = Number(l.txn_count) || 0;
+                    return Math.max(1, Math.min(4, Math.round(Math.log10(cnt + 1) + 1)));
+                  }}
+                  linkDirectionalParticleSpeed={(l) => l.alerted ? 0.012 : 0.006}
+                  linkDirectionalParticleWidth={(l) => l.alerted ? 3 : 2}
+                  linkDirectionalParticleColor={(l) => l.alerted ? '#DC2626' : '#475569'}
                   onNodeClick={(node) => setSelected(node)}
                   onNodeHover={(node) => setHoveredNode(node || null)}
                   onBackgroundClick={() => setSelected(null)}
@@ -828,6 +846,15 @@ function describeLink(link, data) {
     const out = [];
     out.push({ tone: 'header', text: `${link.txn_count || 0} transactions` });
     out.push({ text: fmtMoney(link.total_amount) });
+    // Flow breakdown (C-10 follow-up). If both sides are populated, show
+    // a Sends $X / Receives $Y pair so the analyst sees the directional
+    // picture even without inspecting the arrow.
+    if (link.outflow_amount != null || link.inflow_amount != null) {
+      const outflowAmt = Number(link.outflow_amount) || 0;
+      const inflowAmt  = Number(link.inflow_amount)  || 0;
+      if (outflowAmt > 0) out.push({ tone: 'muted', text: `Sends ${fmtMoney(outflowAmt)} (${link.outflow_count || 0} txn)` });
+      if (inflowAmt  > 0) out.push({ tone: 'muted', text: `Receives ${fmtMoney(inflowAmt)} (${link.inflow_count || 0} txn)` });
+    }
     if (link.alerted_count > 0) {
       out.push({ tone: 'red', text: `${link.alerted_count} alerted` });
     }
