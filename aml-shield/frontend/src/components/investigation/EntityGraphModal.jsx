@@ -148,24 +148,27 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
   }, []);
 
   // Tune the d3 forces once the simulation is running. Stronger repulsion
-  // and longer target link distance than the default — pushes nodes further
-  // apart so labels don't pile up around the focus.
+  // and longer target link distance — pushes nodes further apart so the
+  // dense alert cluster around a busy focus customer breathes.
   useEffect(() => {
     if (!fgRef.current || !data) return;
     try {
       const chargeForce = fgRef.current.d3Force('charge');
-      if (chargeForce) chargeForce.strength(-200);
+      if (chargeForce) chargeForce.strength(-260);
       const linkForce = fgRef.current.d3Force('link');
-      if (linkForce) linkForce.distance(100);
+      if (linkForce) linkForce.distance(120);
     } catch (_) { /* older lib versions may not expose d3Force */ }
   }, [data]);
 
-  // Once the simulation has settled, fit the whole network in view.
+  // Once the simulation has settled, fit the whole network in view with
+  // generous padding so the analyst opens onto a calm, well-spaced graph
+  // instead of a tight cluster. 1500ms gives the force layout extra time
+  // to settle before we frame it.
   useEffect(() => {
     if (!fgRef.current || !data) return;
     const t = setTimeout(() => {
-      try { fgRef.current.zoomToFit(400, 80); } catch (_) { /* ignore */ }
-    }, 1200);
+      try { fgRef.current.zoomToFit(400, 120); } catch (_) { /* ignore */ }
+    }, 1500);
     return () => clearTimeout(t);
   }, [data]);
 
@@ -225,13 +228,13 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
       aria-modal="true"
       aria-label="Entity network graph"
     >
-      <div className="rounded-lg flex-1 flex flex-col overflow-hidden shadow-2xl border border-slate-800" style={{ background: '#0D1117' }}>
+      <div className="rounded-lg flex-1 flex flex-col overflow-hidden shadow-2xl border border-slate-200 bg-white">
         {/* ── Header ─────────────────────────────────────────────── */}
-        <div className="px-4 py-3 border-b border-slate-800 flex items-center gap-4 text-slate-100">
-          <Network size={18} className="text-teal-400 shrink-0" />
+        <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-4 text-slate-700 bg-white">
+          <Network size={18} className="text-teal-600 shrink-0" />
           <div className="min-w-0">
-            <div className="text-sm font-bold">Entity Network</div>
-            <div className="text-[11px] text-slate-400 truncate">
+            <div className="text-sm font-bold text-navy-900">Entity Network</div>
+            <div className="text-[11px] text-slate-500 truncate">
               {data ? `${data.nodes.length} nodes · ${data.links.length} connections` : 'Loading…'}
               {customerName ? ` · ${customerName}` : ''}
             </div>
@@ -243,7 +246,7 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
                 <ChromeButton onClick={zoomIn}  title="Zoom in"><ZoomIn size={14} /></ChromeButton>
                 <ChromeButton onClick={zoomOut} title="Zoom out"><ZoomOut size={14} /></ChromeButton>
                 <ChromeButton onClick={fitAll}  title="Fit all to view"><Maximize2 size={14} /></ChromeButton>
-                <span className="mx-2 h-5 w-px bg-slate-700" />
+                <span className="mx-2 h-5 w-px bg-slate-200" />
               </div>
             )}
             <ChromeButton onClick={onClose} title="Close (Esc)"><X size={16} /></ChromeButton>
@@ -256,7 +259,7 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
             ref={containerRef}
             className="relative"
             style={{
-              background: '#0D1117',
+              background: '#F8FAFC',
               flex: '0 0 65%',
               maxWidth: '65%',
               cursor: hoveredNode ? 'pointer' : 'default'
@@ -269,16 +272,16 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
           >
             {error ? (
               <Centered>
-                <div className="text-sm text-red-400">Failed to load graph: {error}</div>
+                <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">Failed to load graph: {error}</div>
               </Centered>
             ) : !data ? (
               <LoadingState />
             ) : isEmpty ? (
               <Centered>
                 <div className="text-center max-w-md px-6">
-                  <Network size={36} className="text-slate-600 mx-auto mb-3" />
-                  <div className="text-sm font-medium text-slate-200">No connected entities found</div>
-                  <div className="text-xs text-slate-400 mt-2">
+                  <Network size={36} className="text-slate-300 mx-auto mb-3" />
+                  <div className="text-sm font-medium text-navy-900">No connected entities found</div>
+                  <div className="text-xs text-slate-500 mt-2">
                     This customer has no shared counterparties with other
                     customers in the current dataset.
                   </div>
@@ -291,7 +294,7 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
                   graphData={data}
                   width={size.w}
                   height={size.h}
-                  backgroundColor="#0D1117"
+                  backgroundColor="#F8FAFC"
                   nodeRelSize={5}
                   nodeCanvasObject={(node, ctx, globalScale) =>
                     drawNode(node, ctx, globalScale, selected, hoveredNode, adjacency)
@@ -326,11 +329,11 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
                 hovers a node whose permanent label is hidden. */}
             {hoveredNode && shouldShowHoverLabel(hoveredNode) && (
               <div
-                className="absolute pointer-events-none rounded px-2 py-1 text-[11px] font-medium text-slate-100 border border-slate-700 shadow-sm"
+                className="absolute pointer-events-none rounded px-2 py-1 text-[11px] font-medium text-navy-900 border border-slate-200 shadow-md"
                 style={{
                   top: cursorPos.y + 14,
                   left: cursorPos.x + 14,
-                  background: 'rgba(13, 17, 23, 0.95)',
+                  background: 'rgba(255, 255, 255, 0.98)',
                   zIndex: 30,
                   maxWidth: 240
                 }}
@@ -352,8 +355,8 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
             {/* Bottom-right one-shot hint */}
             {hintVisible && data && (
               <div
-                className="absolute bottom-4 right-4 text-[10px] text-slate-400 border border-slate-700 rounded px-2 py-1 pointer-events-none transition-opacity duration-500"
-                style={{ background: 'rgba(13,17,23,0.85)', opacity: hintVisible ? 1 : 0 }}
+                className="absolute bottom-4 right-4 text-[10px] text-slate-600 border border-slate-200 rounded px-2 py-1 pointer-events-none transition-opacity duration-500 shadow-sm"
+                style={{ background: 'rgba(255,255,255,0.95)', opacity: hintVisible ? 1 : 0 }}
               >
                 Click a node to explore
               </div>
@@ -379,8 +382,12 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
 }
 
 // ─── Hover label rule ───────────────────────────────────────────────────
-// Skip the cursor-following tooltip on nodes that already have a permanent
-// label (focus / sanctions / PEP / high-risk-country) — no duplication.
+// Show the cursor-following tooltip on every node EXCEPT those whose
+// permanent label is already on the canvas (focus / sanctions / PEP /
+// high-risk-country). Counterparties, alerts, SARs and unflagged
+// neighbours all get hover labels since their canvas labels are now
+// suppressed by default — this is how the analyst reads their names
+// without first clicking.
 function shouldShowHoverLabel(node) {
   if (!node) return false;
   if (node.is_focus) return false;
@@ -395,20 +402,20 @@ function LoadingState() {
   return (
     <Centered>
       <div className="relative w-64 h-32 mb-4">
-        <span className="absolute left-1/2 top-2 -translate-x-1/2 block w-5 h-5 rounded-full bg-slate-600 animate-pulse" />
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 block w-3 h-3 rounded-full bg-slate-700 animate-pulse" style={{ animationDelay: '150ms' }} />
-        <span className="absolute right-4 top-1/2 -translate-y-1/2 block w-4 h-4 rounded-full bg-slate-600 animate-pulse" style={{ animationDelay: '300ms' }} />
-        <span className="absolute left-12 bottom-1 block w-3 h-3 rounded-full bg-slate-700 animate-pulse" style={{ animationDelay: '450ms' }} />
-        <span className="absolute right-12 bottom-2 block w-3.5 h-3.5 rounded-full bg-slate-600 animate-pulse" style={{ animationDelay: '600ms' }} />
+        <span className="absolute left-1/2 top-2 -translate-x-1/2 block w-5 h-5 rounded-full bg-slate-300 animate-pulse" />
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 block w-3 h-3 rounded-full bg-slate-200 animate-pulse" style={{ animationDelay: '150ms' }} />
+        <span className="absolute right-4 top-1/2 -translate-y-1/2 block w-4 h-4 rounded-full bg-slate-300 animate-pulse" style={{ animationDelay: '300ms' }} />
+        <span className="absolute left-12 bottom-1 block w-3 h-3 rounded-full bg-slate-200 animate-pulse" style={{ animationDelay: '450ms' }} />
+        <span className="absolute right-12 bottom-2 block w-3.5 h-3.5 rounded-full bg-slate-300 animate-pulse" style={{ animationDelay: '600ms' }} />
         <svg className="absolute inset-0 w-full h-full" aria-hidden>
-          <line x1="50%" y1="14" x2="14"  y2="50%" stroke="#475569" strokeWidth="1.5" strokeDasharray="3 3" />
-          <line x1="50%" y1="14" x2="232" y2="50%" stroke="#475569" strokeWidth="1.5" strokeDasharray="3 3" />
-          <line x1="14"  y1="50%" x2="60" y2="120" stroke="#475569" strokeWidth="1.5" strokeDasharray="3 3" />
-          <line x1="232" y1="50%" x2="200" y2="120" stroke="#475569" strokeWidth="1.5" strokeDasharray="3 3" />
+          <line x1="50%" y1="14" x2="14"  y2="50%" stroke="#CBD5E1" strokeWidth="1.5" strokeDasharray="3 3" />
+          <line x1="50%" y1="14" x2="232" y2="50%" stroke="#CBD5E1" strokeWidth="1.5" strokeDasharray="3 3" />
+          <line x1="14"  y1="50%" x2="60" y2="120" stroke="#CBD5E1" strokeWidth="1.5" strokeDasharray="3 3" />
+          <line x1="232" y1="50%" x2="200" y2="120" stroke="#CBD5E1" strokeWidth="1.5" strokeDasharray="3 3" />
         </svg>
       </div>
       <Loader2 size={16} className="animate-spin text-slate-400" />
-      <div className="text-xs text-slate-400 mt-2">Loading entity network…</div>
+      <div className="text-xs text-slate-500 mt-2">Loading entity network…</div>
     </Centered>
   );
 }
@@ -416,12 +423,12 @@ function LoadingState() {
 // ─── Edge color / width helpers ─────────────────────────────────────────
 function linkColor(l, selected) {
   const dimmed = selected && !linkTouchesSelected(l, selected);
-  if (dimmed) return 'rgba(100, 116, 139, 0.10)';
-  if (l.type === 'TRANSACTS_WITH') return l.alerted ? '#F85149' : '#30363D';
-  if (l.type === 'CO_OCCURS_WITH') return '#444C56';
-  if (l.type === 'APPEARS_IN')     return '#388BFD';
+  if (dimmed) return 'rgba(148, 163, 184, 0.15)';
+  if (l.type === 'TRANSACTS_WITH') return l.alerted ? '#DC2626' : '#94A3B8';
+  if (l.type === 'CO_OCCURS_WITH') return '#CBD5E1';
+  if (l.type === 'APPEARS_IN')     return '#3B82F6';
   if (l.type === 'FILED_BY' || l.type === 'SUBJECT_OF') return '#A32D2D';
-  return '#475569';
+  return '#94A3B8';
 }
 
 function linkWidth(l) {
@@ -495,12 +502,16 @@ function drawNode(node, ctx, globalScale, selected, hoveredNode, adjacency) {
     ctx.stroke();
   }
 
-  // Label rules:
-  //  - always for focus / sanctions / PEP / high-risk-country
-  //  - otherwise only when zoomed in (globalScale >= 0.8)
-  const alwaysShow = node.is_focus || node.sanctions || node.pep || node.is_high_risk_country;
-  if (alwaysShow || globalScale >= 0.8) {
-    const fontSize = Math.max(8, 11 / globalScale);
+  // Label rules — kept intentionally minimal to keep the canvas clean.
+  // Only the focus and "always-relevant" flagged nodes draw permanent
+  // labels (sanctions / PEP / high-risk country — analytically important
+  // and rare). The selected node also labels itself for clarity. Every
+  // other node stays unlabeled on the canvas; analysts read names via
+  // the cursor-following hover tooltip or the side panel after a click.
+  const isSelected = selected && selected.id === node.id;
+  const alwaysShow = node.is_focus || node.sanctions || node.pep || node.is_high_risk_country || isSelected;
+  if (alwaysShow) {
+    const fontSize = Math.max(9, 11 / globalScale);
     ctx.font = `${fontSize}px Inter, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -512,9 +523,9 @@ function drawNode(node, ctx, globalScale, selected, hoveredNode, adjacency) {
     const h = fontSize + padY * 2;
     const x = node.x - w / 2;
     const y = node.y + r + 4;
-    // Dark-mode pill: dark fill, light text
-    ctx.fillStyle = 'rgba(2, 6, 23, 0.85)';
-    ctx.strokeStyle = 'rgba(71, 85, 105, 0.5)';
+    // Light-mode pill: near-white fill, slate border, dark text.
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.strokeStyle = 'rgba(203, 213, 225, 0.9)';
     ctx.lineWidth = 1;
     if (typeof ctx.roundRect === 'function') {
       ctx.beginPath();
@@ -525,7 +536,7 @@ function drawNode(node, ctx, globalScale, selected, hoveredNode, adjacency) {
       ctx.fillRect(x, y, w, h);
       ctx.strokeRect(x, y, w, h);
     }
-    ctx.fillStyle = '#E2E8F0';
+    ctx.fillStyle = '#0F172A';
     ctx.fillText(label, node.x, y + padY);
   }
 
@@ -548,7 +559,7 @@ function ChromeButton({ onClick, title, children }) {
       onClick={onClick}
       title={title}
       aria-label={title}
-      className="w-8 h-8 inline-flex items-center justify-center rounded text-slate-200 hover:bg-slate-800"
+      className="w-8 h-8 inline-flex items-center justify-center rounded text-slate-600 hover:bg-slate-100"
     >
       {children}
     </button>
@@ -559,19 +570,19 @@ function ChromeButton({ onClick, title, children }) {
 function GraphLegend({ open, onToggle }) {
   return (
     <div
-      className="absolute bottom-4 left-4 z-20 text-[11px] text-slate-100"
+      className="absolute bottom-4 left-4 z-20 text-[11px] text-slate-700"
       style={{
-        background: 'rgba(13, 17, 23, 0.92)',
-        border: '1px solid #30363D',
+        background: 'rgba(255, 255, 255, 0.95)',
+        border: '1px solid #E2E8F0',
         borderRadius: 8,
         padding: open ? '10px 14px' : '6px 10px',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+        boxShadow: '0 4px 16px rgba(15, 23, 42, 0.08)'
       }}
     >
       <button
         type="button"
         onClick={onToggle}
-        className="inline-flex items-center gap-1 text-slate-200 hover:text-white"
+        className="inline-flex items-center gap-1 text-slate-700 hover:text-navy-900"
         aria-expanded={open}
       >
         {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -580,14 +591,14 @@ function GraphLegend({ open, onToggle }) {
       {open && (
         <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1.5">
           <div>
-            <div className="text-[9px] uppercase tracking-wider text-slate-400 mb-1">Node types</div>
+            <div className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Node types</div>
             <LegendDot color={COLORS.PERSON}  label="Person (customer)" />
             <LegendDot color={COLORS.COMPANY} label="Company / Counterparty" />
             <LegendDot color={COLORS.CASE}    label="Alert / Case" />
             <LegendDot color={COLORS.SAR}     label="SAR Filing" />
           </div>
           <div>
-            <div className="text-[9px] uppercase tracking-wider text-slate-400 mb-1">Ring indicators</div>
+            <div className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Ring indicators</div>
             <LegendRing color="#DC2626"  dash={false} label="Sanctions match" />
             <LegendRing color="#7C3AED"  dash={false} label="PEP flag" />
             <LegendRing color="#FF6B35"  dash={true}  label="High-risk country" />
@@ -602,7 +613,7 @@ function LegendDot({ color, label }) {
   return (
     <div className="inline-flex items-center gap-1.5 mr-3 mb-0.5 w-full">
       <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-      <span className="text-slate-200">{label}</span>
+      <span className="text-slate-700">{label}</span>
     </div>
   );
 }
@@ -617,7 +628,7 @@ function LegendRing({ color, dash, label }) {
           border: `1.5px ${dash ? 'dashed' : 'solid'} ${color}`
         }}
       />
-      <span className="text-slate-200">{label}</span>
+      <span className="text-slate-700">{label}</span>
     </div>
   );
 }
@@ -694,8 +705,8 @@ function describeLink(link, data) {
 function SidePanel({ node, data, counts, customerName, customerId, userRole, userName, rolePrefix, adjacency }) {
   return (
     <aside
-      className="border-l border-slate-800 overflow-y-auto text-slate-100"
-      style={{ flex: '0 0 35%', maxWidth: '35%', background: '#161B22' }}
+      className="border-l border-slate-200 overflow-y-auto text-slate-700 bg-white"
+      style={{ flex: '0 0 35%', maxWidth: '35%' }}
     >
       {!node ? (
         <WelcomeState counts={counts} customerName={customerName} />
@@ -716,11 +727,11 @@ function SidePanel({ node, data, counts, customerName, customerId, userRole, use
 function WelcomeState({ counts, customerName }) {
   return (
     <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-      <div className="w-16 h-16 rounded-full flex items-center justify-center bg-teal-500/15 border border-teal-500/30 mb-4">
-        <Network size={28} className="text-teal-400" />
+      <div className="w-16 h-16 rounded-full flex items-center justify-center bg-teal-50 border border-teal-200 mb-4">
+        <Network size={28} className="text-teal-600" />
       </div>
-      <div className="text-base font-bold text-slate-100">Entity Network</div>
-      <div className="text-xs text-slate-400 mt-2 max-w-xs">
+      <div className="text-base font-bold text-navy-900">Entity Network</div>
+      <div className="text-xs text-slate-500 mt-2 max-w-xs">
         Click any node to see details about that entity and its connections.
       </div>
 
@@ -735,7 +746,7 @@ function WelcomeState({ counts, customerName }) {
           </div>
           {customerName && (
             <div className="mt-4 text-[11px] text-slate-500">
-              Focus: <span className="text-slate-300 font-medium">{customerName}</span>
+              Focus: <span className="text-navy-900 font-medium">{customerName}</span>
             </div>
           )}
         </div>
@@ -746,11 +757,11 @@ function WelcomeState({ counts, customerName }) {
 
 function SummaryStat({ icon: Icon, label, value }) {
   return (
-    <div className="rounded border border-slate-700 bg-slate-800/40 px-3 py-2 text-left">
-      <div className="text-[10px] uppercase tracking-wider text-slate-400 inline-flex items-center gap-1">
+    <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-left">
+      <div className="text-[10px] uppercase tracking-wider text-slate-500 inline-flex items-center gap-1">
         <Icon size={10} /> {label}
       </div>
-      <div className="text-lg font-bold text-slate-100 tabular-nums">{value || 0}</div>
+      <div className="text-lg font-bold text-navy-900 tabular-nums">{value || 0}</div>
     </div>
   );
 }
@@ -781,7 +792,7 @@ function CustomerDetails({ node, data, adjacency, userRole, rolePrefix, customer
           {initialsOf(node.label)}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-base font-bold text-slate-100 break-words">{node.label}</div>
+          <div className="text-base font-bold text-navy-900 break-words">{node.label}</div>
           {node.customer_id && (
             <div className="text-[11px] text-slate-500 font-mono mt-0.5">{node.customer_id}</div>
           )}
@@ -819,10 +830,10 @@ function CustomerDetails({ node, data, adjacency, userRole, rolePrefix, customer
       {/* Connection summary for neighbours */}
       {node.is_neighbour && neighbourSummary && (
         <Section title="Connection">
-          <div className="text-xs text-slate-300">
+          <div className="text-xs text-slate-600">
             Connected via shared counterparty:
           </div>
-          <div className="text-sm font-medium text-slate-100 mt-1 break-words">
+          <div className="text-sm font-medium text-navy-900 mt-1 break-words">
             {neighbourSummary}
           </div>
         </Section>
@@ -878,7 +889,7 @@ function CounterpartyDetails({ node, data, adjacency }) {
           <Building2 size={22} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-base font-bold text-slate-100 break-words">{node.label}</div>
+          <div className="text-base font-bold text-navy-900 break-words">{node.label}</div>
           <div className="text-[11px] text-slate-500 font-mono mt-0.5 truncate">{node.id}</div>
           <div className="mt-1.5 flex flex-wrap gap-1">
             <Chip tone="amber">Counterparty</Chip>
@@ -891,7 +902,7 @@ function CounterpartyDetails({ node, data, adjacency }) {
       <Section title="Country & risk">
         <KV k="Country" v={node.country || 'Unknown'} />
         {node.is_high_risk_country && (
-          <div className="mt-2 text-[11px] text-red-300 border border-red-500/30 bg-red-500/10 rounded px-2.5 py-1.5 inline-flex items-center gap-1.5">
+          <div className="mt-2 text-[11px] text-red-700 border border-red-200 bg-red-50 rounded px-2.5 py-1.5 inline-flex items-center gap-1.5">
             <Flame size={11} /> FATF high-risk jurisdiction
           </div>
         )}
@@ -903,7 +914,7 @@ function CounterpartyDetails({ node, data, adjacency }) {
         <KV k="Total amount"       v={fmtMoney(focusLink?.total_amount)} />
         <KV k="Alerted transactions"
             v={focusLink?.alerted_count > 0
-                ? <span className="text-red-300 font-semibold">{focusLink.alerted_count}</span>
+                ? <span className="text-red-700 font-semibold">{focusLink.alerted_count}</span>
                 : '0'} />
       </Section>
 
@@ -912,9 +923,9 @@ function CounterpartyDetails({ node, data, adjacency }) {
         <Section title={`Other customers via this counterparty (${customersConnected.length})`}>
           <div className="space-y-1.5">
             {customersConnected.map(c => (
-              <div key={c.id} className="flex items-center justify-between text-xs border border-slate-700 bg-slate-800/40 rounded px-2 py-1.5">
+              <div key={c.id} className="flex items-center justify-between text-xs border border-slate-200 bg-slate-50 rounded px-2 py-1.5">
                 <div className="min-w-0">
-                  <div className="text-slate-100 truncate">{c.label}</div>
+                  <div className="text-navy-900 truncate">{c.label}</div>
                   {c.customer_id && <div className="text-[10px] text-slate-500 font-mono">{c.customer_id}</div>}
                 </div>
                 {c.risk && <Chip tone={riskTone(c.risk)}>{c.risk}</Chip>}
@@ -953,7 +964,7 @@ function AlertDetails({ node, userRole, userName, rolePrefix, customerId }) {
           <ShieldAlert size={22} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-slate-100 font-mono">{node.alert_id || node.label}</div>
+          <div className="text-sm font-bold text-navy-900 font-mono">{node.alert_id || node.label}</div>
           {node.customer_name && (
             <div className="text-[11px] text-slate-500 mt-0.5">{node.customer_name}</div>
           )}
@@ -972,8 +983,8 @@ function AlertDetails({ node, userRole, userName, rolePrefix, customerId }) {
 
       {ruleSummary && (
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-slate-400 mb-2">Rule explanation</div>
-          <div className="border-l-4 border-blue-500 bg-slate-800/40 px-3 py-2 text-[12px] text-slate-200 leading-snug">
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Rule explanation</div>
+          <div className="border-l-4 border-blue-500 bg-blue-50 px-3 py-2 text-[12px] text-slate-700 leading-snug">
             {truncateRuleSummary(ruleSummary)}
           </div>
         </div>
@@ -1006,7 +1017,7 @@ function SarDetails({ node, userRole }) {
   // slips through (defense-in-depth).
   if (userRole === 'analyst_l1') {
     return (
-      <div className="p-5 text-xs text-slate-400">
+      <div className="p-5 text-xs text-slate-500">
         SAR details are not visible to L1 analysts.
       </div>
     );
@@ -1021,7 +1032,7 @@ function SarDetails({ node, userRole }) {
           <FileText size={22} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-slate-100 font-mono">{node.sar_id || node.label}</div>
+          <div className="text-sm font-bold text-navy-900 font-mono">{node.sar_id || node.label}</div>
           <div className="text-[11px] text-slate-500 mt-0.5">Filed SAR</div>
         </div>
       </div>
@@ -1040,7 +1051,7 @@ function SarDetails({ node, userRole }) {
 function Section({ title, children }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider text-slate-400 mb-2">{title}</div>
+      <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">{title}</div>
       <div className="space-y-1.5 text-xs">{children}</div>
     </div>
   );
@@ -1049,22 +1060,22 @@ function Section({ title, children }) {
 function KV({ k, v }) {
   return (
     <div className="flex items-start justify-between gap-2">
-      <span className="text-slate-400 shrink-0">{k}</span>
-      <span className="text-slate-100 font-medium text-right break-words">{v == null || v === '' ? '—' : v}</span>
+      <span className="text-slate-500 shrink-0">{k}</span>
+      <span className="text-navy-900 font-medium text-right break-words">{v == null || v === '' ? '—' : v}</span>
     </div>
   );
 }
 
 function Chip({ tone, children }) {
   const toneCls = {
-    red:          'bg-red-500/15  text-red-300    border border-red-500/30',
-    purple:       'bg-purple-500/15 text-purple-300 border border-purple-500/30',
-    amber:        'bg-amber-500/15 text-amber-300  border border-amber-500/30',
-    orange:       'bg-orange-500/15 text-orange-300 border border-orange-500/30',
-    blue:         'bg-blue-500/15 text-blue-300    border border-blue-500/30',
-    slate:        'bg-slate-700/40 text-slate-300  border border-slate-700',
-    'slate-soft': 'bg-slate-800/50 text-slate-400  border border-slate-700'
-  }[tone] || 'bg-slate-700/40 text-slate-300 border border-slate-700';
+    red:          'bg-red-50    text-red-700    border border-red-200',
+    purple:       'bg-purple-50 text-purple-700 border border-purple-200',
+    amber:        'bg-amber-50  text-amber-700  border border-amber-200',
+    orange:       'bg-orange-50 text-orange-700 border border-orange-200',
+    blue:         'bg-blue-50   text-blue-700   border border-blue-200',
+    slate:        'bg-slate-100 text-slate-700  border border-slate-200',
+    'slate-soft': 'bg-slate-50  text-slate-500  border border-slate-200'
+  }[tone] || 'bg-slate-100 text-slate-700 border border-slate-200';
   return (
     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${toneCls}`}>
       {children}
