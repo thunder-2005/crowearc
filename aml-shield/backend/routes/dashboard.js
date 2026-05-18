@@ -188,17 +188,26 @@ router.get('/stats', async (req, res, next) => {
     const l1Capacity = Number(await getManagerSetting('max_alerts_per_analyst', 35)) || 35;
     const L2_CAPACITY = 8;
 
-    // PR3 / Issue 8: workload also drops the date filter — open count is
-    // always current state. completed count keeps a 30-day window inside
-    // the FILTER so the "what did this analyst close recently" view stays
-    // meaningful.
-    const workload = (await pool.query(`
+    // PR3 / Issue 8: workload drops the date filter — open count is always
+    // current state. completed keeps a 30-day window inside the FILTER so
+    // the "what did this analyst close recently" view stays meaningful.
+    //
+    // Split L1 vs L2 measurement (the unit of work differs):
+    //   L1 → counted from alerts.assigned_to. Open = Not Started / In
+    //        Progress / Pending QC; capacity = l1Capacity (manager setting).
+    //   L2 → counted from cases.assigned_to. Escalated alerts keep their
+    //        original L1 assignee, so the load lives on cases instead.
+    //        Open = Not Started / Work In Progress / Pending Review;
+    //        capacity = L2_CAPACITY (8).
+    // Each row carries a `unit` field ('alerts' | 'cases') so the workload
+    // table can label the count correctly per role.
+    const l1Rows = (await pool.query(`
       SELECT u.user_id,
              u.name AS analyst,
              u.role,
              u.team,
              u.avatar_color,
-             COUNT(a.id) FILTER (WHERE a.alert_status NOT IN ('Completed','Closed','Closed — False Positive','False Positive')) AS open_alerts,
+             COUNT(a.id) FILTER (WHERE a.alert_status IN ('Not Started', 'In Progress', 'Pending QC')) AS open_alerts,
              COUNT(a.id) FILTER (WHERE ${STATUS_IN_PROGRESS}) AS in_progress,
              COUNT(a.id) FILTER (WHERE ${SLA_BREACHED_CONDITION}) AS breached,
              COUNT(a.id) FILTER (WHERE ${STATUS_CLOSED} AND closed_date >= (NOW() - INTERVAL '30 days')::date::text) AS completed
@@ -206,16 +215,13 @@ router.get('/stats', async (req, res, next) => {
         LEFT JOIN alerts a
           ON a.assigned_to = u.name
        WHERE u.status = 'Active'
-         AND u.role IN ('analyst_l1', 'analyst_l2')
+         AND u.role = 'analyst_l1'
        GROUP BY u.user_id, u.name, u.role, u.team, u.avatar_color
-       ORDER BY open_alerts DESC, u.name ASC
     `)).rows.map(r => {
       const open = Number(r.open_alerts);
-      const inProgress = Number(r.in_progress);
-      const roleCapacity = r.role === 'analyst_l2' ? L2_CAPACITY : l1Capacity;
-      const isOverloaded = open > roleCapacity;
-      const utilization_pct = roleCapacity > 0
-        ? Math.min(999, Math.round((open / roleCapacity) * 100))
+      const isOverloaded = open > l1Capacity;
+      const utilization_pct = l1Capacity > 0
+        ? Math.min(999, Math.round((open / l1Capacity) * 100))
         : 0;
       return {
         user_id: r.user_id,
@@ -223,18 +229,66 @@ router.get('/stats', async (req, res, next) => {
         role: r.role,
         team: r.team,
         avatar_color: r.avatar_color,
-        // 'total' kept for legacy frontend callers — equals open_alerts now
         total: open,
         open_alerts: open,
-        in_progress: inProgress,
+        open_cases: 0,
+        unit: 'alerts',
+        in_progress: Number(r.in_progress),
         breached: Number(r.breached),
         completed: Number(r.completed),
-        capacity: roleCapacity,
-        role_capacity: roleCapacity,
+        capacity: l1Capacity,
+        role_capacity: l1Capacity,
         is_overloaded: isOverloaded,
         utilization_pct
       };
     });
+
+    const l2Rows = (await pool.query(`
+      SELECT u.user_id,
+             u.name AS analyst,
+             u.role,
+             u.team,
+             u.avatar_color,
+             COUNT(c.id) FILTER (WHERE c.case_status IN ('Not Started', 'Work In Progress', 'Pending Review')) AS open_cases,
+             COUNT(c.id) FILTER (WHERE c.case_status = 'Work In Progress') AS in_progress,
+             COUNT(c.id) FILTER (WHERE c.case_status IN ('Filed', 'Closed') AND c.updated_date >= to_char((NOW() - INTERVAL '30 days')::date, 'YYYY-MM-DD')) AS completed
+        FROM user_profiles u
+        LEFT JOIN cases c
+          ON c.assigned_to = u.name
+       WHERE u.status = 'Active'
+         AND u.role = 'analyst_l2'
+       GROUP BY u.user_id, u.name, u.role, u.team, u.avatar_color
+    `)).rows.map(r => {
+      const open = Number(r.open_cases);
+      const isOverloaded = open > L2_CAPACITY;
+      const utilization_pct = L2_CAPACITY > 0
+        ? Math.min(999, Math.round((open / L2_CAPACITY) * 100))
+        : 0;
+      return {
+        user_id: r.user_id,
+        analyst: r.analyst,
+        role: r.role,
+        team: r.team,
+        avatar_color: r.avatar_color,
+        total: open,
+        // L2 has no "alert" load on this widget — keep the field for the
+        // legacy sort key so the column still sorts numerically.
+        open_alerts: open,
+        open_cases: open,
+        unit: 'cases',
+        in_progress: Number(r.in_progress),
+        breached: 0, // cases schema has no SLA-breach column today
+        completed: Number(r.completed),
+        capacity: L2_CAPACITY,
+        role_capacity: L2_CAPACITY,
+        is_overloaded: isOverloaded,
+        utilization_pct
+      };
+    });
+
+    const workload = [...l1Rows, ...l2Rows].sort((a, b) =>
+      b.open_alerts - a.open_alerts || a.analyst.localeCompare(b.analyst)
+    );
 
     const overloadedCount = workload.filter(w => w.is_overloaded).length;
     const totalAnalysts = workload.length;

@@ -535,7 +535,13 @@ function SortableTh({ active, dir, onClick, align = 'left', children }) {
 }
 
 function WorkloadRow({ r, hideTeam }) {
-  const open = Number(r.open_alerts) || 0;
+  // L1 load is measured in alerts (assigned_to on alerts). L2 load is
+  // measured in cases (assigned_to on cases) — escalated alerts retain
+  // their original L1 assignee, so L2 work lives on cases instead. The
+  // backend marks each row with unit='alerts'|'cases'; the count itself
+  // comes from r.total (which is open_alerts for L1, open_cases for L2).
+  const unit = r.unit || (r.role === 'analyst_l2' ? 'cases' : 'alerts');
+  const open = Number(r.total ?? r.open_alerts) || 0;
   const cap = Number(r.role_capacity) || 0;
   const isOverloaded = !!r.is_overloaded;
   const isNearCapacity = !isOverloaded && cap > 0 && open >= cap * 0.9;
@@ -566,6 +572,11 @@ function WorkloadRow({ r, hideTeam }) {
           {isOverloaded && <UrgencyIcon tone="critical" size={11} />}
           {isNearCapacity && <UrgencyIcon tone="warning" size={11} />}
           {open}
+          <span className={`text-[9px] font-semibold px-1 rounded ${
+            unit === 'cases' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'
+          }`}>
+            {unit}
+          </span>
         </span>
         {isOverloaded && (
           <span className="ml-1.5 inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-700 align-middle">
