@@ -276,7 +276,7 @@ export default function Topbar() {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 sticky top-0 z-20">
+    <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 sticky top-0 z-[45]">
       <div>
         <div className="text-lg font-semibold text-navy-900">{title}</div>
         <div className="text-xs text-slate-500">
