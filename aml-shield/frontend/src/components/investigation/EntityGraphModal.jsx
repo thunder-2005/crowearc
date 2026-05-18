@@ -164,13 +164,37 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
   const userName = user?.name || null;
   const rolePrefix = useMemo(() => rolePrefixFor(userRole), [userRole]);
 
+  // C-10/follow-up: alert/case nodes are surfaced ONLY in the right-panel
+  // timeline now — not on the canvas. The graph stays focused on identity
+  // (customer ↔ counterparty ↔ SAR), with the timeline answering "what
+  // happened with this entity" when an analyst clicks any node. The full
+  // `data` (with CASE nodes) is preserved for the timeline; only the
+  // canvas reads `displayData`. Links touching a filtered-out CASE node
+  // are dropped so the layout doesn't try to render dangling edges.
+  const displayData = useMemo(() => {
+    if (!data) return null;
+    const hiddenIds = new Set(
+      (data.nodes || []).filter(n => n.type === 'CASE').map(n => n.id)
+    );
+    return {
+      ...data,
+      nodes: (data.nodes || []).filter(n => !hiddenIds.has(n.id)),
+      links: (data.links || []).filter(l => {
+        const s = typeof l.source === 'object' ? l.source.id : l.source;
+        const t = typeof l.target === 'object' ? l.target.id : l.target;
+        return !hiddenIds.has(s) && !hiddenIds.has(t);
+      })
+    };
+  }, [data]);
+
   // Adjacency map keyed by node id → Set of connected node ids. Used by the
   // dim-others-on-select rule so a click on a node highlights its first-order
-  // neighbourhood.
+  // neighbourhood. Built from displayData so canvas-only nodes stay
+  // consistent (CASE nodes aren't on the canvas so they can't be neighbours).
   const adjacency = useMemo(() => {
     const map = new Map();
-    if (!data) return map;
-    for (const l of data.links || []) {
+    if (!displayData) return map;
+    for (const l of displayData.links || []) {
       const s = typeof l.source === 'object' ? l.source.id : l.source;
       const t = typeof l.target === 'object' ? l.target.id : l.target;
       if (!map.has(s)) map.set(s, new Set());
@@ -179,7 +203,7 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
       map.get(t).add(s);
     }
     return map;
-  }, [data]);
+  }, [displayData]);
 
   // Fetch graph payload. Do NOT auto-select the focus — the right panel
   // defaults to the welcome state per spec.
@@ -354,7 +378,7 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
               <Suspense fallback={<LoadingState />}>
                 <ForceGraph2D
                   ref={fgRef}
-                  graphData={data}
+                  graphData={displayData}
                   width={size.w}
                   height={size.h}
                   backgroundColor="#F8FAFC"
@@ -726,7 +750,6 @@ function GraphLegend({ open, onToggle }) {
             <div className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Node types</div>
             <LegendDot color={COLORS.PERSON}  label="Person (customer)" />
             <LegendDot color={COLORS.COMPANY} label="Company / Counterparty" />
-            <LegendDot color={COLORS.CASE}    label="Alert / Case" />
             <LegendDot color={COLORS.SAR}     label="SAR Filing" />
           </div>
           <div>
