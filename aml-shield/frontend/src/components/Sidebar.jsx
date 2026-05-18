@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, AlertTriangle, Briefcase, Search, FileText,
   FolderOpen, Clock, ShieldCheck, Activity, BarChart3, Users, Settings,
-  IdCard, Inbox, ClipboardCheck, Lock, Gavel, RotateCcw, Mail
+  IdCard, Inbox, ClipboardCheck, Lock, Gavel, RotateCcw, Mail, GitMerge
 } from 'lucide-react';
 import { useRole } from '../state/RoleContext.jsx';
 import { useRoleNavigate } from '../state/useRoleNavigate.js';
@@ -94,6 +94,12 @@ const BSA_SECTIONS = [
     items: [
       { to: 'regulatory-correspondence', icon: Mail, label: 'Correspondence', badge: 'regCorrUrgent' },
       { to: 'audit-trail',        icon: Activity, label: 'Audit Trail' }
+    ]
+  },
+  {
+    title: 'ENTITY MANAGEMENT',
+    items: [
+      { to: 'counterparty-merge', icon: GitMerge, label: 'Counterparty Merge' }
     ]
   }
 ];
