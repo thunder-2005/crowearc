@@ -348,11 +348,12 @@ router.get('/:id/graph', async (req, res, next) => {
 
     // ── 3. Recent alerts (cases in graph terms) — keep recent + open ones.
     // rule_explanation is selected so the alert detail panel can show a
-    // short rule summary without a second round-trip.
+    // short rule summary without a second round-trip. assigned_to and
+    // disposition fields feed the right-panel timeline (line 3 + status).
     const alertRes = await pool.query(
       `SELECT alert_id, scenario, alert_status, priority,
               created_date, linked_sar_id, amount_flagged_inr,
-              rule_explanation
+              rule_explanation, assigned_to, disposition
          FROM alerts
         WHERE customer_id = $1
         ORDER BY created_date DESC
@@ -366,7 +367,9 @@ router.get('/:id/graph', async (req, res, next) => {
     if (includeSars) {
       const sarRes = await pool.query(
         `SELECT sar_id, sar_status, filed_date, source_alert_id,
-                filing_type, amount_involved_inr
+                filing_type, amount_involved_inr,
+                LEFT(COALESCE(narrative_summary, narrative, ''), 120)
+                  AS narrative_summary
            FROM sar_filings
           WHERE customer_id = $1
           ORDER BY COALESCE(filed_date::text, detection_date) DESC
@@ -529,7 +532,11 @@ router.get('/:id/graph', async (req, res, next) => {
         status: a.alert_status,
         amount: a.amount_flagged_inr,
         created_date: a.created_date,
-        rule_explanation: ruleExplanation
+        rule_explanation: ruleExplanation,
+        // Timeline-card fields. assigned_to powers line 3 of the
+        // right-panel timeline; disposition surfaces the closure reason.
+        assigned_to: a.assigned_to || null,
+        disposition: a.disposition || null
       });
       links.push({
         source: `c-${focus.customer_id}`,
@@ -553,7 +560,11 @@ router.get('/:id/graph', async (req, res, next) => {
             status: matchingSar?.sar_status || 'Filed',
             filed_date: matchingSar?.filed_date || null,
             filing_type: matchingSar?.filing_type || null,
-            amount: matchingSar?.amount_involved_inr != null ? Number(matchingSar.amount_involved_inr) : null
+            amount: matchingSar?.amount_involved_inr != null ? Number(matchingSar.amount_involved_inr) : null,
+            // Timeline narrative preview (truncated server-side to 120
+            // chars). SARs themselves are gated by `includeSars`, so
+            // L1 never reaches this addNode call.
+            narrative_summary: matchingSar?.narrative_summary || null
           });
         }
         links.push({
@@ -576,7 +587,8 @@ router.get('/:id/graph', async (req, res, next) => {
           status: s.sar_status,
           filed_date: s.filed_date,
           filing_type: s.filing_type || null,
-          amount: s.amount_involved_inr != null ? Number(s.amount_involved_inr) : null
+          amount: s.amount_involved_inr != null ? Number(s.amount_involved_inr) : null,
+          narrative_summary: s.narrative_summary || null
         });
         // Connect to the focus customer directly (SUBJECT_OF in spec terms)
         links.push({
