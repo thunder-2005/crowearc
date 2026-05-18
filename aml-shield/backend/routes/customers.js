@@ -214,13 +214,15 @@ router.get('/:id/graph', async (req, res, next) => {
     const NEIGHBOUR_LIMIT = 6;
 
     // ── 1. Focus customer (one node, always present)
-    // Extra columns (customer_since_date, cdd_level, occupation, industry)
-    // power the redesigned right-side detail panel.
+    // Extra columns (customer_since_date, cdd_level, job_title, industry)
+    // power the redesigned right-side detail panel. The real schema uses
+    // job_title for individuals + industry for businesses; there is no
+    // generic `occupation` column.
     const focusRes = await pool.query(
       `SELECT customer_id, customer_name, customer_type,
               customer_risk_rating, pep_match, sanctions_match,
               country_of_residence, country_of_incorporation,
-              customer_since_date, cdd_level, occupation, industry
+              customer_since_date, cdd_level, job_title, industry
          FROM customers WHERE customer_id = $1`,
       [customerId]
     );
@@ -286,7 +288,7 @@ router.get('/:id/graph', async (req, res, next) => {
               t2.customer_id, c.customer_name, c.customer_type,
               c.customer_risk_rating, c.pep_match, c.sanctions_match,
               c.country_of_residence, c.country_of_incorporation,
-              c.customer_since_date, c.cdd_level, c.occupation, c.industry,
+              c.customer_since_date, c.cdd_level, c.job_title, c.industry,
               t2.counterparty AS via_counterparty
          FROM transactions t1
          JOIN transactions t2
@@ -327,7 +329,7 @@ router.get('/:id/graph', async (req, res, next) => {
       is_high_risk_country: isHighRiskCountry(focusCountry),
       customer_since: focus.customer_since_date || null,
       cdd_level: focus.cdd_level || null,
-      occupation: focus.occupation || null,
+      occupation: focus.job_title || null,
       industry: focus.industry || null,
       is_focus: true
     });
@@ -453,7 +455,7 @@ router.get('/:id/graph', async (req, res, next) => {
         is_high_risk_country: isHighRiskCountry(neighbourCountry),
         customer_since: n.customer_since_date || null,
         cdd_level: n.cdd_level || null,
-        occupation: n.occupation || null,
+        occupation: n.job_title || null,
         industry: n.industry || null,
         via_counterparty: n.via_counterparty || null,
         is_neighbour: true
