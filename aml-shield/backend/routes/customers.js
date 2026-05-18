@@ -214,10 +214,13 @@ router.get('/:id/graph', async (req, res, next) => {
     const NEIGHBOUR_LIMIT = 6;
 
     // ── 1. Focus customer (one node, always present)
+    // Extra columns (customer_since_date, cdd_level, occupation, industry)
+    // power the redesigned right-side detail panel.
     const focusRes = await pool.query(
       `SELECT customer_id, customer_name, customer_type,
               customer_risk_rating, pep_match, sanctions_match,
-              country_of_residence, country_of_incorporation
+              country_of_residence, country_of_incorporation,
+              customer_since_date, cdd_level, occupation, industry
          FROM customers WHERE customer_id = $1`,
       [customerId]
     );
@@ -243,10 +246,13 @@ router.get('/:id/graph', async (req, res, next) => {
       [customerId, COUNTERPARTY_LIMIT]
     );
 
-    // ── 3. Recent alerts (cases in graph terms) — keep recent + open ones
+    // ── 3. Recent alerts (cases in graph terms) — keep recent + open ones.
+    // rule_explanation is selected so the alert detail panel can show a
+    // short rule summary without a second round-trip.
     const alertRes = await pool.query(
       `SELECT alert_id, scenario, alert_status, priority,
-              created_date, linked_sar_id, amount_flagged_inr
+              created_date, linked_sar_id, amount_flagged_inr,
+              rule_explanation
          FROM alerts
         WHERE customer_id = $1
         ORDER BY created_date DESC
@@ -254,11 +260,13 @@ router.get('/:id/graph', async (req, res, next) => {
       [customerId, CASE_LIMIT]
     );
 
-    // ── 4. SARs (only for non-L1 callers — tipping-off posture)
+    // ── 4. SARs (only for non-L1 callers — tipping-off posture).
+    // filing_type + amount_involved_inr selected for the SAR detail panel.
     let sarRows = [];
     if (includeSars) {
       const sarRes = await pool.query(
-        `SELECT sar_id, sar_status, filed_date, source_alert_id
+        `SELECT sar_id, sar_status, filed_date, source_alert_id,
+                filing_type, amount_involved_inr
            FROM sar_filings
           WHERE customer_id = $1
           ORDER BY COALESCE(filed_date::text, detection_date) DESC
@@ -271,11 +279,14 @@ router.get('/:id/graph', async (req, res, next) => {
     // ── 5. Other customers who share a counterparty (cross-case neighbours).
     // Country pulled in so the FATF/sanctioned-jurisdiction ring can render
     // on neighbour nodes too — not just focus + counterparties.
+    // Extra customer columns mirror the focus payload so neighbour detail
+    // panels can show the same profile fields.
     const neighbourRes = await pool.query(
       `SELECT DISTINCT ON (t2.customer_id)
               t2.customer_id, c.customer_name, c.customer_type,
               c.customer_risk_rating, c.pep_match, c.sanctions_match,
               c.country_of_residence, c.country_of_incorporation,
+              c.customer_since_date, c.cdd_level, c.occupation, c.industry,
               t2.counterparty AS via_counterparty
          FROM transactions t1
          JOIN transactions t2
@@ -307,11 +318,17 @@ router.get('/:id/graph', async (req, res, next) => {
       id: `c-${focus.customer_id}`,
       type: focus.customer_type === 'Business' ? 'COMPANY' : 'PERSON',
       label: focus.customer_name,
+      customer_id: focus.customer_id,
+      customer_type: focus.customer_type,
       risk: focus.customer_risk_rating,
       pep: !!focus.pep_match,
       sanctions: !!focus.sanctions_match,
       country: focusCountry,
       is_high_risk_country: isHighRiskCountry(focusCountry),
+      customer_since: focus.customer_since_date || null,
+      cdd_level: focus.cdd_level || null,
+      occupation: focus.occupation || null,
+      industry: focus.industry || null,
       is_focus: true
     });
 
@@ -341,16 +358,27 @@ router.get('/:id/graph', async (req, res, next) => {
     }
 
     // Alerts (cases) + APPEARS_IN edges
+    // Parse rule_explanation JSON once on the server so the client gets a
+    // ready-to-render object (the column is JSONB in practice but TEXT in
+    // some seed paths — both shapes are handled).
     for (const a of alertRes.rows) {
       const alertId = `alert-${a.alert_id}`;
+      let ruleExplanation = a.rule_explanation || null;
+      if (typeof ruleExplanation === 'string') {
+        try { ruleExplanation = JSON.parse(ruleExplanation); } catch (_e) { /* keep string */ }
+      }
       addNode({
         id: alertId,
         type: 'CASE',
         label: a.alert_id,
+        alert_id: a.alert_id,
+        customer_name: focus.customer_name,
         scenario: a.scenario,
         priority: a.priority,
         status: a.alert_status,
-        amount: a.amount_flagged_inr
+        amount: a.amount_flagged_inr,
+        created_date: a.created_date,
+        rule_explanation: ruleExplanation
       });
       links.push({
         source: `c-${focus.customer_id}`,
@@ -358,16 +386,23 @@ router.get('/:id/graph', async (req, res, next) => {
         type: 'APPEARS_IN'
       });
 
-      // FILED_BY edge: alert → SAR (only if SAR included)
+      // FILED_BY edge: alert → SAR (only if SAR included).
+      // If the SAR isn't already in seenNodes from sarRows, we hydrate from
+      // the matching row in sarRows when available so the detail panel still
+      // gets filing_type / amount / filed_date; otherwise we add a stub node.
       if (includeSars && a.linked_sar_id) {
-        // Lazily add the SAR node if it didn't come from sarRows
         const sarId = `sar-${a.linked_sar_id}`;
         if (!seenNodes.has(sarId)) {
+          const matchingSar = sarRows.find(s => s.sar_id === a.linked_sar_id);
           addNode({
             id: sarId,
             type: 'SAR',
             label: a.linked_sar_id,
-            status: 'Filed'
+            sar_id: a.linked_sar_id,
+            status: matchingSar?.sar_status || 'Filed',
+            filed_date: matchingSar?.filed_date || null,
+            filing_type: matchingSar?.filing_type || null,
+            amount: matchingSar?.amount_involved_inr != null ? Number(matchingSar.amount_involved_inr) : null
           });
         }
         links.push({
@@ -386,8 +421,11 @@ router.get('/:id/graph', async (req, res, next) => {
           id: sarId,
           type: 'SAR',
           label: s.sar_id,
+          sar_id: s.sar_id,
           status: s.sar_status,
-          filed_date: s.filed_date
+          filed_date: s.filed_date,
+          filing_type: s.filing_type || null,
+          amount: s.amount_involved_inr != null ? Number(s.amount_involved_inr) : null
         });
         // Connect to the focus customer directly (SUBJECT_OF in spec terms)
         links.push({
@@ -406,11 +444,18 @@ router.get('/:id/graph', async (req, res, next) => {
         id: nId,
         type: n.customer_type === 'Business' ? 'COMPANY' : 'PERSON',
         label: n.customer_name,
+        customer_id: n.customer_id,
+        customer_type: n.customer_type,
         risk: n.customer_risk_rating,
         pep: !!n.pep_match,
         sanctions: !!n.sanctions_match,
         country: neighbourCountry,
         is_high_risk_country: isHighRiskCountry(neighbourCountry),
+        customer_since: n.customer_since_date || null,
+        cdd_level: n.cdd_level || null,
+        occupation: n.occupation || null,
+        industry: n.industry || null,
+        via_counterparty: n.via_counterparty || null,
         is_neighbour: true
       });
       // Hub-via-counterparty edge (computed). The counterparty node may
