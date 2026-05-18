@@ -96,6 +96,30 @@ app.use((err, _req, res, _next) => {
 
 app.listen(PORT, () => {
   console.log(`[aml-shield] backend listening on http://localhost:${PORT}`);
+
+  // C-04 startup cleanup: if the previous server instance died with an
+  // OFAC sync mid-flight, its ofac_sync_runs row is stuck in 'running'.
+  // Force-fail anything older than 2 hours so the staleness math stays
+  // honest. ofacSync.start() also re-runs this cleanup before each sync
+  // attempt; this one is the one-shot heartbeat on boot.
+  const pool = require('./database/db');
+  pool.query(`
+    UPDATE ofac_sync_runs
+       SET status = 'failed',
+           completed_at = NOW(),
+           error_message = 'Marked failed on server startup — job was still running at restart'
+     WHERE status = 'running' AND started_at < NOW() - INTERVAL '2 hours'
+  `).then(result => {
+    if (result.rowCount > 0) {
+      console.log(`[ofacSync] [WARN] Startup: cleaned up ${result.rowCount} stale running row(s)`);
+    }
+  }).catch(err => {
+    // Table may not exist yet on a brand-new DB — migrate.js will create it.
+    if (!/relation .* does not exist/i.test(err.message || '')) {
+      console.error('[ofacSync] [ERROR] Startup cleanup failed:', err.message);
+    }
+  });
+
   slaMonitor.start();
   kycReviewMonitor.start();
   ofacSync.start();

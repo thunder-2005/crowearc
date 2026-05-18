@@ -11,6 +11,7 @@ import Table from '../components/shared/Table.jsx';
 import Badge from '../components/shared/Badge.jsx';
 import BsaActionQueue from '../components/dashboard/BsaActionQueue.jsx';
 import HealthStrip from '../components/dashboard/HealthStrip.jsx';
+import OfacStalenessBanner from '../components/shared/OfacStalenessBanner.jsx';
 
 // BSA Officer Command Center.
 //
@@ -97,6 +98,16 @@ export default function BsaDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* C-04: Staleness banner takes the same /dashboard/stats payload as the
+          manager dashboard (already loaded in `stats`), so we don't open a
+          second poll. The BSA Officer sees the inline "Trigger Manual Sync"
+          button automatically because OfacStalenessBanner reads role from
+          RoleContext. */}
+      <OfacStalenessBanner
+        ofacSyncStatus={stats?.ofacSyncStatus}
+        onSynced={() => loadAll()}
+      />
+
       <header>
         <h1 className="text-xl font-bold text-navy-900">BSA Officer Command Center</h1>
         <p className="text-sm text-slate-500 mt-0.5">Program oversight and regulatory compliance</p>

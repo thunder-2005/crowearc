@@ -251,23 +251,84 @@ router.get('/stats', async (req, res, next) => {
       : 0;
 
     // OFAC freshness signal for the dashboard stale-banner.
-    const ofacLastSuccess = (await pool.query(
-      "SELECT downloaded_at FROM ofac_download_log WHERE status = 'success' ORDER BY downloaded_at DESC LIMIT 1"
-    )).rows[0] || null;
-    const ofacLastAttempt = (await pool.query(
-      "SELECT status FROM ofac_download_log ORDER BY downloaded_at DESC LIMIT 1"
-    )).rows[0] || null;
-    const hoursSinceSuccess = ofacLastSuccess
-      ? (Date.now() - new Date(ofacLastSuccess.downloaded_at).getTime()) / 3600000
-      : null;
-    const ofacStatus = {
-      last_success_at: ofacLastSuccess?.downloaded_at || null,
-      last_status: ofacLastAttempt?.status || null,
-      hours_since_success: hoursSinceSuccess != null ? Math.round(hoursSinceSuccess * 10) / 10 : null,
-      is_stale: (ofacLastAttempt?.status === 'failed')
-             || (hoursSinceSuccess != null && hoursSinceSuccess > 36)
-             || (ofacLastSuccess == null)
-    };
+    //
+    // Prefers the new durable ofac_sync_runs table + ofac_sync_status view
+    // (C-04 fix). Falls back to the legacy ofac_download_log if the new
+    // table is empty (e.g., fresh install before the first scheduled sync
+    // has run).
+    let ofacStatus;
+    let ofacSyncStatus;
+    try {
+      const newRow = (await pool.query(
+        'SELECT completed_at, list_version, hours_since_last_success, is_stale FROM ofac_sync_status'
+      )).rows[0] || null;
+      const running = (await pool.query(
+        "SELECT 1 FROM ofac_sync_runs WHERE status = 'running' LIMIT 1"
+      )).rowCount > 0;
+      const lastAttempt = (await pool.query(
+        "SELECT status FROM ofac_sync_runs ORDER BY started_at DESC LIMIT 1"
+      )).rows[0] || null;
+
+      if (newRow) {
+        const hours = newRow.hours_since_last_success != null
+          ? Math.round(Number(newRow.hours_since_last_success) * 10) / 10
+          : null;
+        ofacStatus = {
+          last_success_at: newRow.completed_at,
+          last_status: lastAttempt?.status || 'success',
+          hours_since_success: hours,
+          is_stale: !!newRow.is_stale || lastAttempt?.status === 'failed'
+        };
+        ofacSyncStatus = {
+          isStale: !!newRow.is_stale,
+          hoursSinceLastSuccess: hours,
+          lastSuccessfulSyncAt: newRow.completed_at,
+          listVersion: newRow.list_version,
+          currentlySyncing: running
+        };
+      } else {
+        // No success row in the new table — fall back to legacy log.
+        const legacy = (await pool.query(
+          "SELECT downloaded_at FROM ofac_download_log WHERE status = 'success' ORDER BY downloaded_at DESC LIMIT 1"
+        )).rows[0] || null;
+        const legacyAttempt = (await pool.query(
+          "SELECT status FROM ofac_download_log ORDER BY downloaded_at DESC LIMIT 1"
+        )).rows[0] || null;
+        const hours = legacy
+          ? Math.round(((Date.now() - new Date(legacy.downloaded_at).getTime()) / 3600000) * 10) / 10
+          : null;
+        ofacStatus = {
+          last_success_at: legacy?.downloaded_at || null,
+          last_status: legacyAttempt?.status || null,
+          hours_since_success: hours,
+          is_stale: (legacyAttempt?.status === 'failed')
+                 || (hours != null && hours > 36)
+                 || (legacy == null)
+        };
+        ofacSyncStatus = {
+          isStale: ofacStatus.is_stale,
+          hoursSinceLastSuccess: hours,
+          lastSuccessfulSyncAt: legacy?.downloaded_at || null,
+          listVersion: null,
+          currentlySyncing: running
+        };
+      }
+    } catch (_e) {
+      // Defensive: never let an OFAC status read kill the whole dashboard.
+      ofacStatus = {
+        last_success_at: null,
+        last_status: null,
+        hours_since_success: null,
+        is_stale: true
+      };
+      ofacSyncStatus = {
+        isStale: true,
+        hoursSinceLastSuccess: null,
+        lastSuccessfulSyncAt: null,
+        listVersion: null,
+        currentlySyncing: false
+      };
+    }
 
     // PR3 / Issue 13: program-health summary surfaced as the HealthStrip.
     // Each sub-pill returns { status: 'ok'|'warning'|'error'|'unknown',
@@ -278,6 +339,10 @@ router.get('/stats', async (req, res, next) => {
     res.json({
       scope: { assigned_to: assigned_to || null, from, to },
       ofac_status: ofacStatus,
+      // C-04: new typed key consumed by OfacStalenessBanner. ofac_status
+      // is kept for the existing inline banner in Dashboard.jsx so the
+      // change is non-breaking.
+      ofacSyncStatus,
       health,
       kpis: {
         total_alerts: totalAlerts,

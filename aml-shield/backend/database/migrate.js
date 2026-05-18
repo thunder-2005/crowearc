@@ -132,6 +132,23 @@ async function migrate() {
     await pool.query(ccegSql);
     console.log('CCEG Phase 1 schema applied');
 
+    // ─── Numbered migrations directory ───────────────────────────────────
+    // Each file in migrations/ is applied in lexical order. Files are
+    // idempotent (CREATE ... IF NOT EXISTS / ADD COLUMN IF NOT EXISTS) so
+    // re-running is a no-op. We don't bother with a pgmigrations state
+    // table here — the idempotence guarantee carries the load.
+    const migrationsDir = path.join(__dirname, 'migrations');
+    if (fs.existsSync(migrationsDir)) {
+      const files = fs.readdirSync(migrationsDir)
+        .filter(f => f.endsWith('.sql'))
+        .sort();
+      for (const f of files) {
+        const sqlText = fs.readFileSync(path.join(migrationsDir, f), 'utf8');
+        await pool.query(sqlText);
+        console.log(`Applied migration: ${f}`);
+      }
+    }
+
     console.log('Migration successful');
   } catch (err) {
     console.error('Migration failed:', err);

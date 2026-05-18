@@ -43,7 +43,7 @@ const SECTION_KEY_PREFIX = {
   team:       ['team.'],
   sar:        ['sar.'],
   report:     ['report.'],
-  audit:      ['audit.'],
+  audit:      ['audit.', 'ofac.'],
   workspace:     ['workspace.'],
   investigation: ['investigation.'],
   notif:         ['notif.'],
@@ -472,6 +472,20 @@ function ManagerSectionContent({ sectionK, values, setValue }) {
       <ToggleField label="Download / export requires confirmation"
         checked={values['audit.export_requires_confirm']}
         onChange={v => setValue('audit.export_requires_confirm', v)} />
+      <Group title="OFAC Sanctions Screening">
+        <div className="text-xs text-slate-500 leading-snug">
+          Hours after the last successful OFAC SDN sync before the staleness
+          banner appears on the Manager and BSA Officer dashboards.
+          Recommended 25-48; floor 24h, ceiling 168h (one week).
+        </div>
+        <NumberField
+          label="OFAC staleness warning threshold (hours)"
+          value={values['ofac.staleness_threshold_hours']}
+          onChange={v => setValue('ofac.staleness_threshold_hours', v)}
+          min={24}
+          max={168}
+        />
+      </Group>
     </div>
   );
 

@@ -12,6 +12,7 @@ import {
 import { useToast } from '../state/ToastContext.jsx';
 import WorklistBand from '../components/dashboard/WorklistBand.jsx';
 import HealthStrip from '../components/dashboard/HealthStrip.jsx';
+import OfacStalenessBanner from '../components/shared/OfacStalenessBanner.jsx';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar, Legend
@@ -114,9 +115,14 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {isManager && stats.ofac_status?.is_stale && (
-        <OfacStaleBanner
-          status={stats.ofac_status}
+      {/* C-04: OfacStalenessBanner is the new compliance banner. It renders
+          for managers AND BSA officers (the old one was manager-only) and
+          shows itself when the list is stale OR a sync is currently running.
+          The legacy OfacStaleBanner is preserved below for any other caller
+          that may still reference it. */}
+      {isManager && (
+        <OfacStalenessBanner
+          ofacSyncStatus={stats.ofacSyncStatus}
           onSynced={() => fetchDashboard({ silent: true }).catch(() => {})}
         />
       )}

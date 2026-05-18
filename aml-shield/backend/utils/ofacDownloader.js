@@ -73,9 +73,11 @@ function projectRow(entry) {
   ];
 }
 
-async function batchInsert(rows) {
+async function batchInsert(rows, syncRunId = null) {
   if (rows.length === 0) return 0;
-  const cols = ['sdn_name', 'sdn_type', 'program', 'title', 'aka_names', 'date_of_birth', 'nationalities'];
+  // sync_run_id appended so every SDN entry can be traced to the sync that
+  // wrote it (audit H-6 — list version per screening).
+  const cols = ['sdn_name', 'sdn_type', 'program', 'title', 'aka_names', 'date_of_birth', 'nationalities', 'sync_run_id'];
   let inserted = 0;
   for (let i = 0; i < rows.length; i += INSERT_BATCH_SIZE) {
     const batch = rows.slice(i, i + INSERT_BATCH_SIZE);
@@ -84,7 +86,10 @@ async function batchInsert(rows) {
       return '(' + cols.map((_, ci) => `$${start + ci + 1}`).join(', ') + ')';
     }).join(', ');
     const values = [];
-    for (const row of batch) for (const v of row) values.push(v);
+    for (const row of batch) {
+      for (const v of row) values.push(v);
+      values.push(syncRunId);
+    }
     await pool.query(
       `INSERT INTO ofac_sdn_entries (${cols.join(', ')}) VALUES ${placeholders}`,
       values
@@ -103,7 +108,19 @@ async function parseSdnXml(xmlText) {
   return entries.map(projectRow);
 }
 
-async function downloadAndStoreSdnList() {
+// downloadAndStoreSdnList(options?)
+//
+// Downloads the OFAC SDN feed, parses it, replaces ofac_sdn_entries with
+// the fresh snapshot, and writes a row to the legacy ofac_download_log for
+// backwards compatibility.
+//
+// Returns { entries_added, entries_total, list_version, response_headers }.
+//
+// options.syncRunId — if provided, stamps every inserted SDN row with the
+// run id so screenings can be traced back to the exact list version they
+// were run against.
+async function downloadAndStoreSdnList(options = {}) {
+  const { syncRunId = null } = options;
   console.log('[ofac] Downloading OFAC SDN list from', OFAC_SDN_URL);
   try {
     const response = await axios.get(OFAC_SDN_URL, {
@@ -112,6 +129,14 @@ async function downloadAndStoreSdnList() {
       // OFAC redirects through TLS; accept any 2xx + 3xx (axios follows by default)
       maxRedirects: 5
     });
+
+    // Capture list version from response headers — prefer Last-Modified
+    // (it's an actual date) over ETag (opaque hash). If neither is present
+    // we fall back to the response receipt time.
+    const listVersion =
+      response.headers?.['last-modified'] ||
+      response.headers?.etag ||
+      new Date().toISOString();
 
     const rows = await parseSdnXml(response.data);
     console.log(`[ofac] Parsed ${rows.length} SDN entries from XML`);
@@ -124,7 +149,7 @@ async function downloadAndStoreSdnList() {
     await pool.query('UPDATE ofac_screening_results SET sdn_entry_id = NULL WHERE sdn_entry_id IS NOT NULL');
     await pool.query('DELETE FROM ofac_sdn_entries');
 
-    const inserted = await batchInsert(rows);
+    const inserted = await batchInsert(rows, syncRunId);
 
     await pool.query(
       `INSERT INTO ofac_download_log (entry_count, status) VALUES ($1, 'success')`,
@@ -132,7 +157,12 @@ async function downloadAndStoreSdnList() {
     );
 
     console.log(`[ofac] ✅ Downloaded and stored ${inserted} SDN entries`);
-    return inserted;
+    return {
+      entries_added: inserted,
+      entries_total: inserted,
+      list_version: listVersion,
+      response_headers: response.headers || {}
+    };
   } catch (err) {
     try {
       await pool.query(
