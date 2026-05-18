@@ -325,13 +325,16 @@ router.get('/:id/graph', async (req, res, next) => {
           [customerId, COUNTERPARTY_LIMIT]
         )
       : await pool.query(
+          // Phase A: no MAX(counterparty_id) aggregate — Postgres has no
+          // MAX(uuid) aggregate, and Phase A by definition does not trust
+          // the FK column. counterparty_id stays NULL on these nodes; the
+          // node-construction code handles that path.
           `SELECT counterparty_normalised                                AS normalised_name,
                   MIN(counterparty)                                      AS display_name,
                   COUNT(*)::int                                          AS txn_count,
                   COUNT(*) FILTER (WHERE is_alerted = 1)::int            AS alerted_txn_count,
                   ROUND(SUM(amount)::numeric, 2)::float                  AS total_amount,
-                  MAX(counterparty_country)                              AS country,
-                  MAX(counterparty_id)                                   AS counterparty_id
+                  MAX(counterparty_country)                              AS country
              FROM transactions
             WHERE customer_id = $1
               AND counterparty IS NOT NULL

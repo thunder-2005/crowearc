@@ -60,6 +60,10 @@ CREATE INDEX IF NOT EXISTS idx_transactions_counterparty_normalised
   ON transactions (counterparty_normalised);
 
 -- ── Step 2: counterparties (first-class entity table) ────────────────────
+-- Defensive: if an earlier ad-hoc CREATE left a partial table behind,
+-- the CREATE TABLE IF NOT EXISTS below silently skips and we'd be stuck
+-- with missing columns. Every column is therefore re-applied via ADD
+-- COLUMN IF NOT EXISTS afterwards so the migration heals a partial table.
 CREATE TABLE IF NOT EXISTS counterparties (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   canonical_name        TEXT NOT NULL,
@@ -80,6 +84,25 @@ CREATE TABLE IF NOT EXISTS counterparties (
   is_merged_away        BOOLEAN NOT NULL DEFAULT FALSE,
   merged_into_id        UUID REFERENCES counterparties(id)
 );
+
+-- Heal a partial counterparties table — add any missing columns.
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS canonical_name     TEXT;
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS normalised_name    TEXT;
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS counterparty_type  TEXT DEFAULT 'unknown';
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS account_number     TEXT;
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS routing_number     TEXT;
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS bank_name          TEXT;
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS country_code       CHAR(2);
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS risk_indicators    JSONB DEFAULT '{}';
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS first_seen_at      TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS last_seen_at       TIMESTAMPTZ;
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS transaction_count  INTEGER DEFAULT 0;
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS total_volume       NUMERIC(20, 2) DEFAULT 0;
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS golden_registry_id UUID;
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS created_by         TEXT NOT NULL DEFAULT 'dedup_pipeline';
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS merge_source_ids   UUID[] DEFAULT '{}';
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS is_merged_away     BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE counterparties ADD COLUMN IF NOT EXISTS merged_into_id     UUID;
 
 ALTER TABLE counterparties DROP CONSTRAINT IF EXISTS counterparties_type_check;
 ALTER TABLE counterparties
@@ -129,6 +152,19 @@ CREATE TABLE IF NOT EXISTS counterparty_dedup_queue (
   resolved_at              TIMESTAMPTZ,
   resolved_by              TEXT
 );
+
+-- Same partial-table healing pattern for the queue table.
+ALTER TABLE counterparty_dedup_queue ADD COLUMN IF NOT EXISTS raw_counterparty         TEXT;
+ALTER TABLE counterparty_dedup_queue ADD COLUMN IF NOT EXISTS normalised_name          TEXT;
+ALTER TABLE counterparty_dedup_queue ADD COLUMN IF NOT EXISTS account_number           TEXT;
+ALTER TABLE counterparty_dedup_queue ADD COLUMN IF NOT EXISTS transaction_count        INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE counterparty_dedup_queue ADD COLUMN IF NOT EXISTS resolution_status        TEXT NOT NULL DEFAULT 'pending';
+ALTER TABLE counterparty_dedup_queue ADD COLUMN IF NOT EXISTS resolved_counterparty_id UUID;
+ALTER TABLE counterparty_dedup_queue ADD COLUMN IF NOT EXISTS confidence_score         NUMERIC(4,3);
+ALTER TABLE counterparty_dedup_queue ADD COLUMN IF NOT EXISTS match_method             TEXT;
+ALTER TABLE counterparty_dedup_queue ADD COLUMN IF NOT EXISTS conflict_candidates      JSONB DEFAULT '[]';
+ALTER TABLE counterparty_dedup_queue ADD COLUMN IF NOT EXISTS resolved_at              TIMESTAMPTZ;
+ALTER TABLE counterparty_dedup_queue ADD COLUMN IF NOT EXISTS resolved_by              TEXT;
 
 ALTER TABLE counterparty_dedup_queue DROP CONSTRAINT IF EXISTS cp_dedup_queue_status_check;
 ALTER TABLE counterparty_dedup_queue
