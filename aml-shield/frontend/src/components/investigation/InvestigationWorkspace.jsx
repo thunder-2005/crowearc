@@ -1245,28 +1245,23 @@ function LinkedCasesTab({ alert }) {
 
   return (
     <div className="p-4 space-y-4 text-sm">
-      {/* Phase 4 preview banner — disclose that this is a prototype,
-          and surface the View Network entry point inline so the analyst
-          can jump from the summary card straight into the explorer. */}
-      <div className="bg-teal-50 border border-teal-200 rounded-md px-3 py-2 text-[11px] text-teal-800">
-        <div className="flex items-start gap-2">
-          <Network size={14} className="shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold">Cross-Case Entity Profile · preview</div>
-            <div className="text-teal-700 mt-0.5">
-              Sketch of the CCEG entity panel using existing case data.
-              Full graph backing arrives in a later phase.
-            </div>
+      {/* Entity Network entry point — single-row header that hosts the
+          View Network button. No preview/prototype copy: the data is real. */}
+      <div className="flex items-center justify-between gap-3 border border-slate-200 rounded-md px-3 py-2 bg-slate-50">
+        <div className="inline-flex items-center gap-2 min-w-0">
+          <Network size={14} className="text-teal-600 shrink-0" />
+          <div className="text-[12px] font-semibold text-navy-900 truncate">
+            Entity Network
           </div>
-          <button
-            type="button"
-            onClick={() => setGraphOpen(true)}
-            className="shrink-0 inline-flex items-center gap-1 bg-teal-600 hover:bg-teal-700 text-white text-[11px] font-semibold rounded px-2.5 py-1"
-            title="Open the entity network graph"
-          >
-            <Network size={11} /> View Network
-          </button>
         </div>
+        <button
+          type="button"
+          onClick={() => setGraphOpen(true)}
+          className="shrink-0 inline-flex items-center gap-1 bg-teal-600 hover:bg-teal-700 text-white text-[11px] font-semibold rounded px-2.5 py-1"
+          title="Open the entity network graph"
+        >
+          <Network size={11} /> View Network
+        </button>
       </div>
 
       {graphOpen && (

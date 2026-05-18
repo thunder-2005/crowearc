@@ -189,16 +189,29 @@ router.get('/:id/cross-case-profile', async (req, res, next) => {
 //
 // Edge types match the spec's edge taxonomy (§4.3): TRANSACTS_WITH,
 // APPEARS_IN, FILED_BY, CO_OCCURS_WITH (computed).
+// FATF & sanctioned jurisdictions surfaced with an extra ring on the entity
+// graph nodes. Match is case-insensitive on the raw country string from the
+// transactions / customers tables.
+const HIGH_RISK_COUNTRIES = new Set([
+  'myanmar', 'syria', 'yemen', 'iran', 'russia', 'pakistan',
+  'haiti', 'north korea', 'cuba', 'libya', 'sudan', 'somalia'
+]);
+function isHighRiskCountry(country) {
+  if (!country) return false;
+  return HIGH_RISK_COUNTRIES.has(String(country).trim().toLowerCase());
+}
+
 router.get('/:id/graph', async (req, res, next) => {
   try {
     const customerId = req.params.id;
     const role = req.headers['x-user-role'];
     const includeSars = role !== 'analyst_l1';
 
-    // Caps tuned for legibility — a 30-node graph reads; 200 doesn't.
-    const COUNTERPARTY_LIMIT = 8;
-    const CASE_LIMIT = 6;
-    const NEIGHBOUR_LIMIT = 3;
+    // Caps balance legibility vs. completeness. Bumped from the original
+    // tighter values once the layout proved to handle ~40 nodes well.
+    const COUNTERPARTY_LIMIT = 12;
+    const CASE_LIMIT = 8;
+    const NEIGHBOUR_LIMIT = 6;
 
     // ── 1. Focus customer (one node, always present)
     const focusRes = await pool.query(
@@ -255,11 +268,14 @@ router.get('/:id/graph', async (req, res, next) => {
       sarRows = sarRes.rows;
     }
 
-    // ── 5. Other customers who share a counterparty (cross-case neighbours)
+    // ── 5. Other customers who share a counterparty (cross-case neighbours).
+    // Country pulled in so the FATF/sanctioned-jurisdiction ring can render
+    // on neighbour nodes too — not just focus + counterparties.
     const neighbourRes = await pool.query(
       `SELECT DISTINCT ON (t2.customer_id)
               t2.customer_id, c.customer_name, c.customer_type,
               c.customer_risk_rating, c.pep_match, c.sanctions_match,
+              c.country_of_residence, c.country_of_incorporation,
               t2.counterparty AS via_counterparty
          FROM transactions t1
          JOIN transactions t2
@@ -286,6 +302,7 @@ router.get('/:id/graph', async (req, res, next) => {
     };
 
     // Focus
+    const focusCountry = focus.country_of_residence || focus.country_of_incorporation;
     addNode({
       id: `c-${focus.customer_id}`,
       type: focus.customer_type === 'Business' ? 'COMPANY' : 'PERSON',
@@ -293,11 +310,14 @@ router.get('/:id/graph', async (req, res, next) => {
       risk: focus.customer_risk_rating,
       pep: !!focus.pep_match,
       sanctions: !!focus.sanctions_match,
-      country: focus.country_of_residence || focus.country_of_incorporation,
+      country: focusCountry,
+      is_high_risk_country: isHighRiskCountry(focusCountry),
       is_focus: true
     });
 
-    // Counterparties + their TRANSACTS_WITH edges
+    // Counterparties + their TRANSACTS_WITH edges. The link payload now
+    // carries `alerted_count` (not just the boolean flag) so the edge-hover
+    // tooltip can render "N alerted" without a second round-trip.
     for (const cp of cpRes.rows) {
       const cpId = `cp-${cp.counterparty}`;
       addNode({
@@ -305,6 +325,7 @@ router.get('/:id/graph', async (req, res, next) => {
         type: 'COMPANY',
         label: cp.counterparty,
         country: cp.country || null,
+        is_high_risk_country: isHighRiskCountry(cp.country),
         is_counterparty: true,
         alerted_txn_count: cp.alerted_txn_count
       });
@@ -314,6 +335,7 @@ router.get('/:id/graph', async (req, res, next) => {
         type: 'TRANSACTS_WITH',
         txn_count: cp.txn_count,
         total_amount: cp.total_amount,
+        alerted_count: cp.alerted_txn_count,
         alerted: cp.alerted_txn_count > 0
       });
     }
@@ -379,6 +401,7 @@ router.get('/:id/graph', async (req, res, next) => {
     // Cross-case neighbours (customers who share a counterparty with focus)
     for (const n of neighbourRes.rows) {
       const nId = `c-${n.customer_id}`;
+      const neighbourCountry = n.country_of_residence || n.country_of_incorporation;
       addNode({
         id: nId,
         type: n.customer_type === 'Business' ? 'COMPANY' : 'PERSON',
@@ -386,6 +409,8 @@ router.get('/:id/graph', async (req, res, next) => {
         risk: n.customer_risk_rating,
         pep: !!n.pep_match,
         sanctions: !!n.sanctions_match,
+        country: neighbourCountry,
+        is_high_risk_country: isHighRiskCountry(neighbourCountry),
         is_neighbour: true
       });
       // Hub-via-counterparty edge (computed). The counterparty node may
