@@ -90,7 +90,19 @@ const MANAGER_DEFAULTS = {
   'scoring.weight_sla': 0.60,
   'scoring.critical_tier_days': 5,
   'scoring.warning_tier_days': 10,
-  'scoring.float_lockout_on_critical': true
+  'scoring.float_lockout_on_critical': true,
+
+  // ─── C-11: Examination Readiness Mode ───────────────────────────────
+  // Default configuration for the BSA Officer self-assessment runs. Each
+  // run's config is persisted on the run row so a manager re-tuning these
+  // values mid-cycle doesn't retroactively change historical scores.
+  'exam.sar_sample_size':              25,
+  'exam.cdd_sample_size':              50,
+  'exam.lookback_days':                365,
+  'exam.sar_timeliness_threshold_days': 30,
+  'exam.ofac_screening_staleness_days': 365,
+  'exam.kyc_review_overdue_days':      30,
+  'institution.name':                  '[Institution Name]'
 };
 
 const EMPLOYEE_DEFAULTS = {

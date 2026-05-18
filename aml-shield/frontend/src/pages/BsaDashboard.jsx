@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
   FileText, Clock, Activity, Database, ShieldAlert, AlertTriangle,
-  CheckCircle2, RefreshCw, Loader2
+  CheckCircle2, RefreshCw, Loader2, ClipboardCheck, ArrowRight
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
 import { useRole } from '../state/RoleContext.jsx';
 import { useToast } from '../state/ToastContext.jsx';
@@ -30,26 +31,33 @@ export default function BsaDashboard() {
   const [sarClock, setSarClock] = useState(null);
   const [program, setProgram] = useState(null);
   const [ofac, setOfac] = useState(null);
+  // C-11: Exam Readiness summary feeds the dashboard tile linking to
+  // /bsa/exam-readiness. Best-effort — the tile degrades gracefully if
+  // the endpoint is unavailable (e.g. migration 003 not yet applied).
+  const [examReadiness, setExamReadiness] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const navigate = useNavigate();
 
   const loadAll = async () => {
     try {
       setLoading(true);
-      const [a, b, c, d] = await Promise.all([
+      const [a, b, c, d, e] = await Promise.all([
         api.get('/dashboard/stats'),
         api.get('/dashboard/sar-clock'),
         api.get('/bsa/program-metrics'),
-        api.get('/ofac/status')
+        api.get('/ofac/status'),
+        api.get('/exam-readiness/summary').catch(() => ({ data: null }))
       ]);
       setStats(a.data);
       setSarClock(b.data);
       setProgram(c.data);
       setOfac(d.data);
+      setExamReadiness(e.data);
       setError(null);
-    } catch (e) {
-      setError(e?.response?.data?.error || e.message || 'Failed to load BSA dashboard');
+    } catch (err) {
+      setError(err?.response?.data?.error || err.message || 'Failed to load BSA dashboard');
     } finally {
       setLoading(false);
     }
@@ -115,6 +123,10 @@ export default function BsaDashboard() {
 
       {/* 1. Action Queue */}
       <BsaActionQueue />
+
+      {/* C-11: Examination Readiness tile — entry point to the
+          self-assessment workflow. Reads /exam-readiness/summary. */}
+      <ExamReadinessTile data={examReadiness} onOpen={() => navigate('/bsa/exam-readiness')} />
 
       {/* 2. Health Strip — reused as-is */}
       {stats?.health && <HealthStrip health={stats.health} />}
@@ -335,6 +347,80 @@ export default function BsaDashboard() {
         </Card>
       </section>
     </div>
+  );
+}
+
+function ExamReadinessTile({ data, onOpen }) {
+  const last = data?.lastRun || null;
+  const score = last?.overallScore;
+  const overallStatus = last?.overallStatus || 'never';
+  const scoreColor = score == null ? 'text-slate-400'
+    : score >= 85 ? 'text-green-700'
+    : score >= 50 ? 'text-amber-600'
+    : 'text-red-700';
+  const statusBadge = {
+    pass:    'bg-green-100 text-green-800',
+    concern: 'bg-amber-100 text-amber-800',
+    fail:    'bg-red-100 text-red-800',
+    never:   'bg-slate-100 text-slate-600'
+  }[overallStatus] || 'bg-slate-100 text-slate-600';
+  const statusLabel = overallStatus === 'never' ? 'NEVER RUN' : overallStatus.toUpperCase();
+
+  return (
+    <Card
+      bodyClassName="p-4"
+      action={
+        <button
+          type="button"
+          onClick={onOpen}
+          className="text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center gap-1.5"
+        >
+          <ClipboardCheck size={12} /> Run Self-Assessment <ArrowRight size={12} />
+        </button>
+      }
+      title="Examination Readiness"
+    >
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500">Last Score</div>
+          <div className={`mt-0.5 text-3xl font-bold tabular-nums ${scoreColor}`}>
+            {score == null ? '—' : score}
+          </div>
+          <span className={`mt-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${statusBadge}`}>
+            {statusLabel}
+          </span>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500">Last Run</div>
+          <div className="mt-0.5 text-sm text-navy-900">
+            {last?.completedAt
+              ? `${last.daysAgo} day${last.daysAgo === 1 ? '' : 's'} ago`
+              : 'Never run'}
+          </div>
+          {last?.completedAt && (
+            <div className="text-[10px] text-slate-500">{new Date(last.completedAt).toLocaleDateString()}</div>
+          )}
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500">Open MRAs</div>
+          <div className="mt-0.5 text-2xl font-bold text-orange-600">
+            {data == null ? '—' : data.openMras}
+          </div>
+          <div className="text-[10px] text-slate-500">
+            {data?.criticalMras ? `${data.criticalMras} critical` : 'no critical items'}
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500">Next Exam</div>
+          <div className="mt-0.5 text-2xl font-bold text-blue-700">
+            {data?.daysUntilTargetExam == null ? '—' : `${data.daysUntilTargetExam}d`}
+          </div>
+          <div className="text-[10px] text-slate-500">
+            {data?.targetExamDate ? new Date(data.targetExamDate).toLocaleDateString() : 'no target set'}
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 
