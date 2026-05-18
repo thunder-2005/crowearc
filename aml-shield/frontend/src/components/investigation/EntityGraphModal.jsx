@@ -147,27 +147,28 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
     return () => ro.disconnect();
   }, []);
 
-  // Tune the d3 forces once the simulation is running. Stronger repulsion
-  // and longer target link distance — pushes nodes further apart so the
-  // dense alert cluster around a busy focus customer breathes.
+  // Tune the d3 forces once the simulation is running. Aggressive repulsion
+  // + longer target link distance — pushes nodes apart so the dense hub of
+  // a high-risk customer (12 counterparties + 8 alerts radiating from one
+  // focus) doesn't collapse into a tight overlapping ring.
   useEffect(() => {
     if (!fgRef.current || !data) return;
     try {
       const chargeForce = fgRef.current.d3Force('charge');
-      if (chargeForce) chargeForce.strength(-260);
+      if (chargeForce) chargeForce.strength(-320);
       const linkForce = fgRef.current.d3Force('link');
-      if (linkForce) linkForce.distance(120);
+      if (linkForce) linkForce.distance(140);
     } catch (_) { /* older lib versions may not expose d3Force */ }
   }, [data]);
 
   // Once the simulation has settled, fit the whole network in view with
-  // generous padding so the analyst opens onto a calm, well-spaced graph
-  // instead of a tight cluster. 1500ms gives the force layout extra time
-  // to settle before we frame it.
+  // extra-generous padding (150px). The fit zoom then lands roughly
+  // around 0.4-0.5 — below the 0.7 flagged-label threshold below, so the
+  // graph opens visually clean.
   useEffect(() => {
     if (!fgRef.current || !data) return;
     const t = setTimeout(() => {
-      try { fgRef.current.zoomToFit(400, 120); } catch (_) { /* ignore */ }
+      try { fgRef.current.zoomToFit(400, 150); } catch (_) { /* ignore */ }
     }, 1500);
     return () => clearTimeout(t);
   }, [data]);
@@ -260,8 +261,8 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
             className="relative"
             style={{
               background: '#F8FAFC',
-              flex: '0 0 65%',
-              maxWidth: '65%',
+              flex: '0 0 70%',
+              maxWidth: '70%',
               cursor: hoveredNode ? 'pointer' : 'default'
             }}
             onMouseMove={(e) => {
@@ -374,6 +375,7 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
             userName={userName}
             rolePrefix={rolePrefix}
             adjacency={adjacency}
+            onSelectNode={setSelected}
           />
         </div>
       </div>
@@ -382,18 +384,14 @@ export default function EntityGraphModal({ customerId, customerName, onClose }) 
 }
 
 // ─── Hover label rule ───────────────────────────────────────────────────
-// Show the cursor-following tooltip on every node EXCEPT those whose
-// permanent label is already on the canvas (focus / sanctions / PEP /
-// high-risk-country). Counterparties, alerts, SARs and unflagged
-// neighbours all get hover labels since their canvas labels are now
-// suppressed by default — this is how the analyst reads their names
-// without first clicking.
+// Show the cursor-following tooltip on every node EXCEPT the focus (which
+// always carries a permanent label below its body — a hover tooltip would
+// just duplicate it at the cursor). Flagged nodes now get hover labels
+// too, because their permanent labels only appear above zoom 0.7 — when
+// zoomed out the hover tooltip is the only way to read their name.
 function shouldShowHoverLabel(node) {
   if (!node) return false;
   if (node.is_focus) return false;
-  if (node.sanctions) return false;
-  if (node.pep) return false;
-  if (node.is_high_risk_country) return false;
   return true;
 }
 
@@ -503,14 +501,20 @@ function drawNode(node, ctx, globalScale, selected, hoveredNode, adjacency) {
   }
 
   // Label rules — kept intentionally minimal to keep the canvas clean.
-  // Only the focus and "always-relevant" flagged nodes draw permanent
-  // labels (sanctions / PEP / high-risk country — analytically important
-  // and rare). The selected node also labels itself for clarity. Every
-  // other node stays unlabeled on the canvas; analysts read names via
-  // the cursor-following hover tooltip or the side panel after a click.
+  //   - Focus and selected nodes always carry a label (no ambiguity about
+  //     what the analyst is anchored to).
+  //   - Flagged nodes (sanctions / PEP / high-risk country) only label
+  //     themselves once the analyst has zoomed in to globalScale >= 0.7.
+  //     At the default fit-to-view zoom (~0.4-0.5) the graph opens with
+  //     ONLY the focus labeled, even when many flagged nodes are present
+  //     — analysts read flag status from rings, names from hover.
+  //   - Every other node is unlabeled on the canvas; names come from the
+  //     hover tooltip or the side panel after a click.
   const isSelected = selected && selected.id === node.id;
-  const alwaysShow = node.is_focus || node.sanctions || node.pep || node.is_high_risk_country || isSelected;
-  if (alwaysShow) {
+  const alwaysShow = node.is_focus || isSelected;
+  const isFlagged  = node.sanctions || node.pep || node.is_high_risk_country;
+  const showLabel  = alwaysShow || (isFlagged && globalScale >= 0.7);
+  if (showLabel) {
     const fontSize = Math.max(9, 11 / globalScale);
     ctx.font = `${fontSize}px Inter, sans-serif`;
     ctx.textAlign = 'center';
@@ -702,14 +706,14 @@ function describeLink(link, data) {
 }
 
 // ─── Side panel ─────────────────────────────────────────────────────────
-function SidePanel({ node, data, counts, customerName, customerId, userRole, userName, rolePrefix, adjacency }) {
+function SidePanel({ node, data, counts, customerName, customerId, userRole, userName, rolePrefix, adjacency, onSelectNode }) {
   return (
     <aside
       className="border-l border-slate-200 overflow-y-auto text-slate-700 bg-white"
-      style={{ flex: '0 0 35%', maxWidth: '35%' }}
+      style={{ flex: '0 0 30%', maxWidth: '30%' }}
     >
       {!node ? (
-        <WelcomeState counts={counts} customerName={customerName} />
+        <WelcomeState counts={counts} customerName={customerName} data={data} onSelectNode={onSelectNode} />
       ) : node.type === 'CASE' ? (
         <AlertDetails node={node} userRole={userRole} userName={userName} rolePrefix={rolePrefix} customerId={customerId} />
       ) : node.type === 'SAR' ? (
@@ -724,19 +728,37 @@ function SidePanel({ node, data, counts, customerName, customerId, userRole, use
 }
 
 // ─── Welcome state (default right panel) ────────────────────────────────
-function WelcomeState({ counts, customerName }) {
+function WelcomeState({ counts, customerName, data, onSelectNode }) {
+  // Collect every flagged node (sanctions, PEP, or high-risk country).
+  // Sorted by severity — sanctions first, then PEP, then high-risk country.
+  const flagged = useMemo(() => {
+    if (!data?.nodes) return [];
+    const items = data.nodes
+      .filter(n => n.sanctions || n.pep || n.is_high_risk_country)
+      .filter(n => !n.is_focus); // focus is already labeled in the center
+    items.sort((a, b) => {
+      const score = (x) => (x.sanctions ? 3 : 0) + (x.pep ? 2 : 0) + (x.is_high_risk_country ? 1 : 0);
+      return score(b) - score(a);
+    });
+    return items;
+  }, [data]);
+
   return (
-    <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-      <div className="w-16 h-16 rounded-full flex items-center justify-center bg-teal-50 border border-teal-200 mb-4">
-        <Network size={28} className="text-teal-600" />
-      </div>
-      <div className="text-base font-bold text-navy-900">Entity Network</div>
-      <div className="text-xs text-slate-500 mt-2 max-w-xs">
-        Click any node to see details about that entity and its connections.
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex flex-col items-center text-center">
+        <div className="w-14 h-14 rounded-full flex items-center justify-center bg-teal-50 border border-teal-200 mb-3">
+          <Network size={24} className="text-teal-600" />
+        </div>
+        <div className="text-base font-bold text-navy-900">Entity Network</div>
+        <div className="text-xs text-slate-500 mt-1.5 max-w-xs">
+          Click any node to see details about that entity and its connections.
+        </div>
       </div>
 
+      {/* Network counts */}
       {counts && (
-        <div className="mt-8 w-full max-w-xs">
+        <div className="mt-6">
           <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2">In this network</div>
           <div className="grid grid-cols-2 gap-2">
             <SummaryStat icon={Users}        label="Customers"      value={counts.customers} />
@@ -745,13 +767,65 @@ function WelcomeState({ counts, customerName }) {
             {counts.sars > 0 && <SummaryStat icon={FileText} label="SARs" value={counts.sars} />}
           </div>
           {customerName && (
-            <div className="mt-4 text-[11px] text-slate-500">
+            <div className="mt-3 text-[11px] text-slate-500">
               Focus: <span className="text-navy-900 font-medium">{customerName}</span>
             </div>
           )}
         </div>
       )}
+
+      {/* Flagged entities list — surfaces every PEP / sanctions / high-risk
+          country node from the network as a clickable row. Replaces the
+          "always show flagged labels on canvas" pattern that piled labels
+          on top of each other when the network had many flagged entities. */}
+      {flagged.length > 0 && (
+        <div className="mt-6">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Flame size={11} className="text-orange-500" />
+            <div className="text-[10px] uppercase tracking-wider text-slate-500">
+              Flagged entities ({flagged.length})
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            {flagged.map(n => (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => onSelectNode && onSelectNode(n)}
+                className="w-full flex items-start gap-2 text-left border border-slate-200 hover:border-blue-300 hover:bg-blue-50 rounded px-2.5 py-1.5 transition"
+                title={`Focus on ${n.label}`}
+              >
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-full shrink-0 mt-1"
+                  style={{ backgroundColor: COLORS[n.type] || '#94A3B8' }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium text-navy-900 truncate">{n.label}</div>
+                  <div className="mt-0.5 flex flex-wrap gap-1">
+                    {n.sanctions && <FlagChip tone="red">Sanctions</FlagChip>}
+                    {n.pep && <FlagChip tone="purple">PEP</FlagChip>}
+                    {n.is_high_risk_country && <FlagChip tone="orange">High Risk</FlagChip>}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function FlagChip({ tone, children }) {
+  const cls = {
+    red:    'bg-red-50    text-red-700    border-red-200',
+    purple: 'bg-purple-50 text-purple-700 border-purple-200',
+    orange: 'bg-orange-50 text-orange-700 border-orange-200'
+  }[tone] || 'bg-slate-50 text-slate-700 border-slate-200';
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold border ${cls}`}>
+      {children}
+    </span>
   );
 }
 
